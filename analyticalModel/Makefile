@@ -1,26 +1,27 @@
-TARGET=plot.svg
+CC=g++
+TARGET=efficiency.svg
 BINARY=model.x
 OBJECTS=model.o
 
-all: plot
-plot: $(TARGET)
+all: twrite 
 
 markdown:
 	markdown-to-slides slides.md -o slides.html
 
-$(TARGET): $(BINARY) plot.p
-	./$(BINARY)
+twrite: $(BINARY) plot.p
+	./$(BINARY) 0
 	gnuplot plot.p
+	mkdir -p $@
+	mv efficiency.svg walltime.svg $@
 
 $(BINARY): $(OBJECTS) main.cpp
-	g++ -std=c++11 -g $(OBJECTS) main.cpp -o $(BINARY)
+	$(CC) -std=c++11 $(OBJECTS) main.cpp -o $(BINARY)
 
-%.o: %.cpp
-	g++ -std=c++11 -g -c $< -o $@
+model.o: model.cpp
+	$(CC) -std=c++11 -c $< -o $@
 
 show: $(TARGET)
 	xviewer $(TARGET)
 
 clean:
 	rm -f *.o $(TARGET) $(OBJECTS) $(BINARY)
-

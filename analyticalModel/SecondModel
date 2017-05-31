@@ -1,6 +1,0 @@
-Since I want to split the different times considering different infrastructures , I splitted the components that depends on the same variables. So for data transfer from Client node to Home note, I have a bandwidth that may differ by the one from Home node to Secondary.
-$$
-T_{nvm} = T_{Client,Home} + T_{Home,Secondary}\\
-T_{Client,Home} = T_{data} + T_{meta} + T_{ack} \\
-T_{Home,Secondary} = T_{meta} + T_{ack} + 2T_{log}
-$$
