@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8" />
+		<title>Infinite Memory Engine</title>
+		<style>
+			body {
+	font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+h1, h2, h3 {
+	font-weight: 400;
+	margin-bottom: 0;
+}
+.remark-slide-content h1 { font-size: 3em; }
+.remark-slide-content h2 { font-size: 2em; }
+.remark-slide-content h3 { font-size: 1.6em; }
+.footnote {
+	position: absolute;
+	bottom: 3em;
+}
+li p { line-height: 1.25em; }
+.red { color: #fa0000; }
+.large { font-size: 2em; }
+a, a > code {
+	color: rgb(249, 38, 114);
+	text-decoration: none;
+}
+code {
+	background: none repeat scroll 0 0 #F8F8FF;
+  border: 1px solid #DEDEDE;
+  border-radius: 3px 	;
+  padding: 0 0.2em;
+}
+.remark-code, .remark-inline-code { font-family: "Bitstream Vera Sans Mono", "Courier", monospace; }
+.remark-code-line-highlighted     { background-color: #373832; }
+.pull-left {
+	float: left;
+	width: 47%;
+}
+.pull-right {
+	float: right;
+	width: 47%;
+}
+.pull-right ~ p {
+	clear: both;
+}
+#slideshow .slide .content code {
+	font-size: 0.8em;
+}
+#slideshow .slide .content pre code {
+	font-size: 0.9em;
+	padding: 15px;
+}
+.main-title, .title {
+	background: #272822;
+	color: #777872;
+	text-shadow: 0 0 20px #333;
+}
+.title h1, .title h2, .main-title h1, .main-title h2 {
+	color: #f3f3f3;
+	line-height: 0.8em;
+}
+/* Custom */
+.remark-code {
+	display: block;
+	padding: 0.5em;
+}
+
+		</style>
+	</head>
+	<body>
+		<textarea id="source">
+# Infinite Memory Engine
+
+<p 
+  align="center"
+  style="padding: 15 15 15 15"
+  >Daniele Tolomelli </p>
+<p 
+  align="center"
+  style="padding: 15 15 15 15"
+  >Supervisors:</p> 
+<p 
+  align="center"
+  style="padding: 15 15 15 15"
+  >Jean-Thomas Acquaviva</p> 
+<p 
+  align="center"
+  style="padding: 15 15 15 15"
+  >Stefano Cozzini</p> 
+<img src="mhpc-logo-pink.png" 
+  style="
+    width:20% ;
+    position:absolute ;
+    bottom: 50px ;
+    left: 100px
+    " 
+  >
+<img src="images.png"
+  style="
+    width:20% ;
+    position:absolute ;
+    bottom: 50px ;
+    left: 300px
+    " 
+  >
+<img src="sissa.png"
+  style="
+    width:20% ;
+    position:absolute ;
+    bottom: 50px ;
+    left: 500px
+    " 
+  >
+<img src="ictp-logo.jpg"
+  style="
+    width:20% ;
+    position:absolute ;
+    bottom: 50px ;
+    left: 670px
+    " 
+  >
+
+<p
+  style="
+    position:absolute ;
+    bottom: 30px ;
+    right: 100px
+    "
+></p>
+
+---
+
+# Issue
+IO Storage is extremely **slower** compared to the CPU capabilities and many problems are bound to the **IO bandwidth** 
+
+RAID configurations mitigate this problem but still we reach at max 10GB/s of write at a high cost 
+
+HDD did not have the improvement that CPU had in the last years. We instead developed different technologies
+
+
+---
+
+# Infinite Memory Engine
+<img src="IME.svg" style="width: 50% ; align:bottom" >
+
+  * Uses **SSD as a buffer**
+  * **Invisible** to the application for compatibility
+  * Very **low latency**, useful for temporary storage
+
+---
+
+#Infinite Memory Engine
+
+Pros:
+  * Dumps quickly executed
+  * The application can move forward not caring about IO
+  * No modification to the existing code
+
+IME is not effective if:
+  * The next dump happens too early, when IME is still flushing data
+  * The size of the dump exceed its capacity
+
+---
+
+# Scaling
+
+The next step is to include IME in a network of servers with fast storage devices,
+able to manage themselves. The target of this network is to:
+
+  * Keep data consistency
+  * Use a lightweight protocol that allows good scalability, correctly handling the communications
+
+When we want to communicate data over the network, we must consider a lot of factors:
+
+  * **Packet size** overhead to send the data with the correct informations
+  * **Network latency**, that may increase in case of network traffic
+  * **Checksum** to recover data avoiding resending packets
+
+---
+
+# Network times
+
+Considering all these factors, the time for sending packets became this:
+
+<img src="walltime.svg" style="width: 80% ; align:bottom" >
+
+---
+
+# Efficiency
+
+Plotting the efficiency of the network highlights the problems
+<img src="efficiency.svg" style="width: 80% ; align:bottom" >
+
+---
+
+# Thank you
+
+		</textarea>
+		<script src="https://gnab.github.io/remark/downloads/remark-latest.min.js"></script>
+		<script>
+			var slideshow = remark.create();
+		</script>
+		<script></script>
+	</body>
+</html>

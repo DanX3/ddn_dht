@@ -1,0 +1,17 @@
+The last decades advancement in processor design has lead to increased compute
+capabilities, enabling computers to have really high clock speed and high
+instruction per clock ratio. However this capability is not matched by the IO
+system that didn't saw the same improvement over time. For this reason we must
+care most about IO infrastructure to really have good scalability in our
+applications.
+DDN Storage developed the IME (Infinite Memory Engine) a technology that tries to mitigate this
+discrepancy adding an IO layer smaller than the cluster's storage drives.
+This is built on top of multiple SSD drives that work with each other increasing
+the total size of this buffer. The IME is connected between the cluster IB
+fabric and the storage one. It is completely invisible to the applications to be
+compatible with all existing code. The IME works like a buffer, able to store
+data much faster than the main storage, aiming to complete the transfer quickly.
+Then on its own transfer the data received to the main storage, allowing to the
+compute node to move forward in the algorithm not caring about slow IO.
+The aim of this experiment is to increase the size of the IME building a network
+of servers able to manage themselves, designing a fast and lightweight protocol.
