@@ -1,8 +1,8 @@
-TARGET=plot.png
+TARGET=plot.svg
 BINARY=model.x
 OBJECTS=model.o
 
-all: markdown
+all: plot
 plot: $(TARGET)
 
 markdown:
@@ -12,7 +12,7 @@ $(TARGET): $(BINARY) plot.p
 	./$(BINARY)
 	gnuplot plot.p
 
-$(BINARY): $(OBJECTS) main.cpp 
+$(BINARY): $(OBJECTS) main.cpp
 	g++ -std=c++11 -g $(OBJECTS) main.cpp -o $(BINARY)
 
 %.o: %.cpp
@@ -23,4 +23,4 @@ show: $(TARGET)
 
 clean:
 	rm -f *.o $(TARGET) $(OBJECTS) $(BINARY)
-	
+
