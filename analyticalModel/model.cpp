@@ -44,3 +44,6 @@ double Connection::ackTime() {
 }
 
 
+double Connection::getBandwidth() {
+    return bandwidth;
+}

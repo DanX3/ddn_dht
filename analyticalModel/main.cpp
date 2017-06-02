@@ -3,6 +3,26 @@
 #include "model.h"
 #include "stdlib.h"
 
+void simulateSend(double indexStart, double indexStop, double step) {
+    Connection ClientToHome(10., 1e3, 1e-3);
+    std::ofstream modelData;
+    modelData.open("model.dat");
+    for (double dataSize=indexStart; dataSize<indexStop; dataSize*=step) {
+        double totalTime = 0.0;
+        double metadataSize = dataSize * 0.03;
+        totalTime += ClientToHome.networkTime(dataSize + metadataSize);
+        //totalTime += HomeToSecondary.networkTime(metadataSize);
+        totalTime += ClientToHome.ackTime();
+        //totalTime += 2 * 1e-2; //log time
+        //totalTime += ClientToHome.ackTime();
+        modelData
+            << dataSize << " "
+            << totalTime << " "
+            << totalTime-dataSize/ClientToHome.getBandwidth() << '\n';
+    }
+    modelData.close();
+}
+
 void simulateTWrite(double indexStart, double indexStop, double step) {
     Connection ClientToHome(10., 1e3, 1e-3);
     Connection HomeToSecondary(0.5, 1e3, 1e-3);
@@ -19,7 +39,29 @@ void simulateTWrite(double indexStart, double indexStop, double step) {
         modelData
             << dataSize << " "
             << totalTime << " "
-            << totalTime-dataSize/1e3 << '\n';
+            << totalTime-dataSize/ClientToHome.getBandwidth() << '\n';
+    }
+    modelData.close();
+}
+
+void simulateJUMBO(double indexStart, double indexStop, double step, int JUMBORequestCount) {
+    Connection ClientToHome(10., 1e3, 1e-3);
+    Connection HomeToSecondary(0.5, 1e3, 1e-3);
+    std::ofstream modelData;
+    modelData.open("model.dat");
+    for (double dataSize=indexStart; dataSize<indexStop; dataSize*=step) {
+        double JUMBODatasize = dataSize * JUMBORequestCount;
+        double totalTime = 0.0;
+        double metadataSize = JUMBODatasize * 0.03;
+        totalTime += ClientToHome.networkTime(JUMBODatasize + metadataSize);
+        totalTime += HomeToSecondary.networkTime(metadataSize);
+        totalTime += HomeToSecondary.ackTime();
+        totalTime += 2 * 1e-2; //log time
+        totalTime += ClientToHome.ackTime();
+        modelData
+            << dataSize << " "
+            << totalTime / JUMBORequestCount << " "
+            << totalTime / JUMBORequestCount - JUMBODatasize/ClientToHome.getBandwidth() << '\n';
     }
     modelData.close();
 }
@@ -47,12 +89,13 @@ int main(int argc, char** argv) {
         return 1;
     }
     int indexChosen = atoi(argv[1]);
-    if (indexChosen == 0) {
-        simulateTWrite(1e-3, 1e3, 1.1);
-    }
-    else {
-        printUsage(argv);
-        return 1;
+    switch(indexChosen) {
+        case 0: simulateTWrite(1e-3, 1e3, 1.1); break;
+        case 1: simulateSend(1e-3, 1e3, 1.1); break;
+        case 2: simulateJUMBO(1e-3, 1e3, 1.1, 100); break;
+        default:
+            printUsage(argv);
+            return 1;
     }
     return 0;
 }

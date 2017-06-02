@@ -13,5 +13,6 @@ public:
     Connection(double _Smax, double __bandwidth,  double __latency);
     double networkTime(double Ps);
     double ackTime();
+    double getBandwidth();
 };
  #endif
