@@ -2,6 +2,7 @@ CC=g++
 TARGET=efficiency.svg
 BINARY=model.x
 OBJECTS=model.o
+FLAGS=-Iinclude/
 
 all: twrite tsend jumbo
 
@@ -30,14 +31,17 @@ twrite: $(BINARY) plot.p
 	@mv efficiency.svg walltime.svg $@
 
 $(BINARY): $(OBJECTS) main.cpp
-	$(CC) -std=c++11 $(OBJECTS) main.cpp -o $(BINARY)
+	$(CC) $(FLAGS) -std=c++11 $(OBJECTS) main.cpp -o $(BINARY)
 
 model.o: model.cpp
-	$(CC) -std=c++11 -c $< -o $@
+	$(CC) $(FLAGS) -std=c++11 -c $< -o $@
 
 show: $(TARGET)
 	xviewer $(TARGET)
 
 clean:
 	rm -f *.o $(TARGET) $(OBJECTS) $(BINARY)
-	rm -r twrite tsend jumbo
+	rm -f twrite tsend jumbo
+
+run: $(BINARY)
+	./$(BINARY) 0

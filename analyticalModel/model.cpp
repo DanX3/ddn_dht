@@ -19,6 +19,32 @@ Connection::Connection(double __Smax, double __bandwidth, double __latency) :
     {
     }
 
+Connection::Connection(const char* jsonPath) {
+    std::string content;
+    readFromFile(jsonPath, content);
+    rapidjson::Document document;
+    document.Parse(&content[0]);
+    rapidjson::Value& value = document["bandwidth"];
+    bandwidth = value.GetDouble();
+
+    value = document["Smax"];
+    Smax = value.GetDouble();
+
+    value = document["latency"];
+    latency = value.GetDouble();
+}
+
+void Connection::readFromFile(const char* file, std::string& content) {
+    std::ifstream jsonfile;
+    jsonfile.open(file);
+    std::string buffer;
+    while (true) {
+        jsonfile >> buffer;
+        if (jsonfile.eof()) break;
+        content += buffer;
+    }
+}
+
 double Connection::clamp(double x, double min, double max) {
     if (x < min) return min;
     if (x > max) return max;
@@ -44,6 +70,22 @@ double Connection::ackTime() {
 }
 
 
-double Connection::getBandwidth() {
+double Connection::getBandwidth() const {
     return bandwidth;
 }
+
+void Connection::parseString(const char* json) {
+    rapidjson::Document document;
+    document.Parse(json);
+    rapidjson::Value& value = document["a"];
+    rapidjson::Value& value2 = document["b"];
+    int valueRead = value.GetInt();
+    const char* stringRead = value2.GetString();
+    std::cout << "a:" << valueRead << '\n';
+    std::cout << "b:" << stringRead << '\n';
+    //std::cout << document["a"] << '\n';
+    //std::cout << document["b"] << '\n';
+}
+
+double Connection::getSMax() const { return Smax; }
+double Connection::getLatency() const { return latency; }

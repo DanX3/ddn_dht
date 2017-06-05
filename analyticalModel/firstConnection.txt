@@ -1,0 +1,5 @@
+{
+    "bandwidth":10000,
+    "Smax":1.0,
+    "latency":1e-3
+}

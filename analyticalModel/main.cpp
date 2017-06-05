@@ -68,7 +68,9 @@ void simulateJUMBO(double indexStart, double indexStop, double step, int JUMBORe
 
 void printUsage(char** argv) {
     std::cout << "Usage: " << argv[0] << " n" << '\n'
-        << '\t' << "0: T_write" << '\n';
+        << '\t' << "0: T_write" << '\n'
+        << '\t' << "1: T_Send" << '\n'
+        << '\t' << "2: T_write JUMBO" << '\n';
 }
 
 #if PLOT
@@ -97,6 +99,14 @@ int main(int argc, char** argv) {
             printUsage(argv);
             return 1;
     }
+
+    //Connection fakeConnection(1., 2., 3.);
+    //const char* jsonToParse= "{\"a\":5,\"b\":\"wonderful\"}";
+    //fakeConnection.parseString(jsonToParse);
+
+    Connection jsonConnection("firstConnection.txt");
+    std::cout << jsonConnection << '\n';
+
     return 0;
 }
 #endif
