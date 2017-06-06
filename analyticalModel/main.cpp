@@ -1,6 +1,6 @@
 #include <iostream>
 #include <fstream>
-#include "model.h"
+#include "connection.h"
 #include "stdlib.h"
 
 void simulateSend(double indexStart, double indexStop, double step) {

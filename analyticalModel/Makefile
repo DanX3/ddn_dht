@@ -1,10 +1,12 @@
 CC=g++
 TARGET=efficiency.svg
 BINARY=model.x
-OBJECTS=model.o
+OBJECTS=build/connection.o build/networkLayout.o 
 FLAGS=-Iinclude/
 
-all: twrite tsend jumbo
+all: $(BINARY)
+
+run: twrite tsend jumbo
 
 markdown:
 	markdown-to-slides slides.md -o slides.html
@@ -33,7 +35,9 @@ twrite: $(BINARY) plot.p
 $(BINARY): $(OBJECTS) main.cpp
 	$(CC) $(FLAGS) -std=c++11 $(OBJECTS) main.cpp -o $(BINARY)
 
-model.o: model.cpp
+networkLayout.o: connection.o
+
+build/%.o: src/%.cpp
 	$(CC) $(FLAGS) -std=c++11 -c $< -o $@
 
 show: $(TARGET)
@@ -41,7 +45,5 @@ show: $(TARGET)
 
 clean:
 	rm -f *.o $(TARGET) $(OBJECTS) $(BINARY)
-	rm -f twrite tsend jumbo
-
-run: $(BINARY)
-	./$(BINARY) 0
+	rm -f build/*.o
+	rm -rf twrite tsend jumbo

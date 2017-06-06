@@ -1,4 +1,4 @@
-#include "model.h"
+#include "connection.h"
 
 /*
  * The class Connection keep track of the setting of the Connection
