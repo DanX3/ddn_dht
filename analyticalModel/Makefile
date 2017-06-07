@@ -6,7 +6,8 @@ FLAGS=-Iinclude/
 
 all: $(BINARY)
 
-run: twrite tsend jumbo
+#run: twrite tsend jumbo
+run: twrite
 
 markdown:
 	markdown-to-slides slides.md -o slides.html

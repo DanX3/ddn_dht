@@ -10,13 +10,28 @@ using namespace rapidjson;
 enum class NodeType {
     CLIENT,
     SECONDARY,
-    HOME
+    HOME,
+    NONE
 };
+
 
 struct Node {
     int id;
     NodeType type;
 };
+
+inline ostream& operator<<(ostream& stream, const NodeType& node) {
+    switch(node) {
+        case NodeType::CLIENT: stream << "CLIENT"; break;
+        case NodeType::SECONDARY: stream << "SECONDARY"; break;
+        case NodeType::HOME: stream << "HOME"; break;
+        case NodeType::NONE: stream << "NONE"; break;
+    }
+}
+
+inline ostream& operator<<(ostream& stream, const Node& node) {
+    stream << node.id << ": " << node.type << std::endl;
+}
 
 class NetworkLayout {
 private:
@@ -24,14 +39,12 @@ private:
     std::vector<Connection> links;
     std::vector<Node> nodes;
 
-    template <bool Const, class ValueT>
-    void populateNodes(GenericArray<Const, ValueT> nodes);
-    template <bool Const, class ValueT>
-    void populateLinks(GenericArray<Const, ValueT> links);
+    NodeType stringToNodetype(std::string s);
+    void populateNodes(const Value& nodesArray);
+    //void populateLinks(Document& document);
 
 protected:
 public:
-    template <bool Const, class ValueT>
     NetworkLayout(std::string& jsonPath);
 };
 

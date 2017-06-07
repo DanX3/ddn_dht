@@ -1,28 +1,43 @@
 #include "networkLayout.h"
 
 
-template <bool Const, class ValueT>
 NetworkLayout::NetworkLayout(std::string& jsonPath) {
     std::string content;
-    Utils::readFromFile(&jsonPath[0], content);
+    Utils::readFromFile(jsonPath.c_str(), content);
     Document document;
-    document.Parse(&content[0]);
-    GenericArray<Const, ValueT> nodesArray = document["nodes"].GetArray();
-    GenericArray<Const, ValueT> linksArray = document["links"].GetArray();
-    populateNodes(nodesArray);
-    populateLinks(linksArray);
+    //document.Parse(&content[0]);
+    document.Parse(content.c_str());
+    populateNodes(document["nodes"]);
+    //populateLinks<Const, ValueT>(document);
 }
 
-template <bool Const, class ValueT>
-void NetworkLayout::populateNodes(GenericArray<Const, ValueT> nodes) {
-    for (GenericArray<Const, ValueT> link: links) {
-        std::cout << "Ahah" << '\n';
+void NetworkLayout::populateNodes(const Value& nodesArray) {
+    assert(nodesArray.IsArray());
+    std::cout << "nodesArray is an array" << '\n';
+    for (SizeType i=0; i<nodesArray.Size(); ++i) {
+        nodes.push_back(Node{
+            nodesArray[i]["id"].GetInt(),
+            stringToNodetype(nodesArray[i]["type"].GetString()),
+        });
+    }
+    for (const auto& node: nodes) {
+        std::cout << node << '\n';
     }
 }
 
-template <bool Const, class ValueT>
-void NetworkLayout::populateLinks(GenericArray<Const, ValueT> links) {
-    for (GenericArray<Const, ValueT>ink: links) {
-        std::cout << "Eheh" << '\n';
-    }
+//void NetworkLayout::populateLinks(Document& document) {
+    //GenericArray<bool, GenericArray&> linksArray = document["links"].GetArray();
+    //for (auto link: linksArray) {
+        //std::cout << "Eheh" << '\n';
+    //}
+//}
+
+NetworkLayout::NodeType NetworkLayout::stringToNodetype(std::string s) {
+    if (s == "client")
+        return NetworkLayout::NodeType::CLIENT;
+    if (s == "secondary")
+        return NetworkLayout::NodeType::SECONDARY;
+    if (s == "home")
+        return NetworkLayout::NodeType::HOME;
+    return NetworkLayout::NodeType::NONE;
 }
