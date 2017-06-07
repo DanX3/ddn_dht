@@ -21,7 +21,7 @@ Connection::Connection(double __Smax, double __bandwidth, double __latency) :
 
 Connection::Connection(const char* jsonPath) {
     std::string content;
-    readFromFile(jsonPath, content);
+    Utils::readFromFile(jsonPath, content);
     rapidjson::Document document;
     document.Parse(&content[0]);
     rapidjson::Value& value = document["bandwidth"];
@@ -34,15 +34,11 @@ Connection::Connection(const char* jsonPath) {
     latency = value.GetDouble();
 }
 
-void Connection::readFromFile(const char* file, std::string& content) {
-    std::ifstream jsonfile;
-    jsonfile.open(file);
-    std::string buffer;
-    while (true) {
-        jsonfile >> buffer;
-        if (jsonfile.eof()) break;
-        content += buffer;
-    }
+template<bool Const, class ValueT>
+Connection::Connection(GenericArray<Const, ValueT>& jsonArrayValue) {
+    latency = jsonArrayValue["latency"];
+    bandwidth = jsonArrayValue["bandwidth"];
+    Smax = jsonArrayValue["Smax"];
 }
 
 double Connection::clamp(double x, double min, double max) {
@@ -75,10 +71,10 @@ double Connection::getBandwidth() const {
 }
 
 void Connection::parseString(const char* json) {
-    rapidjson::Document document;
+    Document document;
     document.Parse(json);
-    rapidjson::Value& value = document["a"];
-    rapidjson::Value& value2 = document["b"];
+    Value& value = document["a"];
+    Value& value2 = document["b"];
     int valueRead = value.GetInt();
     const char* stringRead = value2.GetString();
     std::cout << "a:" << valueRead << '\n';

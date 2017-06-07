@@ -5,21 +5,26 @@
 #include <iostream>
 #include <iomanip>
 #include <fstream>
+#include "utils.h"
 
 using std::ostream;
+using namespace rapidjson;
 
 class Connection {
 private:
     static const double ackSize; //64 Byte
     static const double checksumRatio;
     double Smax, bandwidth, latency;
+    std::string idName;
     double clamp(double x, double min, double max);
-    void readFromFile(const char* file, std::string& content);
 protected:
 public:
-    double ratio (double Ps);
     Connection(double _Smax, double __bandwidth,  double __latency);
     Connection(const char* jsonPath);
+
+    template<bool Const, class ValueT>
+    Connection(GenericArray<Const, ValueT>& jsonArrayValue);
+    double ratio (double Ps);
     double networkTime(double Ps);
     double ackTime();
     double getBandwidth() const;

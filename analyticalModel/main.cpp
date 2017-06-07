@@ -1,6 +1,7 @@
 #include <iostream>
 #include <fstream>
 #include "connection.h"
+#include "networkLayout.h"
 #include "stdlib.h"
 
 void simulateSend(double indexStart, double indexStop, double step) {
@@ -86,6 +87,13 @@ int main(int argc, char** argv) {
 }
 #else
 int main(int argc, char** argv) {
+    //------------------------------------------------------------------------
+    std::string jsonPath{"networkLayout.json"};
+    NetworkLayout layout(jsonPath);
+    return 0;
+    //------------------------------------------------------------------------
+
+
     if (argc == 1) {
         printUsage(argv);
         return 1;
