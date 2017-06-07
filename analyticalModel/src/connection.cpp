@@ -12,10 +12,12 @@
 const double Connection::ackSize = 2e-16;
 const double Connection::checksumRatio = 0.25;
 
-Connection::Connection(double __Smax, double __bandwidth, double __latency) :
+Connection::Connection(double __Smax, double __bandwidth, double __latency,
+                       std::pair<int, int> __edges) :
     Smax(__Smax),
     bandwidth(__bandwidth),
-    latency(__latency)
+    latency(__latency),
+    edges(__edges)
     {
     }
 
@@ -85,3 +87,7 @@ void Connection::parseString(const char* json) {
 
 double Connection::getSMax() const { return Smax; }
 double Connection::getLatency() const { return latency; }
+
+std::pair<int, int> Connection::getEdges() const {
+    return edges;
+}

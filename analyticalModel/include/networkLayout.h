@@ -7,17 +7,12 @@
 #include <vector>
 using namespace rapidjson;
 
-enum class NodeType {
-    CLIENT,
-    SECONDARY,
-    HOME,
-    NONE
-};
+enum class NodeType { CLIENT, SECONDARY, HOME, NONE };
 
 
 struct Node {
     int id;
-    NodeType type;
+    std::string type;
 };
 
 inline ostream& operator<<(ostream& stream, const NodeType& node) {
@@ -27,10 +22,12 @@ inline ostream& operator<<(ostream& stream, const NodeType& node) {
         case NodeType::HOME: stream << "HOME"; break;
         case NodeType::NONE: stream << "NONE"; break;
     }
+    return stream;
 }
 
 inline ostream& operator<<(ostream& stream, const Node& node) {
-    stream << node.id << ": " << node.type << std::endl;
+    stream << node.id << ": " << node.type;
+    return stream;
 }
 
 class NetworkLayout {
@@ -39,9 +36,8 @@ private:
     std::vector<Connection> links;
     std::vector<Node> nodes;
 
-    NodeType stringToNodetype(std::string s);
     void populateNodes(const Value& nodesArray);
-    //void populateLinks(Document& document);
+    void populateLinks(const Value& nodesArray);
 
 protected:
 public:

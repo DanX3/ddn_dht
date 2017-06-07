@@ -8,16 +8,15 @@ NetworkLayout::NetworkLayout(std::string& jsonPath) {
     //document.Parse(&content[0]);
     document.Parse(content.c_str());
     populateNodes(document["nodes"]);
-    //populateLinks<Const, ValueT>(document);
+    populateLinks(document["links"]);
 }
 
 void NetworkLayout::populateNodes(const Value& nodesArray) {
     assert(nodesArray.IsArray());
-    std::cout << "nodesArray is an array" << '\n';
     for (SizeType i=0; i<nodesArray.Size(); ++i) {
         nodes.push_back(Node{
             nodesArray[i]["id"].GetInt(),
-            stringToNodetype(nodesArray[i]["type"].GetString()),
+            nodesArray[i]["type"].GetString(),
         });
     }
     for (const auto& node: nodes) {
@@ -25,19 +24,28 @@ void NetworkLayout::populateNodes(const Value& nodesArray) {
     }
 }
 
-//void NetworkLayout::populateLinks(Document& document) {
-    //GenericArray<bool, GenericArray&> linksArray = document["links"].GetArray();
-    //for (auto link: linksArray) {
-        //std::cout << "Eheh" << '\n';
-    //}
-//}
+void NetworkLayout::populateLinks(const Value& linksArray) {
+    assert(linksArray.IsArray());
+    for (SizeType i=0; i<linksArray.Size(); ++i) {
+        assert(linksArray[i]["edges"].IsArray());
+        assert(linksArray[i]["edges"].Size() == 2);
+        auto iterator = linksArray[i]["edges"].Begin();
+        int firstEdge = iterator++->GetInt();
+        int secondEdge = iterator->GetInt();
 
-NetworkLayout::NodeType NetworkLayout::stringToNodetype(std::string s) {
-    if (s == "client")
-        return NetworkLayout::NodeType::CLIENT;
-    if (s == "secondary")
-        return NetworkLayout::NodeType::SECONDARY;
-    if (s == "home")
-        return NetworkLayout::NodeType::HOME;
-    return NetworkLayout::NodeType::NONE;
+        if (firstEdge > secondEdge)
+            std::swap(firstEdge, secondEdge);
+        std::pair<int,int> edges{firstEdge, secondEdge};
+        links.push_back(Connection(
+                            linksArray[i]["Smax"].GetDouble(),
+                            linksArray[i]["bw"].GetDouble(),
+                            linksArray[i]["latency"].GetDouble(),
+                            edges)
+//                            std::pair<int,int>{edges[0].GetInt(), edges[1]GetInt()})
+                    );
+    }
+
+    for (const auto& link: links) {
+        std::cout << link << std::endl;
+    }
 }
