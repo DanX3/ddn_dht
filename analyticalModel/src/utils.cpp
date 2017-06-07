@@ -11,3 +11,9 @@ void Utils::readFromFile(const char* file, std::string& content) {
     }
 }
 
+void Utils::printError(std::string shortMessage, std::string message)
+{
+    //print the short message in bold red font
+    //the message is in normal black font
+    std::cout << "\e[1;31m" << shortMessage << "\e[0;30m: " << message << std::endl;
+}

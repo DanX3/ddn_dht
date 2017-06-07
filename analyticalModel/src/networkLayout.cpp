@@ -24,8 +24,10 @@ void NetworkLayout::populateNodes(const Value& nodesArray) {
     }
 }
 
+
+
 void NetworkLayout::populateLinks(const Value& linksArray) {
-    assert(linksArray.IsArray());
+    checkNodes(linksArray);
     for (SizeType i=0; i<linksArray.Size(); ++i) {
         assert(linksArray[i]["edges"].IsArray());
         assert(linksArray[i]["edges"].Size() == 2);
@@ -41,11 +43,23 @@ void NetworkLayout::populateLinks(const Value& linksArray) {
                             linksArray[i]["bw"].GetDouble(),
                             linksArray[i]["latency"].GetDouble(),
                             edges)
-//                            std::pair<int,int>{edges[0].GetInt(), edges[1]GetInt()})
                     );
     }
 
     for (const auto& link: links) {
         std::cout << link << std::endl;
     }
+}
+
+bool NetworkLayout::checkNodes(const Value &nodesArray) {
+    Utils::printError("Array object not found", "array type expected as 'node'");
+//    if (!linksArray.IsArray()) {
+//        std::err << "Object \"nodes\" is not an array"
+//    }
+//    for (SizeType i=0; i<linksArray.Size(); ++i) {
+//    }
+}
+
+bool NetworkLayout::checkLinks(const Value &nodesArray) {
+
 }

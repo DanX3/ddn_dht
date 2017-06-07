@@ -5,6 +5,7 @@
 #include "rapidjson/document.h"
 #include "connection.h"
 #include <vector>
+#include <string>
 using namespace rapidjson;
 
 enum class NodeType { CLIENT, SECONDARY, HOME, NONE };
@@ -38,6 +39,8 @@ private:
 
     void populateNodes(const Value& nodesArray);
     void populateLinks(const Value& nodesArray);
+    bool checkNodes(const Value& nodesArray);
+    bool checkLinks(const Value& nodesArray);
 
 protected:
 public:
