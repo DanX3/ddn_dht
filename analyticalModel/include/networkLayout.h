@@ -14,6 +14,7 @@ enum class NodeType { CLIENT, SECONDARY, HOME, NONE };
 struct Node {
     int id;
     std::string type;
+    std::vector<Connection*> links;
 };
 
 inline ostream& operator<<(ostream& stream, const NodeType& node) {
@@ -26,8 +27,13 @@ inline ostream& operator<<(ostream& stream, const NodeType& node) {
     return stream;
 }
 
-inline ostream& operator<<(ostream& stream, const Node& node) {
-    stream << node.id << ": " << node.type;
+inline ostream& operator<<(ostream& stream, const Node& n) {
+    stream 
+        << "id:" << n.id << std::endl
+        << "type:" << n.type << std::endl;
+    for (auto link: n.links) {
+        stream << *link << std::endl;
+    }
     return stream;
 }
 
@@ -45,9 +51,10 @@ private:
     Connection& getLink(std::pair<int,int>edges);
     void normalizePair(std::pair<int,int>& p);
 
+
 protected:
 public:
     NetworkLayout(std::string& jsonPath);
 };
 
- #endif
+#endif

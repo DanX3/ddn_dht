@@ -50,4 +50,5 @@ inline ostream& operator<<(ostream& stream, const Connection& c) {
         << '\n';
     return stream;
 }
- #endif
+
+#endif
