@@ -12,7 +12,10 @@ NetworkLayout::NetworkLayout(std::string& jsonPath) {
 }
 
 void NetworkLayout::populateNodes(const Value& nodesArray) {
-    assert(nodesArray.IsArray());
+    bool success = checkNodes(nodesArray);
+    if (!success) {
+        exit(1);
+    }
     for (SizeType i=0; i<nodesArray.Size(); ++i) {
         nodes.push_back(Node{
             nodesArray[i]["id"].GetInt(),
@@ -24,10 +27,8 @@ void NetworkLayout::populateNodes(const Value& nodesArray) {
     }
 }
 
-
-
 void NetworkLayout::populateLinks(const Value& linksArray) {
-    checkNodes(linksArray);
+    //checks for links
     for (SizeType i=0; i<linksArray.Size(); ++i) {
         assert(linksArray[i]["edges"].IsArray());
         assert(linksArray[i]["edges"].Size() == 2);
@@ -52,12 +53,38 @@ void NetworkLayout::populateLinks(const Value& linksArray) {
 }
 
 bool NetworkLayout::checkNodes(const Value &nodesArray) {
-    Utils::printError("Array object not found", "array type expected as 'node'");
-//    if (!linksArray.IsArray()) {
-//        std::err << "Object \"nodes\" is not an array"
-//    }
-//    for (SizeType i=0; i<linksArray.Size(); ++i) {
-//    }
+    if (!nodesArray.IsArray()) {
+        Utils::printError("Array type expected",
+                          "Element 'node' expected to be an array");
+        return false;
+    }
+    if (nodesArray.Size() < 2) {
+        Utils::printError("Insufficient Node",
+                          "Insufficient nodes found. At least 2 nodes, expected. Found "
+                          + std::to_string(nodesArray.Size()));
+        return false;
+    }
+
+    for (SizeType i=0; i<nodesArray.Size(); ++i) {
+        if (nodesArray[i].MemberCount() > 2) {
+            Utils::printError("Too many fields for 'node' object",
+                              "only fields 'type' and 'id' are allowed in node object");
+            return false;
+        }
+        if (!nodesArray[i].HasMember("type")) {
+            Utils::printError("'type' field expected of node",
+                              "missing 'type' field for node " +
+                              std::to_string(i));
+            return false;
+        }
+        if (!nodesArray[i].HasMember("id")) {
+            Utils::printError("'id' field expected of node",
+                              "missing 'id' field for node " +
+                              std::to_string(i));
+            return false;
+        }
+    }
+    return true;
 }
 
 bool NetworkLayout::checkLinks(const Value &nodesArray) {
