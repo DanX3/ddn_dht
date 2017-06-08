@@ -12,10 +12,10 @@ NetworkLayout::NetworkLayout(std::string& jsonPath) {
 }
 
 void NetworkLayout::populateNodes(const Value& nodesArray) {
-    bool success = checkNodes(nodesArray);
-    if (!success) {
+    if (!nodesAreValid(nodesArray)) {
         exit(1);
     }
+
     for (SizeType i=0; i<nodesArray.Size(); ++i) {
         nodes.push_back(Node{
             nodesArray[i]["id"].GetInt(),
@@ -28,7 +28,10 @@ void NetworkLayout::populateNodes(const Value& nodesArray) {
 }
 
 void NetworkLayout::populateLinks(const Value& linksArray) {
-    //checks for links
+    if (!linksAreValid(linksArray)) {
+        exit(1);
+    }
+
     for (SizeType i=0; i<linksArray.Size(); ++i) {
         assert(linksArray[i]["edges"].IsArray());
         assert(linksArray[i]["edges"].Size() == 2);
@@ -52,7 +55,7 @@ void NetworkLayout::populateLinks(const Value& linksArray) {
     }
 }
 
-bool NetworkLayout::checkNodes(const Value &nodesArray) {
+bool NetworkLayout::nodesAreValid(const Value &nodesArray) {
     if (!nodesArray.IsArray()) {
         Utils::printError("Array type expected",
                           "Element 'node' expected to be an array");
@@ -87,6 +90,40 @@ bool NetworkLayout::checkNodes(const Value &nodesArray) {
     return true;
 }
 
-bool NetworkLayout::checkLinks(const Value &nodesArray) {
+bool NetworkLayout::linksAreValid(const Value &linksArray) {
+    if (linksArray.Size() == 0) {
+        Utils::printError("No link found", "expected at least one link");
+        return false;
+    }
 
+    
+    for (SizeType i=0; i<linksArray.Size(); ++i) {
+        if (linksArray[i].MemberCount() != 4) {
+            Utils::printError("Bad link object",
+                "link " + std::to_string(i) + " has different number of fields than expected");
+            return false;
+        } 
+
+        if (!linksArray[i].HasMember("edges")) {
+            Utils::printError("edges not found", "could not find 'edges' field for link " 
+            + std::to_string(i));
+            return false;
+        }
+        if (!linksArray[i].HasMember("Smax")) {
+            Utils::printError("Smax not found", "could not find 'Smax' field for link " 
+            + std::to_string(i));
+            return false;
+        }
+        if (!linksArray[i].HasMember("bw")) {
+            Utils::printError("bw not found", "could not find 'bw' field for link " 
+            + std::to_string(i));
+            return false;
+        }
+        if (!linksArray[i].HasMember("latency")) {
+            Utils::printError("latency not found", "could not find 'latency' field for link " 
+            + std::to_string(i));
+            return false;
+        }
+    }
+    return true;
 }

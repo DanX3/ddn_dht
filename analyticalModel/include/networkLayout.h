@@ -39,8 +39,8 @@ private:
 
     void populateNodes(const Value& nodesArray);
     void populateLinks(const Value& nodesArray);
-    bool checkNodes(const Value& nodesArray);
-    bool checkLinks(const Value& nodesArray);
+    bool nodesAreValid(const Value& nodesArray);
+    bool linksAreValid(const Value& nodesArray);
 
 protected:
 public:
