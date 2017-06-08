@@ -24,6 +24,7 @@ void NetworkLayout::populateNodes(const Value& nodesArray) {
             nodesArray[i]["type"].GetString(),
         });
     }
+
 }
 
 void NetworkLayout::populateLinks(const Value& linksArray) {
@@ -37,16 +38,17 @@ void NetworkLayout::populateLinks(const Value& linksArray) {
         auto iterator = linksArray[i]["edges"].Begin();
         int firstEdge = iterator++->GetInt();
         int secondEdge = iterator->GetInt();
-
-        if (firstEdge > secondEdge)
-            std::swap(firstEdge, secondEdge);
         std::pair<int,int> edges{firstEdge, secondEdge};
+        normalizePair(edges);
+
+        //creating the link and adding it to the corresponding nodes
         links.push_back(Connection(
-                            linksArray[i]["Smax"].GetDouble(),
-                            linksArray[i]["bw"].GetDouble(),
-                            linksArray[i]["latency"].GetDouble(),
-                            edges)
-                    );
+            linksArray[i]["Smax"].GetDouble(),
+            linksArray[i]["bw"].GetDouble(),
+            linksArray[i]["latency"].GetDouble(),
+            edges));
+        getNode(firstEdge).links.push_back(&links.back());
+        getNode(secondEdge).links.push_back(&links.back());
     }
 }
 
