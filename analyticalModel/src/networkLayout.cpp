@@ -9,6 +9,8 @@ NetworkLayout::NetworkLayout(std::string& jsonPath) {
     document.Parse(content.c_str());
     populateNodes(document["nodes"]);
     populateLinks(document["links"]);
+
+    Connection& link = getLink(std::pair<int,int>{3,2});
 }
 
 void NetworkLayout::populateNodes(const Value& nodesArray) {
@@ -21,9 +23,6 @@ void NetworkLayout::populateNodes(const Value& nodesArray) {
             nodesArray[i]["id"].GetInt(),
             nodesArray[i]["type"].GetString(),
         });
-    }
-    for (const auto& node: nodes) {
-        std::cout << node << '\n';
     }
 }
 
@@ -48,10 +47,6 @@ void NetworkLayout::populateLinks(const Value& linksArray) {
                             linksArray[i]["latency"].GetDouble(),
                             edges)
                     );
-    }
-
-    for (const auto& link: links) {
-        std::cout << link << std::endl;
     }
 }
 
@@ -96,34 +91,75 @@ bool NetworkLayout::linksAreValid(const Value &linksArray) {
         return false;
     }
 
-    
+
     for (SizeType i=0; i<linksArray.Size(); ++i) {
         if (linksArray[i].MemberCount() != 4) {
             Utils::printError("Bad link object",
                 "link " + std::to_string(i) + " has different number of fields than expected");
             return false;
-        } 
+        }
 
         if (!linksArray[i].HasMember("edges")) {
-            Utils::printError("edges not found", "could not find 'edges' field for link " 
+            Utils::printError("edges not found", "could not find 'edges' field for link "
             + std::to_string(i));
             return false;
         }
         if (!linksArray[i].HasMember("Smax")) {
-            Utils::printError("Smax not found", "could not find 'Smax' field for link " 
+            Utils::printError("Smax not found", "could not find 'Smax' field for link "
             + std::to_string(i));
             return false;
         }
         if (!linksArray[i].HasMember("bw")) {
-            Utils::printError("bw not found", "could not find 'bw' field for link " 
+            Utils::printError("bw not found", "could not find 'bw' field for link "
             + std::to_string(i));
             return false;
         }
         if (!linksArray[i].HasMember("latency")) {
-            Utils::printError("latency not found", "could not find 'latency' field for link " 
+            Utils::printError("latency not found", "could not find 'latency' field for link "
             + std::to_string(i));
             return false;
         }
     }
     return true;
+}
+
+Node& NetworkLayout::getNode(int id) {
+    for (Node& node: nodes) {
+        if (node.id == id) {
+            return node;
+        }
+    }
+
+    //a bit harsh but for now works
+    //will be better returning NONE or similar,
+    //in order to behave accordingly
+    Utils::printError("Out for range node id",
+        "called node " + std::to_string(id) + "but none found");
+    exit(1);
+}
+
+Connection& NetworkLayout::getLink(std::pair<int,int>edges) {
+    normalizePair(edges);
+    for (Connection& link: links) {
+        if (link.getEdges() == edges) {
+            return link;
+        }
+    }
+
+    //a bit harsh but for now works
+    //will be better returning NONE or similar,
+    //in order to behave accordingly
+    Utils::printError("Non-existing link",
+        "called node <" +
+        std::to_string(edges.first) + "-" +
+        std::to_string(edges.second) + "> but none found");
+    exit(1);
+}
+
+void NetworkLayout::normalizePair(std::pair<int,int>& p) {
+    if (p.first > p.second) {
+        int temp = p.first;
+        p.first = p.second;
+        p.second = temp;
+    }
 }

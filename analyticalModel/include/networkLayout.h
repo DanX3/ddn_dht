@@ -41,6 +41,9 @@ private:
     void populateLinks(const Value& nodesArray);
     bool nodesAreValid(const Value& nodesArray);
     bool linksAreValid(const Value& nodesArray);
+    Node& getNode(int id);
+    Connection& getLink(std::pair<int,int>edges);
+    void normalizePair(std::pair<int,int>& p);
 
 protected:
 public:
