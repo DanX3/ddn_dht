@@ -27,6 +27,7 @@ inline ostream& operator<<(ostream& stream, const NodeType& node) {
     return stream;
 }
 
+<<<<<<< HEAD
 inline ostream& operator<<(ostream& stream, const Node& n) {
     stream 
         << "id:" << n.id << std::endl
@@ -37,6 +38,8 @@ inline ostream& operator<<(ostream& stream, const Node& n) {
     return stream;
 }
 
+=======
+>>>>>>> 0d3caf81cf9dda605010cf2715eb6744adfea5ee
 class NetworkLayout {
 private:
     enum class NodeType;
@@ -57,4 +60,19 @@ public:
     NetworkLayout(std::string& jsonPath);
 };
 
+<<<<<<< HEAD
 #endif
+=======
+
+inline ostream& operator<<(ostream& stream, const Node& n) {
+    stream 
+        << "id:" << n.id << std::endl
+        << "type:" << n.type << std::endl;
+    for (auto link: n.links) {
+        stream << *link << std::endl;
+    }
+    return stream;
+}
+
+ #endif
+>>>>>>> 0d3caf81cf9dda605010cf2715eb6744adfea5ee
