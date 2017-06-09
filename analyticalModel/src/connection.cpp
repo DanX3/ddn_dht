@@ -19,6 +19,7 @@ Connection::Connection(double __Smax, double __bandwidth, double __latency,
     latency(__latency),
     edges(__edges)
     {
+        usable = true;
     }
 
 Connection::Connection(const char* jsonPath) {
@@ -34,13 +35,6 @@ Connection::Connection(const char* jsonPath) {
 
     value = document["latency"];
     latency = value.GetDouble();
-}
-
-template<bool Const, class ValueT>
-Connection::Connection(GenericArray<Const, ValueT>& jsonArrayValue) {
-    latency = jsonArrayValue["latency"];
-    bandwidth = jsonArrayValue["bandwidth"];
-    Smax = jsonArrayValue["Smax"];
 }
 
 double Connection::clamp(double x, double min, double max) {
@@ -87,7 +81,27 @@ void Connection::parseString(const char* json) {
 
 double Connection::getSMax() const { return Smax; }
 double Connection::getLatency() const { return latency; }
+bool Connection::isUsable() const { return usable; }
 
 std::pair<int, int> Connection::getEdges() const {
     return edges;
+}
+
+void Connection::setUsable(bool newValue) {
+    usable = newValue;
+}
+
+bool Connection::broaderThan(const Connection& c) const {
+    return bandwidth > c.bandwidth ? true : false;
+}
+
+bool Connection::lessLatencyThan(const Connection& c) const {
+    return latency < c.latency ? true : false;
+}
+
+void Connection::makeWorstConnectionEver() {
+    Smax = 1e300;
+    bandwidth = 1e-300;
+    latency = 1e300;
+    usable = false;
 }

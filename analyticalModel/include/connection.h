@@ -15,26 +15,32 @@ private:
     static const double ackSize; //64 Byte
     static const double checksumRatio;
     double Smax, bandwidth, latency;
+    bool usable;
     std::pair<int,int> edges;
     std::string idName;
     double clamp(double x, double min, double max);
 protected:
 public:
-    Connection(double _Smax, double __bandwidth,  double __latency,
-               std::pair<int, int> __edges = {0, 0});
+    Connection(double _Smax = 0.0, double __bandwidth = 0.0,  
+        double __latency=0.0, std::pair<int, int> __edges = {0, 0});
     Connection(const char* jsonPath);
 
-    template<bool Const, class ValueT>
-    Connection(GenericArray<Const, ValueT>& jsonArrayValue);
     double ratio (double Ps);
     double networkTime(double Ps);
     double ackTime();
+    bool broaderThan(const Connection& c) const;
+    bool lessLatencyThan(const Connection& c) const;
+    void makeWorstConnectionEver();
 
     //gets
     double getBandwidth() const;
     double getSMax() const;
     double getLatency() const;
+    bool isUsable() const;
     std::pair<int, int> getEdges() const;
+
+    //sets
+    void setUsable(bool newValue);
 
 
     void parseString(const char* json);
