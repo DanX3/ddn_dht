@@ -37,22 +37,25 @@ inline ostream& operator<<(ostream& stream, const Node& n) {
     return stream;
 }
 
+typedef std::pair<int,int> edgesPair;
+
 class NetworkLayout {
 private:
-    enum class NodeType;
-    std::vector<Connection> links, linksForScratch;
+    std::vector<Connection> links;
     std::vector<Node> nodes;
 
+    void assignLinkToNodes();
     void populateNodes(const Value& nodesArray);
     void populateLinks(const Value& nodesArray);
     bool nodesAreValid(const Value& nodesArray);
     bool linksAreValid(const Value& nodesArray);
     Node& getNode(int id);
     Connection& getLink(std::pair<int,int>edges);
+    int getNextNode(int myId, std::pair<int,int> edges);
     void normalizePair(std::pair<int,int>& p);
 
-    Connection recursiveTrial(int callerId, int targetId, unsigned int hopLeft,
-        Connection& flagConnection);
+    Connection recursiveTrial(int callerId, int myId, int targetId,
+        unsigned int hopLeft, Connection& flagConnection);
 
 
 

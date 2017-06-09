@@ -105,3 +105,24 @@ void Connection::makeWorstConnectionEver() {
     latency = 1e300;
     usable = false;
 }
+
+Connection Connection::operator+(Connection lhs) {
+    Connection result = *this;
+
+    //narrow bandwidth to the lowest
+    if (lhs.bandwidth < bandwidth) {
+        result.bandwidth = lhs.bandwidth;
+    }
+
+    //latency is cumulative
+    result.latency += lhs.latency;
+
+    if (lhs.Smax > Smax)
+        result.Smax = lhs.Smax;
+
+    return result;
+}
+
+void Connection::setBandwidth(double newBandwidth) {
+    bandwidth = newBandwidth;
+}

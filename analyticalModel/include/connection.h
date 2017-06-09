@@ -41,9 +41,11 @@ public:
 
     //sets
     void setUsable(bool newValue);
+    void setBandwidth(double newBandwidth);
 
 
     void parseString(const char* json);
+    Connection operator+(Connection lhs);
 };
 
 inline ostream& operator<<(ostream& stream, const Connection& c) {
