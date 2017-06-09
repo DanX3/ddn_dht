@@ -165,3 +165,45 @@ void NetworkLayout::normalizePair(std::pair<int,int>& p) {
         p.second = temp;
     }
 }
+
+Connection NetworkLayout::abstractLinkBetween(int id1, int id2) {
+    linksForScratch = links;
+    Connection handler;
+    handler.setUsable(false);
+    recursiveTrial(id1, id2, nodes.size(), handler);
+}
+
+Connection NetworkLayout::recursiveTrial(int callerId, int targetId, unsigned int hopLeft,
+    Connection& flagConnection) {
+    if (hopLeft == 0) {
+        flagConnection.setUsable(false);
+        return flagConnection;
+    }
+
+    //we got it, now answer back to the beginning
+    if (callerId == targetId) {
+        flagConnection.setUsable(true);
+        return flagConnection;
+    }
+    //check the links
+    else {
+        std::pair<int,int> linkEdges{callerId,targetId};
+        normalizePair(linkEdges);
+        Connection bestConnection;
+        bestConnection.makeWorstConnectionEver();
+        for (auto link: getNode(linkEdges.first).links) {
+            //skip calling back the link from where it has been called
+            if (link->getEdges().first == callerId || link->getEdges().second == callerId) {
+                continue;
+            }
+
+            //tries all the remaining links
+            Connection result = recursiveTrial(linkEdges.first, linkEdges.second,
+                hopLeft-1, flagConnection);
+            if (result.isUsable() && result.lessLatencyThan(bestConnection)) {
+                bestConnection = result;
+            }
+        }
+        return bestConnection;
+    }
+}
