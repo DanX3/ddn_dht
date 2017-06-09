@@ -109,9 +109,13 @@ void Connection::makeWorstConnectionEver() {
 Connection Connection::operator+(Connection lhs) {
     Connection result = *this;
 
-    //narrow bandwidth to the lowest
-    if (lhs.bandwidth < bandwidth) {
-        result.bandwidth = lhs.bandwidth;
+    //narrow bandwidth to the lowest if there is a meaningful value
+    //1000.0 (Gb/s) is a meaningful value
+    //-300 (Gb/s) is NOT a meaningful value
+    if (bandwidth <= 0 || lhs.bandwidth <= 0) {
+        result.bandwidth = std::max(bandwidth, lhs.bandwidth);
+    } else {
+        result.bandwidth = std::min(bandwidth, lhs.bandwidth);
     }
 
     //latency is cumulative

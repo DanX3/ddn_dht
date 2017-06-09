@@ -16,9 +16,24 @@ NetworkLayout::NetworkLayout(std::string& jsonPath) {
             //std::cout << *link << '\n';
         //}
     //}
-    std::cout <<  abstractLinkBetween(0,4) << std::endl;
+    std::cout <<  abstractLinkBetween(getClientNodeId(),getHomeNodeId()) << std::endl;
 }
 
+int NetworkLayout::getClientNodeId() {
+    for (const auto& node: nodes) {
+        if (node.type == "CLIENT") {
+            return node.id;
+        }
+    }
+}
+int NetworkLayout::getHomeNodeId() {
+    for (const auto& node: nodes) {
+        if (node.type == "HOME") {
+            return node.id;
+        }
+    }
+}
+    
 void NetworkLayout::populateNodes(const Value& nodesArray) {
     if (!nodesAreValid(nodesArray)) {
         exit(1);
@@ -33,7 +48,6 @@ void NetworkLayout::populateNodes(const Value& nodesArray) {
 }
 
 void NetworkLayout::assignLinkToNodes() {
-    std::cout << links.size() << '\n';
     for (int i=0; i<links.size(); i++) {
         std::pair<int,int> edges = links[i].getEdges();
         getNode(edges.first).links.push_back(&links[i]);
@@ -186,61 +200,48 @@ int NetworkLayout::getNextNode(int myId, std::pair<int,int> edges) {
 }
 
 Connection NetworkLayout::abstractLinkBetween(int id1, int id2) {
-    Connection handler;
-    handler.setUsable(false);
-    return recursiveTrial(id1, id1, id2, nodes.size(), handler);
+    return recursiveTrial(id1, id1, id2, nodes.size());
 }
 
 Connection NetworkLayout::recursiveTrial(int callerId, int myId, int targetId,
-    unsigned int hopLeft, Connection& flagConnection) {
+    unsigned int hopLeft) {
+    Connection unusableConnection;
+    unusableConnection.setUsable(false);
     if (hopLeft == -1) {
-        flagConnection.setUsable(false);
-        //std::cout << "hopLeft reached 0 with " << myId << " and " << targetId << '\n';
-        return flagConnection;
+        return unusableConnection;
     }
 
     //we got it, now answer back to the beginning
     if (myId == targetId) {
-        //flagConnection = getLink(std::pair<int,int>{callerId,myId});
         Connection result;
-        result.setBandwidth(1e300);
         result.setUsable(true);
-        //std::cout << myId << " reached " << targetId  << "with " << hopLeft << " hopLeft\n";
         return result;
     }
     //check the links
     else {
-        std::pair<int,int> linkEdges{callerId,targetId};
-        normalizePair(linkEdges);
         Connection bestConnection;
         bestConnection.makeWorstConnectionEver();
 
         for (auto link: getNode(myId).links) {
-            //skip calling back the link from where it has been called
+            //skip going back to the caller node
             int nextNodeId = getNextNode(myId, link->getEdges());
             if (callerId == nextNodeId) {
-                //std::cout << myId << " skipped link heading back to " << callerId << '\n';
                 continue;
             }
 
             //tries all the remaining links
-            //std::cout << myId << " is trying to head " << nextNodeId << '\n';
             Connection result = recursiveTrial(myId, nextNodeId, targetId,
-                hopLeft-1, flagConnection);
+                hopLeft-1);
             result = result + getLink(std::pair<int,int>{myId, nextNodeId});
             if (result.isUsable() && result.lessLatencyThan(bestConnection)) {
-                //std::cout << myId << "found usable connection to " << nextNodeId << '\n';
                 bestConnection = result;
-                //bestConnection = getLink(std::pair<int,int>{myId, nextNodeId});
             }
         }
 
         if (bestConnection.isUsable()) {
-            //std::cout << myId << " is return a successful connection" << '\n';
             return bestConnection;
         } else {
-            //std::cout << myId << " is return a failing connection" << '\n';
-            return flagConnection;
+            return unusableConnection;
         }
     }
 }

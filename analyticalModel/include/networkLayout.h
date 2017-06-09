@@ -53,9 +53,11 @@ private:
     Connection& getLink(std::pair<int,int>edges);
     int getNextNode(int myId, std::pair<int,int> edges);
     void normalizePair(std::pair<int,int>& p);
+    int getClientNodeId();
+    int getHomeNodeId();
 
     Connection recursiveTrial(int callerId, int myId, int targetId,
-        unsigned int hopLeft, Connection& flagConnection);
+        unsigned int hopLeft);
 
 
 
