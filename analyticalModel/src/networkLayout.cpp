@@ -17,6 +17,11 @@ NetworkLayout::NetworkLayout(std::string& jsonPath) {
         //}
     //}
     std::cout <<  abstractLinkBetween(getClientNodeId(),getHomeNodeId()) << std::endl;
+    std::cout << links[0].getLinkPath().size() << std::endl;
+    links[0].addLinkPathNode(3);
+    std::cout << links[0].getLinkPath()[0] << '\n';
+    links[0].clearPath();
+    std::cout << links[0].getLinkPath()[0] << '\n';
 }
 
 int NetworkLayout::getClientNodeId() {

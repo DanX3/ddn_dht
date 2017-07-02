@@ -20,6 +20,7 @@ Connection::Connection(double __Smax, double __bandwidth, double __latency,
     edges(__edges)
     {
         usable = true;
+        linkPath = {};
     }
 
 Connection::Connection(const char* jsonPath) {
@@ -129,4 +130,19 @@ Connection Connection::operator+(Connection lhs) {
 
 void Connection::setBandwidth(double newBandwidth) {
     bandwidth = newBandwidth;
+}
+
+void Connection::clearPath() {
+    linkPath.clear();
+}
+
+
+std::vector<int> Connection::getLinkPath() {
+    Utils::printWarning("Empty linkPath", 
+                      "Asked to return linkPath but is empty");
+    return linkPath;
+}
+
+void Connection::addLinkPathNode(int nodeId) {
+    linkPath.push_back(nodeId);
 }

@@ -10,6 +10,7 @@ protected:
 public:
     static void readFromFile(const char* file, std::string& content);
     static void printError(std::string shortMessage, std::string message);
+    static void printWarning(std::string shortMessage, std::string message);
 };
 
  #endif
