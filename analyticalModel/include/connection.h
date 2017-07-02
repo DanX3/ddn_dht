@@ -3,6 +3,7 @@
 
 #include "rapidjson/document.h"
 #include <iostream>
+#include <vector>
 #include <iomanip>
 #include <fstream>
 #include "utils.h"
@@ -17,7 +18,8 @@ private:
     double Smax, bandwidth, latency;
     bool usable;
     std::pair<int,int> edges;
-    std::string idName;
+    std::vector<int> linkPath;
+    //std::string idName;
     double clamp(double x, double min, double max);
 protected:
 public:
@@ -31,6 +33,7 @@ public:
     bool broaderThan(const Connection& c) const;
     bool lessLatencyThan(const Connection& c) const;
     void makeWorstConnectionEver();
+    void clearPath();
 
     //gets
     double getBandwidth() const;
@@ -38,10 +41,12 @@ public:
     double getLatency() const;
     bool isUsable() const;
     std::pair<int, int> getEdges() const;
+    std::vector<int> getLinkPath();
 
     //sets
     void setUsable(bool newValue);
     void setBandwidth(double newBandwidth);
+    void addLinkPathNode(int nodeId);
 
 
     void parseString(const char* json);
