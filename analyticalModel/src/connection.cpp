@@ -138,11 +138,27 @@ void Connection::clearPath() {
 
 
 std::vector<int> Connection::getLinkPath() {
-    Utils::printWarning("Empty linkPath", 
+    Utils::printWarning("Empty linkPath",
                       "Asked to return linkPath but is empty");
     return linkPath;
 }
 
 void Connection::addLinkPathNode(int nodeId) {
     linkPath.push_back(nodeId);
+}
+
+bool Connection::equal(Connection& lhs) {
+    if (edges.first == lhs.getEdges().first &&
+        edges.second == lhs.getEdges().second) {
+            return true;
+    }
+    return false;
+}
+
+bool Connection::equal(std::pair<int,int> lhs) {
+    if (edges.first == lhs.first &&
+        edges.second == lhs.second) {
+            return true;
+    }
+    return false;
 }

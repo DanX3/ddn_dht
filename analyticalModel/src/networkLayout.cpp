@@ -16,12 +16,12 @@ NetworkLayout::NetworkLayout(std::string& jsonPath) {
             //std::cout << *link << '\n';
         //}
     //}
-    std::cout <<  abstractLinkBetween(getClientNodeId(),getHomeNodeId()) << std::endl;
-    std::cout << links[0].getLinkPath().size() << std::endl;
-    links[0].addLinkPathNode(3);
-    std::cout << links[0].getLinkPath()[0] << '\n';
-    links[0].clearPath();
-    std::cout << links[0].getLinkPath()[0] << '\n';
+    Connection abstractLink = abstractLinkBetween(getClientNodeId(),getHomeNodeId());
+    std::cout << abstractLink << std::endl;
+    for (int id: abstractLink.getLinkPath()) {
+        std::cout << id << '\n';
+    }
+    std::cout << getDirectLinkTo(0,1).getEdges() << '\n';
 }
 
 int NetworkLayout::getClientNodeId() {
@@ -215,6 +215,7 @@ Connection NetworkLayout::recursiveTrial(int callerId, int myId, int targetId,
     if (myId == targetId) {
         Connection result;
         result.setUsable(true);
+        result.addLinkPathNode(myId);
         return result;
     }
     //check the links
@@ -239,9 +240,23 @@ Connection NetworkLayout::recursiveTrial(int callerId, int myId, int targetId,
         }
 
         if (bestConnection.isUsable()) {
+            bestConnection.addLinkPathNode(myId);
             return bestConnection;
         } else {
             return unusableConnection;
         }
     }
+}
+
+Connection& NetworkLayout::getDirectLinkTo(int myId, int nextNodeId) {
+    std::pair<int, int> linkToMatch{myId, nextNodeId};
+    normalizePair(linkToMatch);
+    Node& starterNode = getNode(myId);
+    std::vector<Connection*> availableLinks = starterNode.links;
+    for (Connection* currentLink: availableLinks) {
+        if (currentLink->equal(linkToMatch)) {
+            return getLink(linkToMatch);
+        }
+    }
+
 }

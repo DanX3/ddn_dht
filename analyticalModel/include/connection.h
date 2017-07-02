@@ -17,14 +17,14 @@ private:
     static const double checksumRatio;
     double Smax, bandwidth, latency;
     bool usable;
-    std::pair<int,int> edges;
     std::vector<int> linkPath;
     //std::string idName;
     double clamp(double x, double min, double max);
+    std::pair<int,int> edges;
 protected:
 public:
-    Connection(double _Smax = 0.0, double __bandwidth = 0.0,  
-        double __latency=0.0, std::pair<int, int> __edges = {0, 0});
+    Connection(double _Smax = 0.0, double __bandwidth = 0.0,
+    double __latency=0.0, std::pair<int, int> __edges = {0, 0});
     Connection(const char* jsonPath);
 
     double ratio (double Ps);
@@ -51,6 +51,8 @@ public:
 
     void parseString(const char* json);
     Connection operator+(Connection lhs);
+    bool equal(Connection& lhs);
+    bool equal(std::pair<int,int> lhs);
 };
 
 inline ostream& operator<<(ostream& stream, const Connection& c) {

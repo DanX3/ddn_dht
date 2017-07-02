@@ -54,6 +54,7 @@ private:
     void normalizePair(std::pair<int,int>& p);
     int getClientNodeId();
     int getHomeNodeId();
+    Connection& getDirectLinkTo(int myId, int nextNodeId);
 
     Connection recursiveTrial(int callerId, int myId, int targetId,
         unsigned int hopLeft);
@@ -65,5 +66,11 @@ public:
     NetworkLayout(std::string& jsonPath);
     Connection abstractLinkBetween(int id1, int id2);
 };
+
+inline ostream& operator<<(ostream& stream, const std::pair<int,int>& pair) {
+    stream
+        << '<' << pair.first << ", " << pair.second << ">\n";
+    return stream;
+}
 
 #endif

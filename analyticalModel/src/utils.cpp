@@ -29,3 +29,4 @@ void Utils::printWarning(std::string shortMessage, std::string message)
     //the message is in normal black font
     std::cout << "\e[1;33m" << shortMessage << "\e[0;30m: " << message << std::endl;
 }
+
