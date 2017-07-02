@@ -51,7 +51,6 @@ private:
     bool linksAreValid(const Value& nodesArray);
     Node& getNode(int id);
     Connection& getLink(std::pair<int,int>edges);
-    int getNextNode(int myId, std::pair<int,int> edges);
     void normalizePair(std::pair<int,int>& p);
     int getClientNodeId();
     int getHomeNodeId();

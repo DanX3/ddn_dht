@@ -33,7 +33,7 @@ int NetworkLayout::getHomeNodeId() {
         }
     }
 }
-    
+
 void NetworkLayout::populateNodes(const Value& nodesArray) {
     if (!nodesAreValid(nodesArray)) {
         exit(1);
@@ -193,11 +193,6 @@ void NetworkLayout::normalizePair(std::pair<int,int>& p) {
     }
 }
 
-int NetworkLayout::getNextNode(int myId, std::pair<int,int> edges) {
-    if (edges.first == myId)
-        return edges.second;
-    return edges.first;
-}
 
 Connection NetworkLayout::abstractLinkBetween(int id1, int id2) {
     return recursiveTrial(id1, id1, id2, nodes.size());
@@ -224,7 +219,7 @@ Connection NetworkLayout::recursiveTrial(int callerId, int myId, int targetId,
 
         for (auto link: getNode(myId).links) {
             //skip going back to the caller node
-            int nextNodeId = getNextNode(myId, link->getEdges());
+            int nextNodeId = Utils::getNextNode(myId, link->getEdges());
             if (callerId == nextNodeId) {
                 continue;
             }

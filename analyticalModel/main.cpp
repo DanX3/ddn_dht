@@ -2,7 +2,7 @@
 #include <fstream>
 #include "connection.h"
 #include "networkLayout.h"
-#include "stdlib.h"
+//#include "stdlib.h"
 
 void simulateSend(double indexStart, double indexStop, double step) {
     Connection ClientToHome(10., 1e3, 1e-3);
