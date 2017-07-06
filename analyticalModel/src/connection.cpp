@@ -162,3 +162,7 @@ bool Connection::equal(std::pair<int,int> lhs) {
     }
     return false;
 }
+
+void Connection::reverseLinkPath() {
+    std::reverse(std::begin(linkPath), std::end(linkPath));
+}

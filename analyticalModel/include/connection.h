@@ -7,6 +7,7 @@
 #include <iomanip>
 #include <fstream>
 #include "utils.h"
+#include <algorithm>
 
 using std::ostream;
 using namespace rapidjson;
@@ -47,6 +48,7 @@ public:
     void setUsable(bool newValue);
     void setBandwidth(double newBandwidth);
     void addLinkPathNode(int nodeId);
+    void reverseLinkPath();
 
 
     void parseString(const char* json);

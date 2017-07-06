@@ -1,8 +1,7 @@
 CC=g++
 TARGET=efficiency.svg
 BINARY=model.x
-OBJECTS=build/connection.o build/networkLayout.o build/utils.o build/protocolNode.o \
-	build/logger.o
+OBJECTS=build/connection.o build/networkLayout.o build/utils.o
 FLAGS=-Iinclude/ -std=c++11
 
 all: $(BINARY)

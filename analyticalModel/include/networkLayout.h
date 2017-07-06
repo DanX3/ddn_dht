@@ -14,7 +14,7 @@ enum class NodeType { CLIENT, SECONDARY, HOME, NONE };
 struct Node {
     int id;
     std::string type;
-    std::vector<Connection*> links, linksForScratch;
+    std::vector<Connection*> links;
 };
 
 inline ostream& operator<<(ostream& stream, const NodeType& node) {
@@ -54,7 +54,7 @@ private:
     void normalizePair(std::pair<int,int>& p);
     int getClientNodeId();
     int getHomeNodeId();
-    Connection& getDirectLinkTo(int myId, int nextNodeId);
+    Connection getDirectLinkTo(Node& myId, Node& nextNodeId);
 
     Connection recursiveTrial(int callerId, int myId, int targetId,
         unsigned int hopLeft);
