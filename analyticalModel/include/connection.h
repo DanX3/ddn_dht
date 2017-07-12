@@ -3,9 +3,11 @@
 
 #include "rapidjson/document.h"
 #include <iostream>
+#include <vector>
 #include <iomanip>
 #include <fstream>
 #include "utils.h"
+#include <algorithm>
 
 using std::ostream;
 using namespace rapidjson;
@@ -16,13 +18,14 @@ private:
     static const double checksumRatio;
     double Smax, bandwidth, latency;
     bool usable;
-    std::pair<int,int> edges;
-    std::string idName;
+    std::vector<int> linkPath;
+    //std::string idName;
     double clamp(double x, double min, double max);
+    std::pair<int,int> edges;
 protected:
 public:
-    Connection(double _Smax = 0.0, double __bandwidth = 0.0,  
-        double __latency=0.0, std::pair<int, int> __edges = {0, 0});
+    Connection(double _Smax = 0.0, double __bandwidth = 0.0,
+    double __latency=0.0, std::pair<int, int> __edges = {0, 0});
     Connection(const char* jsonPath);
 
     double ratio (double Ps);
@@ -31,6 +34,7 @@ public:
     bool broaderThan(const Connection& c) const;
     bool lessLatencyThan(const Connection& c) const;
     void makeWorstConnectionEver();
+    void clearPath();
 
     //gets
     double getBandwidth() const;
@@ -38,14 +42,19 @@ public:
     double getLatency() const;
     bool isUsable() const;
     std::pair<int, int> getEdges() const;
+    std::vector<int> getLinkPath();
 
     //sets
     void setUsable(bool newValue);
     void setBandwidth(double newBandwidth);
+    void addLinkPathNode(int nodeId);
+    void reverseLinkPath();
 
 
     void parseString(const char* json);
     Connection operator+(Connection lhs);
+    bool equal(Connection& lhs);
+    bool equal(std::pair<int,int> lhs);
 };
 
 inline ostream& operator<<(ostream& stream, const Connection& c) {

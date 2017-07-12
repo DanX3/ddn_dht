@@ -16,7 +16,13 @@ NetworkLayout::NetworkLayout(std::string& jsonPath) {
             //std::cout << *link << '\n';
         //}
     //}
-    std::cout <<  abstractLinkBetween(getClientNodeId(),getHomeNodeId()) << std::endl;
+    Connection abstractLink = abstractLinkBetween(getClientNodeId(),getHomeNodeId());
+    std::cout << abstractLink << std::endl;
+    for (int id: abstractLink.getLinkPath()) {
+        std::cout << id << '\n';
+    }
+    Connection directLink = getDirectLinkTo(getNode(0), getNode(4));
+    std::cout << directLink << '\n';
 }
 
 int NetworkLayout::getClientNodeId() {
@@ -33,7 +39,7 @@ int NetworkLayout::getHomeNodeId() {
         }
     }
 }
-    
+
 void NetworkLayout::populateNodes(const Value& nodesArray) {
     if (!nodesAreValid(nodesArray)) {
         exit(1);
@@ -193,14 +199,11 @@ void NetworkLayout::normalizePair(std::pair<int,int>& p) {
     }
 }
 
-int NetworkLayout::getNextNode(int myId, std::pair<int,int> edges) {
-    if (edges.first == myId)
-        return edges.second;
-    return edges.first;
-}
 
 Connection NetworkLayout::abstractLinkBetween(int id1, int id2) {
-    return recursiveTrial(id1, id1, id2, nodes.size());
+    Connection result = recursiveTrial(id1, id1, id2, nodes.size());
+    result.reverseLinkPath();
+    return result;
 }
 
 Connection NetworkLayout::recursiveTrial(int callerId, int myId, int targetId,
@@ -215,6 +218,7 @@ Connection NetworkLayout::recursiveTrial(int callerId, int myId, int targetId,
     if (myId == targetId) {
         Connection result;
         result.setUsable(true);
+        result.addLinkPathNode(myId);
         return result;
     }
     //check the links
@@ -224,7 +228,7 @@ Connection NetworkLayout::recursiveTrial(int callerId, int myId, int targetId,
 
         for (auto link: getNode(myId).links) {
             //skip going back to the caller node
-            int nextNodeId = getNextNode(myId, link->getEdges());
+            int nextNodeId = Utils::getNextNode(myId, link->getEdges());
             if (callerId == nextNodeId) {
                 continue;
             }
@@ -239,9 +243,25 @@ Connection NetworkLayout::recursiveTrial(int callerId, int myId, int targetId,
         }
 
         if (bestConnection.isUsable()) {
+            bestConnection.addLinkPathNode(myId);
             return bestConnection;
         } else {
             return unusableConnection;
         }
     }
+}
+
+Connection NetworkLayout::getDirectLinkTo(Node& startNode, Node& endNode) {
+    std::pair<int, int> linkToMatch{startNode.id, endNode.id};
+    normalizePair(linkToMatch);
+    std::vector<Connection*> availableLinks = startNode.links;
+    for (Connection* currentLink: availableLinks) {
+        if (currentLink->equal(linkToMatch)) {
+            return getLink(linkToMatch);
+        }
+    }
+
+    Connection result;
+    result.setUsable(false);
+    return result;
 }
