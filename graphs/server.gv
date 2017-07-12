@@ -1,0 +1,48 @@
+digraph {
+    style = dashed
+    splines=ortho
+    nodesep=0.5
+    node [shape=box]
+    start [shape=oval]
+    edge [penwidth=2]
+    end [shape=oval]
+
+    start -> "Receive Read Request"
+    subgraph cluster_0 {
+        label = "Read Request" labelloc="b" labeljust="c"
+        timeout_1[shape=diamond label="Timeout"]
+        LocalData [shape=diamond]
+
+        "Receive Read Request" -> LocalData
+        LocalData -> CreatePacket [color=forestgreen]
+
+        subgraph cluster {
+            label = "SendAnswer" labelloc="b" labeljust="l"
+            color = darkviolet
+
+            CreatePacket -> TransmitPacket
+        }
+
+        LocalData -> SendRequest [color=brown1]
+        SendRequest -> timeout_1
+    }
+    TransmitPacket -> end
+    timeout_1 -> RestructureData [color=forestgreen]
+    timeout_1 -> end [color=brown1]
+
+    start -> "Receive Write Request"
+    subgraph cluster {
+        timeout_2[label="Timeout" shape=diamond]
+        label = "Write Request" labelloc="b" labeljust="l"
+
+        "Receive Write Request" ->  WriteToDisk -> OpCompleted -> SendAck
+        "Receive Write Request" -> WriteMetaToDHT -> OpCompleted
+        WriteToDisk -> TransactionalTraffic
+        TransactionalTraffic -> timeout_2 [color="black:invis:black:invis:black" 
+            edgetooltip="Calls to multiple nodes"]
+    }
+    timeout_2 -> end [color=brown1]
+    timeout_2 -> RestructureData [color=forestgreen]
+    RestructureData -> end
+    SendAck -> end
+}

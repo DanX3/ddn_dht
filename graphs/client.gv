@@ -1,0 +1,23 @@
+digraph Client {
+    node [shape=box]
+    splines=ortho
+    smoothing = triangle
+    start[shape=oval];
+    end[shape=oval];
+    
+    subgraph cluster_0 {
+        color=blue
+        SendRead -> "Hash Address" -> "Decide Which Server";
+        label="Send Request"
+    }
+
+    start -> SendRead;
+    "Decide Which Server" -> SendRequest;
+     SendRequest -> Timeout
+     Timeout [shape=diamond]
+     Timeout -> ReceiveData [color=forestgreen]
+     ReceiveData -> end
+     Timeout -> NotifyIME [color=red]
+     NotifyIME -> TryNextServer -> Timeout
+
+}
