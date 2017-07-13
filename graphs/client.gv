@@ -1,23 +1,32 @@
 digraph Client {
+    style=dashed
     node [shape=box]
-    splines=ortho
-    smoothing = triangle
+    splines=true
     start[shape=oval];
     end[shape=oval];
     
     subgraph cluster_0 {
-        color=blue
-        SendRead -> "Hash Address" -> "Decide Which Server";
+        SendRequest -> HashAddress -> DecideServer -> OpDone
+        SendRequest -> ComputeParity -> OpDone
         label="Send Request"
     }
 
-    start -> SendRead;
-    "Decide Which Server" -> SendRequest;
-     SendRequest -> Timeout
-     Timeout [shape=diamond]
-     Timeout -> ReceiveData [color=forestgreen]
-     ReceiveData -> end
-     Timeout -> NotifyIME [color=red]
-     NotifyIME -> TryNextServer -> Timeout
+    subgraph cluster_token {
+        CheckTokens [shape=diamond]
+        WaitForNewToken [shape=parallelogram]
+        CheckTokens -> SendRequest [color=forestgreen]
+        CheckTokens -> WaitForNewToken [color=red]
+        WaitForNewToken -> CheckTokens
+    }
+
+    start -> CheckTokens
+    OpDone -> Timeout
+    Timeout [shape=diamond]
+    Timeout -> ReceiveData [color=forestgreen]
+    ReceiveData -> end
+    Timeout -> DecideServer [label="Choose next server" color=red]
+
+    #suggestion [shape=note label="If the parity wall time is very expensive \n and a ping over the network is not, \ncan we make a ping before sending the packet"]
+    #suggestion -> DecideServer
 
 }

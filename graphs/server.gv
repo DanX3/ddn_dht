@@ -1,7 +1,7 @@
 digraph {
     style = dashed
     splines=ortho
-    nodesep=0.5
+    nodesep=0.3
     node [shape=box]
     start [shape=oval]
     edge [penwidth=2]
@@ -9,7 +9,7 @@ digraph {
 
     start -> "Receive Read Request"
     subgraph cluster_0 {
-        label = "Read Request" labelloc="b" labeljust="c"
+        label = "Read Request" labelloc="b" labeljust="r"
         timeout_1[shape=diamond label="Timeout"]
         LocalData [shape=diamond]
 
@@ -32,17 +32,38 @@ digraph {
 
     start -> "Receive Write Request"
     subgraph cluster {
-        timeout_2[label="Timeout" shape=diamond]
         label = "Write Request" labelloc="b" labeljust="l"
+        timeout_2[label="Timeout" shape=diamond]
+        subgraph cluster_1 {
+            label = "Metadata"
+            WriteMetaToDHT -> PropagateToDHT [xlabel="JUMBO"]
+            subgraph cluster_propagate {
+                label="Propagation"
+                PropagateToDHT -> NetworkTransfer
+            }
+            NetworkTransfer -> AccessToDisk
+            WriteMetaToDHT -> AccessToDisk [xlabel="Local"]
+            subgraph cluster_metadata {
+                label="FUSE Overhead"
+                OpCompleted_2[label="OpCompleted" shape="parallelogram"]
+                AccessToDisk -> fim_main_int -> cic_int -> OpCompleted_2
+                fim_main_int -> otherFunctionCalls -> OpCompleted_2
+            }
+            OpCompleted_2 -> SendAck
 
-        "Receive Write Request" ->  WriteToDisk -> OpCompleted -> SendAck
-        "Receive Write Request" -> WriteMetaToDHT -> OpCompleted
-        WriteToDisk -> TransactionalTraffic
-        TransactionalTraffic -> timeout_2 [color="black:invis:black:invis:black" 
+        }
+        WriteDataToDisk -> TransactionalTraffic [arrowhead=open style=dashed]
+
+        "Receive Write Request" ->  WriteDataToDisk
+        "Receive Write Request" -> WriteMetaToDHT 
+        TransactionalTraffic -> timeout_2 [color="black:invis:black:invis:black"
             edgetooltip="Calls to multiple nodes"]
     }
     timeout_2 -> end [color=brown1]
     timeout_2 -> RestructureData [color=forestgreen]
     RestructureData -> end
     SendAck -> end
+    WriteDataToDisk ->  AccessToDisk
+
 }
+
