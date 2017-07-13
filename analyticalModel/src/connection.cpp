@@ -20,6 +20,7 @@ Connection::Connection(double __Smax, double __bandwidth, double __latency,
     edges(__edges)
     {
         usable = true;
+        linkPath = {};
     }
 
 Connection::Connection(const char* jsonPath) {
@@ -129,4 +130,39 @@ Connection Connection::operator+(Connection lhs) {
 
 void Connection::setBandwidth(double newBandwidth) {
     bandwidth = newBandwidth;
+}
+
+void Connection::clearPath() {
+    linkPath.clear();
+}
+
+
+std::vector<int> Connection::getLinkPath() {
+    Utils::printWarning("Empty linkPath",
+                      "Asked to return linkPath but is empty");
+    return linkPath;
+}
+
+void Connection::addLinkPathNode(int nodeId) {
+    linkPath.push_back(nodeId);
+}
+
+bool Connection::equal(Connection& lhs) {
+    if (edges.first == lhs.getEdges().first &&
+        edges.second == lhs.getEdges().second) {
+            return true;
+    }
+    return false;
+}
+
+bool Connection::equal(std::pair<int,int> lhs) {
+    if (edges.first == lhs.first &&
+        edges.second == lhs.second) {
+            return true;
+    }
+    return false;
+}
+
+void Connection::reverseLinkPath() {
+    std::reverse(std::begin(linkPath), std::end(linkPath));
 }

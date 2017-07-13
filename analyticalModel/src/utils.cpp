@@ -11,9 +11,22 @@ void Utils::readFromFile(const char* file, std::string& content) {
     }
 }
 
-void Utils::printError(std::string shortMessage, std::string message)
-{
+void Utils::printError(std::string shortMessage, std::string message) {
     //print the short message in bold red font
     //the message is in normal black font
     std::cout << "\e[1;31m" << shortMessage << "\e[0;30m: " << message << std::endl;
 }
+
+int Utils::getNextNode(int myId, std::pair<int,int> edges) {
+    if (edges.first == myId)
+        return edges.second;
+    return edges.first;
+}
+
+void Utils::printWarning(std::string shortMessage, std::string message)
+{
+    //print the short message in bold red font
+    //the message is in normal black font
+    std::cout << "\e[1;33m" << shortMessage << "\e[0;30m: " << message << std::endl;
+}
+

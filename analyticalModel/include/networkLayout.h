@@ -14,7 +14,7 @@ enum class NodeType { CLIENT, SECONDARY, HOME, NONE };
 struct Node {
     int id;
     std::string type;
-    std::vector<Connection*> links, linksForScratch;
+    std::vector<Connection*> links;
 };
 
 inline ostream& operator<<(ostream& stream, const NodeType& node) {
@@ -51,10 +51,10 @@ private:
     bool linksAreValid(const Value& nodesArray);
     Node& getNode(int id);
     Connection& getLink(std::pair<int,int>edges);
-    int getNextNode(int myId, std::pair<int,int> edges);
     void normalizePair(std::pair<int,int>& p);
     int getClientNodeId();
     int getHomeNodeId();
+    Connection getDirectLinkTo(Node& myId, Node& nextNodeId);
 
     Connection recursiveTrial(int callerId, int myId, int targetId,
         unsigned int hopLeft);
@@ -66,5 +66,11 @@ public:
     NetworkLayout(std::string& jsonPath);
     Connection abstractLinkBetween(int id1, int id2);
 };
+
+inline ostream& operator<<(ostream& stream, const std::pair<int,int>& pair) {
+    stream
+        << '<' << pair.first << ", " << pair.second << ">\n";
+    return stream;
+}
 
 #endif
