@@ -1,13 +1,15 @@
 digraph Client {
     style=dashed
     node [shape=box]
-    splines=true
+    splines=ortho
     start[shape=oval];
     end[shape=oval];
     
     subgraph cluster_0 {
-        SendRequest -> HashAddress -> DecideServer -> OpDone
-        SendRequest -> ComputeParity -> OpDone
+        SendRequest -> PendingParityGroup
+        PendingParityGroup -> FormingParityGroup -> PendingSendGroup
+        PendingSendGroup -> Aggregation -> NetworkBuffer
+        NetworkBuffer -> OpDone
         label="Send Request"
     }
 
@@ -24,7 +26,7 @@ digraph Client {
     Timeout [shape=diamond]
     Timeout -> ReceiveData [color=forestgreen]
     ReceiveData -> end
-    Timeout -> DecideServer [label="Choose next server" color=red]
+    Timeout -> PendingParityGroup [label="Choose next server" color=red]
 
     #suggestion [shape=note label="If the parity wall time is very expensive \n and a ping over the network is not, \ncan we make a ping before sending the packet"]
     #suggestion -> DecideServer
