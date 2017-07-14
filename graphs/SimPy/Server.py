@@ -7,26 +7,26 @@ def printmessage(ID, message, time, done=True):
 
 class Server(object):
     @staticmethod
-    def process_request(env, clientID):
+    def process_request(env, clientID, logger):
         yield env.timeout(2)
         printmessage(clientID, "-", env.now)
     
     @staticmethod
-    def make_data_persistent(env, clientID):
+    def make_data_persistent(env, clientID, logger):
         yield env.timeout(2)
         printmessage(clientID, "make_data_persistent", env.now)
 
     @staticmethod
-    def propagate_to_DHT(env, clientID):
-        yield env.timeout(10)
+    def propagate_to_DHT(env, clientID, logger):
+        yield env.process(logger.wait(10))
         printmessage(clientID, "propagate_to_DHT", env.now)
 
     @staticmethod
-    def write_meta_to_DHT(env, clientID):
-        yield env.timeout(100)
+    def write_meta_to_DHT(env, clientID, logger):
+        yield env.process(logger.wait(100))
         printmessage(clientID, "O<--", env.now)
-        propagation = env.process(Server.propagate_to_DHT(env, clientID))
-        persistency = env.process(Server.make_data_persistent(env, clientID))
+        propagation = env.process(Server.propagate_to_DHT(env, clientID, logger))
+        persistency = env.process(Server.make_data_persistent(env, clientID, logger))
         yield propagation | persistency
         yield propagation & persistency
         printmessage(clientID, "-", env.now)

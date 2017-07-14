@@ -1,15 +1,26 @@
 class Logger:
-    def __init__(self, ID):
+    def __init__(self, ID, env):
         self.ID = ID
         self.idleTime = 0
         self.workTime = 0
         self.totalTime = 0
+        self.env = env
 
     def addIdleTime(self, time):
         self.idleTime += time
 
     def addWorkTime(self, time):
         self.workTime += time
+
+    def work(self, duration):
+        start = self.env.now
+        yield self.env.timeout(duration)
+        self.addWorkTime(self.env.now - start)
+
+    def wait(self, duration):
+        start = self.env.now
+        yield self.env.timeout(duration)
+        self.addIdleTime(self.env.now - start)
 
     def printInfo(self):
         self.totalTime = self.idleTime + self.workTime

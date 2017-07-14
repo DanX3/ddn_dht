@@ -14,41 +14,48 @@ class Client(object):
         self.ID = ID
         self.server = server;
         self.env.process(self.run(self.server))
-        self.logger = Logger(ID)
+        self.logger = Logger(ID, env)
+        self.tokens = 24
+
+    def printInfo(self):
+        self.logger.printInfo()
 
     def hash_address(self):
-        yield self.env.timeout(2)
+        # yield self.env.timeout(2)
+        yield self.env.process(self.logger.work(2))
         printmessage(self.ID, "X", self.env.now)
 
     def decide_which_server(self):
-        yield self.env.timeout(2)
+        yield self.env.process(self.logger.work(2))
         # print "%d) decided server  -  %f" % (self.ID, self.env.now)
         printmessage(self.ID, "->", self.env.now)
 
     def send_request(self):
-        start = env.now
         yield self.env.process(self.hash_address())
         yield self.env.process(self.decide_which_server())
-        self.logger.addWorkTime(env.now - start)
-        start = env.now
-        yield self.env.process(Server.write_meta_to_DHT(self.env, self.ID))
-        self.logger.addIdleTime(env.now - start)
+        yield self.env.process(Server.write_meta_to_DHT(self.env, self.ID, self.logger))
+
+    def check_tokens(self):
+        if self.tokens > 1:
+            self.tokens -= 1
+        else:
+            yield self.timeout(300)
 
     def run(self, server):
         printmessage(self.ID, "?", self.env.now)
         request = server.request()
         yield request
         printmessage(self.ID, "+", self.env.now)
+        yield self.env.process(self.check_tokens())
         yield self.env.process(self.send_request())
         server.release(request)
-        self.logger.printInfo()
-
+        if self.ID == 3:
+            self.printInfo()
 
 # env = simpy.rt.RealtimeEnvironment(initial_time=0, factor=1.0, strict=True)
 env = simpy.Environment()
 random.seed(os.getpid())
 server = simpy.Resource(env, 1)
-for i in range(4):
-    Client(i, env, server)
+clients = [Client(i, env, server) for i in range(4)];
 env.run()
 
