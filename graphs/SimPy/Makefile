@@ -1,5 +1,5 @@
 all:
-	python Client.py
+	python Simulator.py --verbose
 
 test:
 	python test.py

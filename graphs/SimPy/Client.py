@@ -1,8 +1,5 @@
-import simpy
-import random
-import os
-from Server import Server, printmessage
 from Logger import Logger
+from Server import printmessage, Server
 
 SERVER_COUNT = 1
 SERVER_NOTIFICATION_TIME_REQUIRED = 0.3
@@ -53,9 +50,4 @@ class Client(object):
             self.printInfo()
 
 # env = simpy.rt.RealtimeEnvironment(initial_time=0, factor=1.0, strict=True)
-env = simpy.Environment()
-random.seed(os.getpid())
-server = simpy.Resource(env, 1)
-clients = [Client(i, env, server) for i in range(4)];
-env.run()
 
