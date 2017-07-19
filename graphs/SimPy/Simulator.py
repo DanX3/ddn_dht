@@ -1,28 +1,40 @@
 import simpy
 from Client import Client
-import argparse
+from Server import Server
 import random
 from os import getpid
+import Parser
 
 
 class Simulator:
     def __init__(self, args):
-        env = simpy.Environment()
+        self.env = simpy.Environment()
         self.args = args
         self.parseFile()
         self.printParams()
         random.seed(getpid())
-        server = simpy.Resource(env, 1)
-        clients = [Client(i, env, server) for i in range(4)];
-        env.run()
+        self.client_params = {}
+        self.server_params = {}
+        servers = []
+        for i in range(2):
+            servers.append(Server(self.env, i, self.server_params))
+        clients = [Client(i, self.env, servers, self.client_params) for i in range(4)];
 
     def parseFile(self):
         configuration = open(self.args.config, "r")
-        self.params = {}
+        self.client_params = {}
+        self.server_params = {}
         for line in configuration:
             couple = line.strip().split('=')
             try:
-                self.params[couple[0].strip()] = int(couple[1].strip())
+                field = couple[0].strip()
+                value = couple[1].strip()
+                if field[0] == "C":
+                    self.client_params[field] = int(value)
+                if field[0] == "S":
+                    self.server_params[field] = int(value)
+
+                # self.params[couple[0].strip()] = int(couple[1].strip())
             except Exception:
                 if line[0] == '#':
                     print "Skipped line with a comment"
@@ -30,13 +42,23 @@ class Simulator:
 
     def printParams(self):
         if args.verbose:
-            for key, value in self.params.iteritems():
+            for key, value in self.client_params.iteritems():
                 print '{:>30} | {:d}'.format(key, value)
 
+            print
+            print "--------------------"
+            print
+
+            for key, value in self.server_params.iteritems():
+                print '{:>30} | {:d}'.format(key, value)
+
+    def run(self):
+        self.env.run()
+        
+
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("-c", "--config", default='config')
-    parser.add_argument("-v", "--verbose", action="store_true")
+    parser = Parser.createparser()
     args = parser.parse_args()
     simulator = Simulator(args)
+    simulator.run()
 
