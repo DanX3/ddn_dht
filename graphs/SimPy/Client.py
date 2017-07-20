@@ -45,10 +45,10 @@ class Client:
     def actually_decide_which_server(self):
         return self.get_server_by_id(self.find_most_free_server())
 
-    def send_request(self):
+    def send_request(self, server_chosen):
         yield self.env.process(self.hash_address())
         yield self.env.process(self.decide_which_server())
-        yield self.env.process(Server.write_meta_to_DHT(self.env, self.ID, self.logger))
+        yield self.env.process(server_chosen.write_meta_to_DHT(self.env, self.ID, self.logger))
 
     def check_tokens(self):
         if self.tokens > 1:
@@ -58,13 +58,14 @@ class Client:
 
     def run(self):
         printmessage(self.ID, "?", self.env.now)
-        resource = self.actually_decide_which_server().resource
-        request = resource.request()
+
+        server_chosen = self.actually_decide_which_server()
+        request = server_chosen.resource.request()
         yield request
         printmessage(self.ID, "+", self.env.now)
         yield self.env.process(self.check_tokens())
-        yield self.env.process(self.send_request())
-        resource.release(request)
+        yield self.env.process(self.send_request(server_chosen))
+        server_chosen.resource.release(request)
         if self.ID == 3:
             self.printInfo()
 
