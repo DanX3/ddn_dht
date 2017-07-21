@@ -1,5 +1,7 @@
 all:
-	python Simulator.py --verbose
+	python Simulator.py --function gauss
+	@#python Simulator.py --function gauss
+	@# python Simulator.py --verbose
 
 test:
 	python test.py

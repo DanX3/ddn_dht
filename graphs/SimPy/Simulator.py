@@ -2,8 +2,8 @@ import simpy
 from Client import Client
 from Server import Server
 import random
-from os import getpid
 import Parser
+from  FunctionDesigner import Function2D
 
 
 class Simulator:
@@ -12,7 +12,7 @@ class Simulator:
         self.args = args
         self.parseFile()
         self.printParams()
-        random.seed(getpid())
+        random.seed(args.seed)
         self.client_params = {}
         self.server_params = {}
         servers = []
@@ -54,11 +54,18 @@ class Simulator:
 
     def run(self):
         self.env.run()
-        
+
 
 if __name__ == "__main__":
     parser = Parser.createparser()
     args = parser.parse_args()
-    simulator = Simulator(args)
-    simulator.run()
+    if args.function:
+        if args.function == "gauss":
+            Function2D.plot_gauss(args.mu, args.sigma)
+        if args.function == "uniform":
+            Function2D.plot_uniform(args.value)
+    else:
+        simulator = Simulator(args)
+        simulator.run()
+
 
