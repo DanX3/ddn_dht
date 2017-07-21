@@ -6,21 +6,21 @@ class Logger:
         self.total_time = 0
         self.env = env
 
-    def _add_idle_time(self, time):
+    def add_idle_time(self, time):
         self.idle_time += time
 
-    def _add_work_time(self, time):
+    def add_work_time(self, time):
         self.work_time += time
 
     def work(self, duration):
         start = self.env.now
         yield self.env.timeout(duration)
-        self._add_work_time(self.env.now - start)
+        self.add_work_time(self.env.now - start)
 
     def wait(self, duration):
         start = self.env.now
         yield self.env.timeout(duration)
-        self._add_idle_time(self.env.now - start)
+        self.add_idle_time(self.env.now - start)
 
     def print_info(self):
         self.total_time = self.idle_time + self.work_time

@@ -4,6 +4,7 @@ from Server import Server
 import random
 import Parser
 from  FunctionDesigner import Function2D
+from Contract import Contract
 
 
 class Simulator:
@@ -13,10 +14,8 @@ class Simulator:
         self.parseFile()
         self.printParams()
         random.seed(args.seed)
-        self.client_params = {}
-        self.server_params = {}
         servers = []
-        for i in range(2):
+        for i in range(self.server_params[Contract.S_SERVER_COUNT]):
             servers.append(Server(self.env, i, self.server_params))
         clients = [Client(i, self.env, servers, self.client_params) for i in range(4)];
 

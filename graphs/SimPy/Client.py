@@ -2,6 +2,7 @@ from Logger import Logger
 from Server import Server
 from Utils import *
 from FunctionDesigner import Function2D
+from Contract import Contract
 
 class Client:
     def __init__(self, ID, env, servers, config):
@@ -45,13 +46,15 @@ class Client:
     def send_request(self, server_chosen):
         yield self.env.process(self.hash_address())
         yield self.env.process(self.decide_which_server())
+        start = self.env.now
         yield self.env.process(server_chosen.write_meta_to_DHT(self.ID))
+        self.logger.add_idle_time(self.env.now - start)
 
     def check_tokens(self):
         if self.tokens > 1:
             self.tokens -= 1
         else:
-            yield self.timeout(self.config["C_TOKEN_REFRESH"])
+            yield self.timeout(self.config[Contract.C_TOKEN_REFRESH])
 
     def run(self):
         printmessage(self.ID, "?", self.env.now)
