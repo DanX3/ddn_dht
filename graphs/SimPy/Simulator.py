@@ -3,8 +3,9 @@ from Client import Client
 from Server import Server
 import random
 import Parser
-from  FunctionDesigner import Function2D
+from  FunctionDesigner import Function2D, Plotter
 from Contract import Contract
+from Tests import *
 
 
 class Simulator:
@@ -60,9 +61,11 @@ if __name__ == "__main__":
     args = parser.parse_args()
     if args.function:
         if args.function == "gauss":
-            Function2D.plot_gauss(args.mu, args.sigma)
+            Plotter.plot_gauss(args.mu, args.sigma)
         if args.function == "uniform":
-            Function2D.plot_uniform(args.value)
+            Plotter.plot_uniform(args.value)
+        if args.function == "diag":
+            Plotter.plot_diag_limit(args.overhead, args.angular_coeff)
     else:
         simulator = Simulator(args)
         simulator.run()

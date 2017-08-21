@@ -7,7 +7,7 @@ class Logger:
         self.env = env
 
     def add_idle_time(self, time):
-        self.idle_time += time
+            self.idle_time += time
 
     def add_work_time(self, time):
         self.work_time += time
