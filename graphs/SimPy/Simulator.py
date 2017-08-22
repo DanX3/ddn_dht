@@ -13,12 +13,18 @@ class Simulator:
         self.env = simpy.Environment()
         self.args = args
         self.parseFile()
-        self.printParams()
+        # self.printParams()
         random.seed(args.seed)
-        servers = []
+        self.servers = []
         for i in range(self.server_params[Contract.S_SERVER_COUNT]):
-            servers.append(Server(self.env, i, self.server_params))
-        clients = [Client(i, self.env, servers, self.client_params) for i in range(4)];
+            self.servers.append(
+                    Server.Server(self.env, i, self.server_params))
+        clients = [Client.Client(i, self.env, self.servers, self.client_params) for i in range(4)];
+
+        # Add for example 3KB to send from every client
+        for client in clients:
+            for i in range(10):
+                client.add_request(20)
 
     def parseFile(self):
         configuration = open(self.args.config, "r")

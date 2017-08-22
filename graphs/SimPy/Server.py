@@ -4,7 +4,6 @@ from Utils import *
 
 
 class Server:
-
     def __init__(self, env, ID, config):
         self.env = env
         self.ID = ID
