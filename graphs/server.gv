@@ -30,32 +30,27 @@ digraph {
     timeout_1 -> RestructureData [color=forestgreen]
     timeout_1 -> end [color=brown1]
 
-    start -> "Receive Write Request"
+    start -> ReceiveWriteRequest
     subgraph cluster {
-        label = "Write Request" labelloc="b" labeljust="l"
+        label = "Write Request" labelloc="b"
         timeout_2[label="Timeout" shape=diamond]
-        subgraph cluster_1 {
-            label = "Metadata"
-            WriteMetaToDHT -> PropagateToDHT [xlabel="JUMBO"]
-            subgraph cluster_propagate {
-                label="Propagation"
-                PropagateToDHT -> NetworkTransfer
-            }
-            NetworkTransfer -> AccessToDisk
-            WriteMetaToDHT -> AccessToDisk [xlabel="Local"]
-            subgraph cluster_metadata {
-                label="FUSE Overhead"
-                OpCompleted_2[label="OpCompleted" shape="parallelogram"]
-                AccessToDisk -> fim_main_int -> cic_int -> OpCompleted_2
-                fim_main_int -> otherFunctionCalls -> OpCompleted_2
-            }
-            OpCompleted_2 -> SendAck
-
-        }
+        barrier[shape=circle label="barrier"]
+        waitJUMBO [shape=circle]
+        accessSmallDisks[label="AccessSmallDisks"]
+        FUSE_Overhead_2 [label=FUSE_Overhead]
         WriteDataToDisk -> TransactionalTraffic [arrowhead=open style=dashed]
 
-        "Receive Write Request" ->  WriteDataToDisk
-        "Receive Write Request" -> WriteMetaToDHT 
+        ReceiveWriteRequest ->  WriteDataToDisk -> FUSE_Overhead -> AccessCapableDisks -> barrier
+        ReceiveWriteRequest -> WriteMetaToDHT -> FUSE_Overhead_2 -> accessSmallDisks ->barrier
+        ReceiveWriteRequest -> waitJUMBO -> NetworkTransfer
+        subgraph cluster_propagation {
+            FUSE [label="FUSE_Overhead"]
+            send_ack[label="SendAck"]
+            NetworkTransfer -> FUSE -> 
+            AccessSmallDisks -> send_ack
+        }
+        send_ack -> barrier
+        barrier -> SendAck
         TransactionalTraffic -> timeout_2 [color="black:invis:black:invis:black"
             edgetooltip="Calls to multiple nodes"]
     }
@@ -63,7 +58,6 @@ digraph {
     timeout_2 -> RestructureData [color=forestgreen]
     RestructureData -> end
     SendAck -> end
-    WriteDataToDisk ->  AccessToDisk
 
 }
 
