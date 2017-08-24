@@ -6,7 +6,7 @@ import random
 import Parser
 from  FunctionDesigner import Function2D, Plotter
 from Contract import Contract
-from Tests import *
+# from Tests import *
 
 
 class Simulator:
@@ -18,7 +18,7 @@ class Simulator:
 
         self.servers_manager = ServerManager(self.env, self.server_params,
                 self.misc_params)
-        clients = [ Client.Client(i, self.env, self.servers_manager, \
+        clients = [ Client(i, self.env, self.servers_manager, \
             self.client_params, self.misc_params) \
                 for i in range(self.client_params[Contract.C_CLIENT_COUNT]) ]
 
@@ -49,20 +49,20 @@ class Simulator:
                 # self.params[couple[0].strip()] = int(couple[1].strip())
             except Exception:
                 if line[0] == '#':
-                    print "Skipped line with a comment"
+                    print("Skipped line with a comment")
                     continue
 
     def printParams(self, verbose=False):
         if args.verbose or verbose:
             for key, value in self.client_params.iteritems():
-                print '{:>30} : {:d}'.format(key, value)
+                print('{:>30} : {:d}'.format(key, value))
 
-            print
-            print "- - - - - - - - - - - - - - - - - - - -"
-            print
+            print()
+            print("- - - - - - - - - - - - - - - - - - - -")
+            print()
 
             for key, value in self.server_params.iteritems():
-                print '{:>30} : {:d}'.format(key, value)
+                print('{:>30} : {:d}'.format(key, value))
 
     def run(self):
         self.env.run()

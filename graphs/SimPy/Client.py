@@ -41,7 +41,6 @@ class Client:
         # self.chosen_server = self.get_server_by_id(most_free_server_id)
 
     def decide_which_server(self):
-        # print "%d) decided server  -  %f" % (self.ID, self.env.now)
         printmessage(self.ID, "->", self.env.now)
         # self.chosen_server = self.find_most_free_server()
         yield self.env.process(self.logger.work(Function2D.gauss(10, 2)))
@@ -93,7 +92,7 @@ class Client:
         if self.request_queue:
             self.current_request = self.request_queue.pop(0)
         else:
-            print "Client {} has finished all tasks".format(self.ID)
+            print ("Client {} has finished all tasks".format(self.ID))
             return
 
         # yield self.env.process(self.decide_which_server())

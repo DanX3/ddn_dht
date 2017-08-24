@@ -30,7 +30,7 @@ class Function2D:
     @staticmethod
     def evaluate_function(f, range_min, range_max, eval_nodes=11):
         for i in linspace(range_min, range_max, eval_nodes):
-            print "f({:.1f}) = {:.2f}".format(i, f(i))
+            print("f({:.1f}) = {:.2f}".format(i, f(i)))
 
     @staticmethod
     def get_gauss(mu, sigma):
@@ -103,4 +103,4 @@ if __name__ == "__main__":
     f = Function2D("DiskAccessTime", f, -10, 14)
     f.plot_function()
     for i in range(-10, 10):
-        print "[%3d] %4.2f" %(i, f.evaluate(i))
+        print("[%3d] %4.2f" %(i, f.evaluate(i)))

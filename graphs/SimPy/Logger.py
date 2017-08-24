@@ -24,14 +24,14 @@ class Logger:
     def print_info(self):
         total_time = self.idle_time + self.work_time
         if total_time > 0:
-            print "Information for ", self.ID
-            print
-            print "Idle time: %6d (%4.2f%%)" % (self.idle_time, 100.0 *
-                    self.idle_time / total_time)
-            print "Work time: %6d (%4.2f%%)" % (self.work_time, 100.0 *
-                    self.work_time / total_time)
+            print("Information for ", self.ID)
+            print()
+            print("Idle time: %6d (%4.2f%%)" % (self.idle_time, 100.0 *
+                    self.idle_time / total_time))
+            print("Work time: %6d (%4.2f%%)" % (self.work_time, 100.0 *
+                    self.work_time / total_time))
         else:
-            print "No data added so far"
+            print("No data added so far")
     
     def print_info_to_file(self, filename):
         total_time = float(self.idle_time + self.work_time)
