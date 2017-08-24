@@ -1,6 +1,7 @@
 import simpy
 from Client import Client
 from Server import Server
+from ServerManager import ServerManager
 import random
 import Parser
 from  FunctionDesigner import Function2D, Plotter
@@ -13,32 +14,37 @@ class Simulator:
         self.env = simpy.Environment()
         self.args = args
         self.parseFile()
-        # self.printParams()
         random.seed(args.seed)
-        self.servers = []
-        for i in range(self.server_params[Contract.S_SERVER_COUNT]):
-            self.servers.append(
-                    Server.Server(self.env, i, self.server_params))
-        clients = [Client.Client(i, self.env, self.servers, self.client_params) for i in range(4)];
+
+        self.servers_manager = ServerManager(self.env, self.server_params,
+                self.misc_params)
+        clients = [ Client.Client(i, self.env, self.servers_manager, \
+            self.client_params, self.misc_params) \
+                for i in range(self.client_params[Contract.C_CLIENT_COUNT]) ]
 
         # Add for example 3KB to send from every client
         for client in clients:
             for i in range(10):
                 client.add_request(20)
+        log = open(self.misc_params[Contract.M_CLIENT_LOGFILE_NAME], 'w')
 
     def parseFile(self):
         configuration = open(self.args.config, "r")
         self.client_params = {}
         self.server_params = {}
+        self.misc_params = {}
         for line in configuration:
             couple = line.strip().split('=')
             try:
                 field = couple[0].strip()
                 value = couple[1].strip()
-                if field[0] == "C":
+                if field[0] == "C":     #Client options
                     self.client_params[field] = int(value)
-                if field[0] == "S":
+                elif field[0] == "S":   #Server options
                     self.server_params[field] = int(value)
+                elif field[0] == "M":   #Misc Options
+                    self.misc_params[field] = value
+                
 
                 # self.params[couple[0].strip()] = int(couple[1].strip())
             except Exception:
@@ -46,17 +52,17 @@ class Simulator:
                     print "Skipped line with a comment"
                     continue
 
-    def printParams(self):
-        if args.verbose:
+    def printParams(self, verbose=False):
+        if args.verbose or verbose:
             for key, value in self.client_params.iteritems():
-                print '{:>30} | {:d}'.format(key, value)
+                print '{:>30} : {:d}'.format(key, value)
 
             print
-            print "--------------------"
+            print "- - - - - - - - - - - - - - - - - - - -"
             print
 
             for key, value in self.server_params.iteritems():
-                print '{:>30} | {:d}'.format(key, value)
+                print '{:>30} : {:d}'.format(key, value)
 
     def run(self):
         self.env.run()
@@ -74,6 +80,9 @@ if __name__ == "__main__":
             Plotter.plot_diag_limit(args.overhead, args.angular_coeff)
     else:
         simulator = Simulator(args)
-        simulator.run()
+        if args.params:
+            simulator.printParams(verbose=True)
+        else:
+            simulator.run()
 
 

@@ -4,16 +4,20 @@ from Utils import *
 
 
 class Server:
-    def __init__(self, env, ID, config):
+    def __init__(self, env, ID, config, misc_params):
         self.env = env
         self.ID = ID
-        self.resource = simpy.Resource(self.env, 1)
         self.logger = Logger(self.ID, self.env)
         self.config = config
+        self.availability = True
 
     def is_available(self):
-        return True if self.resource.count == 0 else False
-    
+        return self.availability
+        # return True if self.resource.count == 0 else False
+
+    def set_availability(self, new_availability):
+        self.availability = new_availability
+
     def get_queue_length(self):
         if self.is_available:
             return 0

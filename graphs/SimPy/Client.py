@@ -5,11 +5,12 @@ from FunctionDesigner import Function2D
 from Contract import Contract
 
 class Client:
-    def __init__(self, ID, env, servers, config):
+    def __init__(self, ID, env, servers_manager, config, misc_params):
         self.env = env
         self.ID = ID
-        self.servers = servers;
+        self.servers_manager = servers_manager;
         self.config = config
+        self.misc_params = misc_params
         self.env.process(self.run())
         self.logger = Logger(ID, env)
         self.tokens = 24
@@ -27,29 +28,22 @@ class Client:
         yield self.env.process(self.logger.work(Function2D.gauss(30, 10)))
         printmessage(self.ID, "X", self.env.now)
 
-    def get_server_by_id(self, ID):
-        for server in self.servers:
-            if ID == server.get_id():
-                return server
 
-    def find_most_free_server(self):
-        most_free_server_id = -1
-        max_queue_length = 2e31
-        for server in self.servers:
-            if server.is_available():
-                most_free_server_id = server.get_id()
-            elif server.get_queue_length() < max_queue_length:
-                max_queue_length = server.get_queue_length()
-                most_free_server_id = server.get_id()
-        self.chosen_server = self.get_server_by_id(most_free_server_id)
-        # set the server based on the ID
-        print "Set server #{}".format(self.chosen_server.get_id())
+    # def find_most_free_server(self):
+        # most_free_server_id = -1
+        # max_queue_length = 2e31
+        # for server in self.servers:
+            # if server.is_available():
+                # most_free_server_id = server.get_id()
+            # elif server.get_queue_length() < max_queue_length:
+                # max_queue_length = server.get_queue_length()
+                # most_free_server_id = server.get_id()
+        # self.chosen_server = self.get_server_by_id(most_free_server_id)
 
     def decide_which_server(self):
         # print "%d) decided server  -  %f" % (self.ID, self.env.now)
         printmessage(self.ID, "->", self.env.now)
         # self.chosen_server = self.find_most_free_server()
-        self.find_most_free_server()
         yield self.env.process(self.logger.work(Function2D.gauss(10, 2)))
     
     def get_pending_parity_size(self):
@@ -59,15 +53,15 @@ class Client:
         return size
 
     def forming_parity_group(self):
-        treshold = config[Contract.C_PENDING_PARITY_TRESHOLD]
-        if get_pending_parity_size() < treshold:
+        treshold = self.config[Contract.C_PENDING_PARITY_TRESHOLD]
+        if self.get_pending_parity_size() < treshold:
             yield self.env.timeout(0)
         else:
             send_size = 0
             while send_size <= treshold:
                 send_size += self.request_queue.pop(0)
             self.pending_send_queue.append(send_size)
-            yield self.env.process(self.logger.work(config[Contract.C_FORMING_PARITY_GROUP]))
+            yield self.env.process(self.logger.work(self.config[Contract.C_FORMING_PARITY_GROUP]))
 
     def pending_parity_group(self, request_size):
         # probably this time is negligible
@@ -75,9 +69,14 @@ class Client:
         yield self.env.process(self.logger.work(
             self.config[Contract.C_ENQUEUE_PARITY_GROUP]))
 
+    def pending_send_grouping(self):
+        yield self.env.process(self.logger.work(self.config[Contract.C_PENDING_SEND_GROUP]))
+
+
     def send_request(self, chosen_server):
         yield self.env.process(self.pending_parity_group(self.request_queue.pop(0)))
-        # yield self.env.process(self.forming_parity_group())
+        yield self.env.process(self.forming_parity_group())
+        yield self.env.process(self.pending_send_grouping())
         # yield self.env.process(self.hash_address())
         # yield self.env.process(self.decide_which_server())
         # start = self.env.now
@@ -97,19 +96,26 @@ class Client:
             print "Client {} has finished all tasks".format(self.ID)
             return
 
-        yield self.env.process(self.decide_which_server())
-        printmessage(self.ID, "?", self.env.now)
-        request = self.chosen_server.resource.request()
-        yield request
+        # yield self.env.process(self.decide_which_server())
+        # self.find_most_free_server()
+        # printmessage(self.ID, "{}?".format(self.chosen_server.get_id()), self.env.now)
+        # request = self.chosen_server.resource.request()
+        start = self.env.now
+        yield self.env.process(self.servers_manager.request_server(self.ID))
+        self.logger.add_idle_time(self.env.now - start)
+        # self.find_most_free_server()
+        printmessage(self.ID, "Chosen server", self.env.now)
 
-        printmessage(self.ID, "+", self.env.now)
+        # printmessage(self.ID, "+ ({}/{})".format(
+            # self.servers_manager.get_users_count(),
+            # self.servers_manager.get_resource_capacity()), self.env.now)
         yield self.env.process(self.check_tokens())
         yield self.env.process(self.send_request(self.chosen_server))
 
-        self.chosen_server.resource.release(request)
-        if self.ID == 3:
-            self.logger.print_info()
-            self.logger.print_info_to_file("Client_{:d}".format(self.ID))
+        # self.chosen_server.resource.release(request)
+        self.servers_manager.release_server(self.ID)
+        printmessage(self.ID, "<-", self.env.now)
+        self.logger.print_info_to_file(self.misc_params[Contract.M_CLIENT_LOGFILE_NAME])
 
     def add_request(self, request_size):
         self.request_queue.append(request_size)

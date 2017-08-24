@@ -22,5 +22,7 @@ def createparser():
     parser.add_argument("--value", default=1.0, type=float, help="set uniform value")
     parser.add_argument("--seed", default=getpid(), type=int, help="set seed \
             for random values. Default is PID")
+    parser.add_argument("-p", "--params", action="store_true", help="print \
+            current settings from config")
 
     return parser
