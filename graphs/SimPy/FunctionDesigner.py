@@ -67,7 +67,7 @@ class Function2D:
         #b = overhead / angular_coeff
         a = overhead
         b = a / angular_coeff
-        return lambda x: sqrt(a*a * (1.0 + x**2/b**2))
+        return lambda x: round(sqrt(a*a * (1.0 + x**2/b**2)))
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
@@ -103,4 +103,4 @@ if __name__ == "__main__":
     f = Function2D("DiskAccessTime", f, -10, 14)
     f.plot_function()
     for i in range(-10, 10):
-        print("[%3d] %4.2f" %(i, f.evaluate(i)))
+        Print("[%3d] %4.2f" %(i, f.evaluate(i)))

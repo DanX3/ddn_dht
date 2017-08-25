@@ -3,6 +3,7 @@ from Server import Server
 from Utils import *
 from FunctionDesigner import Function2D
 from Contract import Contract
+from random import randint
 
 class Client:
     def __init__(self, ID, env, servers_manager, config, misc_params):
@@ -88,6 +89,9 @@ class Client:
         else:
             yield self.timeout(self.config[Contract.C_TOKEN_REFRESH])
 
+    def receive_answer(self, req):
+        printmessage(self.ID, "Received {}".format(req.get_filesize()), self.env.now)
+
     def run(self):
         if self.request_queue:
             self.current_request = self.request_queue.pop(0)
@@ -95,29 +99,25 @@ class Client:
             print ("Client {} has finished all tasks".format(self.ID))
             return
 
-        # yield self.env.process(self.decide_which_server())
-        # self.find_most_free_server()
-        # printmessage(self.ID, "{}?".format(self.chosen_server.get_id()), self.env.now)
-        # request = self.chosen_server.resource.request()
         start = self.env.now
-        yield self.env.process(self.servers_manager.request_server(self.ID))
+        # yield self.env.timeout(self.ID)
+        target_server_ID = randint(0, len(self.servers_manager.servers)-1)
+        clientRequest = ClientRequest(self, target_server_ID, 500)
+        yield self.env.process(self.servers_manager.request_server(clientRequest))
         self.logger.add_idle_time(self.env.now - start)
-        # self.find_most_free_server()
-        printmessage(self.ID, "Chosen server", self.env.now)
 
-        # printmessage(self.ID, "+ ({}/{})".format(
-            # self.servers_manager.get_users_count(),
-            # self.servers_manager.get_resource_capacity()), self.env.now)
         yield self.env.process(self.check_tokens())
         yield self.env.process(self.send_request(self.chosen_server))
 
-        # self.chosen_server.resource.release(request)
-        self.servers_manager.release_server(self.ID)
-        printmessage(self.ID, "<-", self.env.now)
-        self.logger.print_info_to_file(self.misc_params[Contract.M_CLIENT_LOGFILE_NAME])
+        # self.env.process(self.servers_manager.release_server(self.chosen_server_id))
+        # printmessage(self.ID, "<-", self.env.now)
+        # self.logger.print_info_to_file(self.misc_params[Contract.M_CLIENT_LOGFILE_NAME])
 
     def add_request(self, request_size):
         self.request_queue.append(request_size)
+
+    def get_id(self):
+        return self.ID
 
 # env = simpy.rt.RealtimeEnvironment(initial_time=0, factor=1.0, strict=True)
 

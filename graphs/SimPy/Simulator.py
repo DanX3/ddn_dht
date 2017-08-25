@@ -16,11 +16,12 @@ class Simulator:
         self.parseFile()
         random.seed(args.seed)
 
+        clients = []
         self.servers_manager = ServerManager(self.env, self.server_params,
-                self.misc_params)
-        clients = [ Client(i, self.env, self.servers_manager, \
-            self.client_params, self.misc_params) \
-                for i in range(self.client_params[Contract.C_CLIENT_COUNT]) ]
+                self.misc_params, clients)
+        for i in range(self.client_params[Contract.C_CLIENT_COUNT]):
+            clients.append(Client(i, self.env, self.servers_manager,
+                self.client_params, self.misc_params))
 
         # Add for example 3KB to send from every client
         for client in clients:

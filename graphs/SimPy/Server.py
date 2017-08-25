@@ -1,15 +1,19 @@
 import simpy
 from Logger import Logger
 from Utils import *
+from FunctionDesigner import *
 
 
 class Server:
-    def __init__(self, env, ID, config, misc_params):
+    def __init__(self, env, ID, config, misc_params, clients, server_manager):
         self.env = env
         self.ID = ID
         self.logger = Logger(self.ID, self.env)
         self.config = config
         self.availability = True
+        self.clients = clients
+        self.server_manager = server_manager
+        self.requests = []
 
     def is_available(self):
         return self.availability
@@ -27,9 +31,27 @@ class Server:
     def get_id(self):
         return self.ID
 
-    def process_request(self, env, clientID, logger):
-        yield env.timeout(2)
-        printmessage(clientID, "-", env.now)
+    def process_request(self):
+        if len(self.requests) != 0 and self.availability == True:
+            self.availability = False
+            req = self.requests.pop(0)
+            if (self.is_request_valid(req)):
+                printmessage(self.ID, "accepted req {}".format(req.get_client().get_id()), self.env.now)
+                yield self.env.process(self.logger.work(Function2D.get_diag_limit(50000, 1000)(req.get_filesize())))
+                req.get_client().receive_answer(req)
+                # printmessage(req.get_client().get_id(), "-", env.now)
+            else:
+                pass
+
+            if len(self.requests) != 0:
+                self.availability = True
+                self.env.process(self.process_request())
+            else:
+                self.availability = True
+                printmessage(self.ID, "I'm free", self.env.now)
+                # Redirect to the correct server
+                # self.server_manager.add_request(clientRequest)
+
 
     def make_data_persistent(self, clientID):
         yield self.env.timeout(2)
@@ -50,4 +72,12 @@ class Server:
         yield propagation & persistency
         printmessage(clientID, "-", self.env.now)
 
+    def is_request_valid(self, clientRequest):
+        return True
 
+    def get_new_target(self, clientRequest):
+        return self
+
+    def add_request(self, clientRequest):
+        self.requests.append(clientRequest)
+        self.env.process(self.process_request())
