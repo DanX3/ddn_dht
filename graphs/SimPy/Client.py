@@ -21,7 +21,7 @@ class Client:
         self.request_queue = []
         self.current_request = 0
 
-        self.pending_parity_queue = []
+        # self.pending_parity_queue = []
         self.pending_send_queue = []
 
     def hash_address(self):
@@ -53,7 +53,7 @@ class Client:
         return size
 
     def forming_parity_group(self):
-        treshold = self.config[Contract.C_PENDING_PARITY_TRESHOLD]
+        treshold = self.config[Contract.C_PENDING_PARITY_GROUP]
         if self.get_pending_parity_size() < treshold:
             yield self.env.timeout(0)
         else:
@@ -72,17 +72,6 @@ class Client:
     def pending_send_grouping(self):
         yield self.env.process(self.logger.work(self.config[Contract.C_PENDING_SEND_GROUP]))
 
-
-    def send_request(self, chosen_server):
-        yield self.env.process(self.pending_parity_group(self.request_queue.pop(0)))
-        yield self.env.process(self.forming_parity_group())
-        yield self.env.process(self.pending_send_grouping())
-        # yield self.env.process(self.hash_address())
-        # yield self.env.process(self.decide_which_server())
-        # start = self.env.now
-        # yield self.env.process(chosen_server.write_meta_to_DHT(self.ID))
-        # self.logger.add_idle_time(self.env.now - start)
-
     def check_tokens(self):
         if self.tokens > 0:
             self.tokens -= 1
@@ -93,24 +82,48 @@ class Client:
         printmessage(self.ID, "Received {}".format(req.get_filesize()), self.env.now)
 
     def run(self):
-        if self.request_queue:
-            self.current_request = self.request_queue.pop(0)
-        else:
-            print ("Client {} has finished all tasks".format(self.ID))
-            return
+        yield self.env.timeout(0)
+        # if self.request_queue:
+            # self.current_request = self.request_queue.pop(0)
+        # else:
+            # print ("Client {} has finished all tasks".format(self.ID))
+            # return
 
-        yield self.env.process(self.check_tokens())
-        yield self.env.process(self.send_request(self.chosen_server))
+        # yield self.env.process(self.check_tokens())
+        # yield self.env.process(self.send_request(self.chosen_server))
 
+
+    def send_request(self, sendGroup):
         start = self.env.now
         target_server_ID = randint(0, len(self.servers_manager.servers)-1)
         print("Client {} requested Server {}".format(self.ID, target_server_ID))
-        clientRequest = ClientRequest(self, target_server_ID, self.ID * 100)
-        yield self.env.process(self.servers_manager.request_server(clientRequest))
+        # clientRequest = ClientRequest(self, target_server_ID, self.ID * 100)
+        yield self.env.process(self.servers_manager.request_server(sendGroup))
         self.logger.add_idle_time(self.env.now - start)
 
+    def check_send_queue(self):
+        while len(self.pending_send_queue) >= self.config[Contract.C_PENDING_SEND_GROUP]:
+            sendGroup = SendGroup()
+            for i in range(self.config[Contract.C_PENDING_SEND_GROUP]):
+                sendGroup.add_request(self.pending_send_queue.pop(0))
+            self.env.process(self.send_request(sendGroup))
+            printmessage(self.ID, ">SendGroup", self.env.now)
+
+    def check_request_queue(self):
+        while len(self.request_queue) >= self.config[Contract.C_PENDING_PARITY_GROUP]:
+            parityGroup = ParityGroup()
+            for i in range(self.config[Contract.C_PENDING_PARITY_GROUP]):
+                parityGroup.add_request(self.request_queue.pop(0))
+                self.pending_send_queue.append(parityGroup)
+            printmessage(self.ID, "+SendGroup", self.env.now)
+            # yield self.env.timeout(1)
+        self.check_send_queue()
+
+    
     def add_request(self, request_size):
-        self.request_queue.append(request_size)
+        clientRequest = ClientRequest(self, 0, request_size)
+        self.request_queue.append(clientRequest)
+        self.check_request_queue()
 
     def get_id(self):
         return self.ID

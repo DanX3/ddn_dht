@@ -22,10 +22,16 @@ class ServerManager:
             if ID == server.get_id():
                 return server
 
-    def request_server(self, clientRequest):
-        target_server = self.servers[clientRequest.get_target_ID()]
-        target_server.add_request(clientRequest)
+    def request_server(self, sendGroup):
+        target_server = self.servers[sendGroup.get_target_ID()]
+        target_server.add_request(sendGroup)
         yield self.env.timeout(12)
+
+    def request_server_single_req(self, clientRequest):
+        target_server = self.servers[clientRequest.get_target_ID()]
+        target_server.add_single_request(clientRequest)
+        yield self.env.timeout(12)
+
 
     def release_server(self, server_ID):
         self.server_resources.release(self.requests[server_ID])

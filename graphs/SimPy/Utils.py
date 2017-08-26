@@ -19,5 +19,38 @@ class ClientRequest:
 
     def get_filesize(self):
         return self.filesize_kb
+    
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
+
+class SendGroup:
+    def __init__(self):
+        self.requests = []
+
+    def add_request(self, req):
+        self.requests.append(req)
+        
+    def get_target_ID(self):
+        if self.requests:
+            return self.requests[0].get_target_ID()
+        else:
+            return -1
+
+    def get_client(self):
+        if self.requests:
+            return self.requests[0].get_client()
+        else:
+            return -1
+
+    def get_requests(self):
+        return self.requests
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
+
+class ParityGroup(SendGroup):
+    def __init__(self):
+        self.requests = []
+
+    def get_hash_time(self):
+        return len(self.requests) * 20
 
 
