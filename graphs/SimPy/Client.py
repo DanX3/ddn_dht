@@ -99,19 +99,15 @@ class Client:
             print ("Client {} has finished all tasks".format(self.ID))
             return
 
-        start = self.env.now
-        # yield self.env.timeout(self.ID)
-        target_server_ID = randint(0, len(self.servers_manager.servers)-1)
-        clientRequest = ClientRequest(self, target_server_ID, 500)
-        yield self.env.process(self.servers_manager.request_server(clientRequest))
-        self.logger.add_idle_time(self.env.now - start)
-
         yield self.env.process(self.check_tokens())
         yield self.env.process(self.send_request(self.chosen_server))
 
-        # self.env.process(self.servers_manager.release_server(self.chosen_server_id))
-        # printmessage(self.ID, "<-", self.env.now)
-        # self.logger.print_info_to_file(self.misc_params[Contract.M_CLIENT_LOGFILE_NAME])
+        start = self.env.now
+        target_server_ID = randint(0, len(self.servers_manager.servers)-1)
+        print("Client {} requested Server {}".format(self.ID, target_server_ID))
+        clientRequest = ClientRequest(self, target_server_ID, self.ID * 100)
+        yield self.env.process(self.servers_manager.request_server(clientRequest))
+        self.logger.add_idle_time(self.env.now - start)
 
     def add_request(self, request_size):
         self.request_queue.append(request_size)

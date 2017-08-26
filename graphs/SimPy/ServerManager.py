@@ -25,7 +25,6 @@ class ServerManager:
     def request_server(self, clientRequest):
         target_server = self.servers[clientRequest.get_target_ID()]
         target_server.add_request(clientRequest)
-        print("Client {} requested Server {}".format(clientRequest.get_client().get_id(), target_server.get_id()))
         yield self.env.timeout(12)
 
     def release_server(self, server_ID):

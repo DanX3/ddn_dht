@@ -2,6 +2,7 @@ import simpy
 from Logger import Logger
 from Utils import *
 from FunctionDesigner import *
+from random import randint
 
 
 class Server:
@@ -41,6 +42,12 @@ class Server:
                 req.get_client().receive_answer(req)
                 # printmessage(req.get_client().get_id(), "-", env.now)
             else:
+                new_target_ID = self.ID
+                while new_target_ID == self.ID:
+                    new_target_ID = randint(0, len(self.server_manager.servers) - 1)
+                req.set_new_target_ID(new_target_ID)
+                printmessage(self.ID, "({}) {} --> {}".format(req.get_client().get_id(), self.ID, new_target_ID), self.env.now)
+                self.env.process(self.server_manager.request_server(req))
                 pass
 
             if len(self.requests) != 0:
@@ -73,7 +80,10 @@ class Server:
         printmessage(clientID, "-", self.env.now)
 
     def is_request_valid(self, clientRequest):
-        return True
+        if randint(0, 9) < 7:
+            return True
+        else:
+            return False
 
     def get_new_target(self, clientRequest):
         return self

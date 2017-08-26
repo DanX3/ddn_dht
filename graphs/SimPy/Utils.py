@@ -14,6 +14,9 @@ class ClientRequest:
     def get_target_ID(self):
         return self.target_server_ID
 
+    def set_new_target_ID(self, new_target_ID):
+        self.target_server_ID = new_target_ID
+
     def get_filesize(self):
         return self.filesize_kb
 
