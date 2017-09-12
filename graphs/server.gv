@@ -51,7 +51,17 @@ digraph {
         }
         send_ack -> barrier
         barrier -> SendAck
-        TransactionalTraffic -> timeout_2 [color="black:invis:black:invis:black"
+
+        #subgraph for TransactionalTraffic
+        subgraph cluster_1 {
+            endTrans [label="end"]
+            TransTimeout[label="Timeout" shape=diamond]
+            TransactionalTraffic -> SelectTarget -> PingTarget -> TransTimeout
+            TransTimeout -> SendData [color=red]
+            TransTimeout -> SelectTarget [color=green]
+            TransactionalTraffic -> GenerateParity -> SendData ->  endTrans
+        }
+        endTrans -> timeout_2 [color="black:invis:black:invis:black"
             edgetooltip="Calls to multiple nodes"]
     }
     timeout_2 -> end [color=brown1]

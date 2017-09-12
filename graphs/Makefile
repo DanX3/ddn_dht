@@ -7,6 +7,11 @@ run: all show
 
 %.svg: %.gv
 	$(CC) $(CFLAGS) -o $@ $<
+
+runpng:client.png server.png
+
+%.png: %.gv
+	$(CC) -Tpng -o $@ $<
 	
 show:
-	xviewer server.svg
+	eog server.svg
