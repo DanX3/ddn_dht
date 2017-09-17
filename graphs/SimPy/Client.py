@@ -9,13 +9,13 @@ class Client:
     def __init__(self, ID, env, servers_manager, config, misc_params):
         self.env = env
         self.ID = ID
-        self.servers_manager = servers_manager;
+        self.servers_manager = servers_manager
         self.config = config
         self.misc_params = misc_params
         self.env.process(self.run())
         self.logger = Logger(ID, env)
         self.tokens = 24
-        self.chosen_server = -1;
+        self.chosen_server = -1
 
         # requests sent. The ints shows the size of KB of the request
         self.request_queue = []
@@ -92,11 +92,10 @@ class Client:
         # yield self.env.process(self.check_tokens())
         # yield self.env.process(self.send_request(self.chosen_server))
 
-
     def send_request(self, sendGroup):
         start = self.env.now
-        target_server_ID = randint(0, len(self.servers_manager.servers)-1)
-        print("Client {} requested Server {}".format(self.ID, target_server_ID))
+        target_server_id = randint(0, len(self.servers_manager.servers)-1)
+        print("Client {} requested Server {}".format(self.ID, target_server_id))
         # clientRequest = ClientRequest(self, target_server_ID, self.ID * 100)
         yield self.env.process(self.servers_manager.request_server(sendGroup))
         self.logger.add_idle_time(self.env.now - start)
@@ -104,26 +103,34 @@ class Client:
     def check_send_queue(self):
         while len(self.pending_send_queue) >= self.config[Contract.C_PENDING_SEND_GROUP]:
             sendGroup = SendGroup()
-            for i in range(self.config[Contract.C_PENDING_SEND_GROUP]):
-                sendGroup.add_request(self.pending_send_queue.pop(0))
-            self.env.process(self.send_request(sendGroup))
             printmessage(self.ID, ">SendGroup", self.env.now)
+            for i in range(self.config[Contract.C_PENDING_SEND_GROUP]):
+                send_req = self.pending_send_queue.pop(0)
+                print(send_req)
+                sendGroup.add_request(send_req)
+            self.env.process(self.send_request(sendGroup))
 
     def check_request_queue(self):
         while len(self.request_queue) >= self.config[Contract.C_PENDING_PARITY_GROUP]:
-            parityGroup = ParityGroup()
-            for i in range(self.config[Contract.C_PENDING_PARITY_GROUP]):
-                parityGroup.add_request(self.request_queue.pop(0))
-                self.pending_send_queue.append(parityGroup)
+            parity_group = ParityGroup()
             printmessage(self.ID, "+SendGroup", self.env.now)
+            for i in range(self.config[Contract.C_PENDING_PARITY_GROUP]):
+                parity_group.add_request(self.request_queue.pop(0))
+            self.pending_send_queue.append(parity_group)
             # yield self.env.timeout(1)
         self.check_send_queue()
 
-    
     def add_request(self, request_size):
-        clientRequest = ClientRequest(self, 0, request_size)
-        self.request_queue.append(clientRequest)
+        client_request = ClientRequest(self, 0, request_size)
+        self.request_queue.append(client_request)
         self.check_request_queue()
+
+    def print_status(self):
+        print("Client {}".format(self.ID))
+        print("\tRequest queue: {}".format(len(self.request_queue)))
+        print("\tSend queue: {}".format(len(self.pending_send_queue)))
+        print()
+
 
     def get_id(self):
         return self.ID

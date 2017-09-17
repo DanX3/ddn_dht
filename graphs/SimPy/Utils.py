@@ -2,11 +2,13 @@ def printmessage(ID, message, time, done=True):
     doneChar = u"\u2713" if done else u"\u279C"
     print(doneChar.rjust(2), (str(time) + "us").rjust(12), ("%d)"%ID).rjust(3), str(message))
 
+
 class ClientRequest:
-    def __init__(self, client, target_server_ID, filesize_kb):
+    def __init__(self, client, target_server_ID, filesize_kb, read=True):
         self.client = client
         self.target_server_ID = target_server_ID
         self.filesize_kb = filesize_kb
+        self.read = read
 
     def get_client(self):
         return self.client
@@ -21,6 +23,7 @@ class ClientRequest:
         return self.filesize_kb
     
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
+
 
 class SendGroup:
     def __init__(self):
@@ -45,6 +48,7 @@ class SendGroup:
         return self.requests
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
+
 
 class ParityGroup(SendGroup):
     def __init__(self):

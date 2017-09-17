@@ -13,44 +13,44 @@ class Simulator:
     def __init__(self, args):
         self.env = simpy.Environment()
         self.args = args
+        self.client_params = {}
+        self.server_params = {}
+        self.misc_params = {}
         self.parseFile()
         random.seed(args.seed)
 
         clients = []
         self.servers_manager = ServerManager(self.env, self.server_params,
-                self.misc_params, clients)
+                                             self.misc_params, clients)
         for i in range(self.client_params[Contract.C_CLIENT_COUNT]):
             clients.append(Client(i, self.env, self.servers_manager,
-                self.client_params, self.misc_params))
+                                  self.client_params, self.misc_params))
 
         # Add for example 3KB to send from every client
         for client in clients:
-            for i in range(20):
-                client.add_request(20)
+            for i in range(1):
+                client.add_request(200)
         log = open(self.misc_params[Contract.M_CLIENT_LOGFILE_NAME], 'w')
 
     def parseFile(self):
         configuration = open(self.args.config, "r")
-        self.client_params = {}
-        self.server_params = {}
-        self.misc_params = {}
+
         for line in configuration:
             couple = line.strip().split('=')
             try:
                 field = couple[0].strip()
                 value = couple[1].strip()
-                if field[0] == "C":     #Client options
+                if field[0] == "C":     # Client options
                     self.client_params[field] = int(value)
-                elif field[0] == "S":   #Server options
+                elif field[0] == "S":   # Server options
                     self.server_params[field] = int(value)
-                elif field[0] == "M":   #Misc Options
+                elif field[0] == "M":   # Misc Options
                     self.misc_params[field] = value
                 
 
                 # self.params[couple[0].strip()] = int(couple[1].strip())
             except Exception:
                 if line[0] == '#':
-                    print("Skipped line with a comment")
                     continue
 
     def printParams(self, verbose=False):

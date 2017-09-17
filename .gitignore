@@ -3,4 +3,6 @@
 *.vim
 *.sw[onp]
 ddn_dht*
-
+*.pyc
+*test*
+*.out
