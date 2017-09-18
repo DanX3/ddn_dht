@@ -5,11 +5,11 @@ from os import getpid
 from math import floor, sqrt, pi, log
 
 class Function2D:
-    def __init__(self, label, function, range_min=1.0, range_max=10.0,
-            function_reference=None):
+    def __init__(self, label, plotting_function, range_min=1.0, range_max=10.0,
+                 function_reference=None):
         assert(range_min < range_max)
         self.label = label
-        self.function = function
+        self.function = plotting_function
         self.range_min = range_min
         self.range_max = range_max
         self.step = float(range_max - range_min) / 100.0
@@ -90,6 +90,7 @@ class Plotter:
     @staticmethod
     def plot_diag_limit(overhead, angular_coeff):
         label = "DiagLimit ({}, {})" .format(overhead, angular_coeff)
+        angular_coeff = 1000.0 / angular_coeff
         d = Function2D.get_diag_limit(overhead, angular_coeff)
         diag2D = Function2D(label, d, 0.0, 500.0,
                 function_reference=lambda x: x * angular_coeff)

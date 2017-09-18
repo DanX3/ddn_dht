@@ -13,14 +13,13 @@ digraph {
         timeout_1[shape=diamond label="Timeout"]
         LocalData [shape=diamond]
 
-        "Receive Read Request" -> LocalData
-        LocalData -> CreatePacket [color=forestgreen]
+        "Receive Read Request" -> LocalData -> ReadFromHDD [color=forestgreen]
 
         subgraph cluster {
             label = "SendAnswer" labelloc="b" labeljust="l"
             color = darkviolet
 
-            CreatePacket -> TransmitPacket
+            ReadFromHDD -> CreatePacket -> TransmitPacket
         }
 
         LocalData -> SendRequest [color=brown1]
