@@ -27,7 +27,6 @@ class Client:
             self.pending_send_queue[i] = []
             self.request_queue[i] = []
 
-
     def hash_address(self):
         # yield self.env.timeout(2)
         yield self.env.process(self.logger.work(Function2D.gauss(30, 10)))
@@ -103,39 +102,63 @@ class Client:
         yield self.env.process(self.servers_manager.request_server(send_group))
         self.logger.add_idle_time(self.env.now - start)
 
-    def check_send_queue(self, target_id):
-        while len(self.pending_send_queue[target_id]) >= self.config[Contract.C_PENDING_SEND_GROUP]:
-            send_group = SendGroup()
-            printmessage(self.ID, ">SendGroup", self.env.now)
-            for i in range(self.config[Contract.C_PENDING_SEND_GROUP]):
-                send_req = self.pending_send_queue[target_id].pop(0)
-                send_group.add_request(send_req)
+    def flush_parities(self, target_id):
+        send_group = SendGroup()
+        reqs_to_send_count = min(self.config[Contract.C_PENDING_SEND_GROUP], len(self.pending_send_queue[target_id]))
+        for i in range(reqs_to_send_count):
+            send_req = self.pending_send_queue[target_id].pop(0)
+            send_group.add_request(send_req)
+        if reqs_to_send_count != 0:
+            printmessage(self.ID, ">[{}]SendGroup".format(target_id), self.env.now)
             self.env.process(self.send_request(send_group))
 
-    def check_request_queue(self, target_id):
-        while len(self.request_queue[target_id]) >= self.config[Contract.C_PENDING_PARITY_GROUP]:
-            parity_group = ParityGroup()
-            printmessage(self.ID, "+SendGroup", self.env.now)
-            for i in range(self.config[Contract.C_PENDING_PARITY_GROUP]):
-                parity_group.add_request(self.request_queue[target_id].pop(0))
+    def check_send_queue(self, target_id):
+        while len(self.pending_send_queue[target_id]) >= self.config[Contract.C_PENDING_SEND_GROUP]:
+            self.flush_parities(target_id)
+
+    def flush_requests(self, target_id):
+        parity_group = ParityGroup()
+        reqs_to_send_count = min(self.config[Contract.C_PENDING_PARITY_GROUP], len(self.request_queue[target_id]))
+        for i in range(reqs_to_send_count):
+            parity_group.add_request(self.request_queue[target_id].pop(0))
+        if reqs_to_send_count != 0:
+            printmessage(self.ID, "+[{}]SendGroup".format(target_id), self.env.now)
             self.pending_send_queue[target_id].append(parity_group)
-            # yield self.env.timeout(1)
+
+    def check_request_queue(self, target_id):
+        requests_size = 0
+        for req in self.request_queue[target_id]:
+            requests_size += req.get_size()
+
+        while len(self.request_queue[target_id]) >= self.config[Contract.C_PENDING_PARITY_GROUP]:
+            self.flush_requests(target_id)
         self.check_send_queue(target_id)
 
-    def add_request(self, request_size, target_server_id):
+    def add_request(self, target_server_id, request_size):
         client_request = ClientRequest(self, target_server_id, filesize_kb=request_size, read=True)
         self.request_queue[client_request.get_target_ID()].append(client_request)
         self.check_request_queue(client_request.get_target_ID())
 
     def print_status(self):
         print("Client {}".format(self.ID))
-        print("\tRequest queue: {}".format(len(self.request_queue)))
-        print("\tSend queue: {}".format(len(self.pending_send_queue)))
-        print()
+        print("\tReqs queue:")
+        for target_id in self.request_queue:
+            print("\t\t[{}] : {}".format(target_id, len(self.request_queue[target_id])))
 
+        print("\tSend queue:")
+        for target_id in self.pending_send_queue:
+            print("\t\t[{}] : {}".format(target_id, len(self.pending_send_queue[target_id])))
+        print()
 
     def get_id(self):
         return self.ID
+
+    def flush(self):
+        for target_id in range(self.servers_manager.get_server_count()):
+            self.flush_requests(target_id)
+
+        for target_id in range(self.servers_manager.get_server_count()):
+            self.flush_parities(target_id)
 
 # env = simpy.rt.RealtimeEnvironment(initial_time=0, factor=1.0, strict=True)
 

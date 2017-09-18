@@ -27,9 +27,11 @@ class Simulator:
                                   self.client_params, self.misc_params))
 
         # Add for example 3KB to send from every client
-        for client in clients:
-            for i in range(20):
-                client.add_request(200, 0)
+        clients[0].add_request(0, 2000)
+        clients[0].add_request(1, 2000)
+        clients[0].print_status()
+        clients[0].flush()
+        clients[0].print_status()
         log = open(self.misc_params[Contract.M_CLIENT_LOGFILE_NAME], 'w')
 
     def parseFile(self):

@@ -83,7 +83,7 @@ class Server:
                 # self.server_manager.add_request(clientRequest)
 
     def is_request_local(self, clientRequest):
-        if randint(0, 9) < 7:
+        if randint(0, 9) < 10:
             return True
         else:
             return False

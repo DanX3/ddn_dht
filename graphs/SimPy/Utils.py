@@ -22,6 +22,12 @@ class ClientRequest:
     def get_filesize(self):
         return self.filesize_kb
 
+    def get_size(self):
+        if self.read:
+            return 1
+        else:
+            return self.filesize_kb
+
     def is_read(self):
         return self.read
 
