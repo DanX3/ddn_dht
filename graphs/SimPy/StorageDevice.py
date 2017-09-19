@@ -1,10 +1,10 @@
 from FunctionDesigner import Function2D
 
 class StorageDevice():
-    def __init__(self, capacity_kb, bandwidth_kb_per_sec, latency_ms):
+    def __init__(self, capacity_kb, bandwidth_kB_per_sec, latency_ms):
         self.capacity_kb = capacity_kb
         self.used_memory = 0
-        self.bandwidth = bandwidth_kb_per_sec
+        self.bandwidth = bandwidth_kB_per_sec
         self.latency = latency_ms
 
     def process_transfer(self, filesize_kb):

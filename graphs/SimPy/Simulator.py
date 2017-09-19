@@ -27,8 +27,8 @@ class Simulator:
                                   self.client_params, self.misc_params))
 
         # Add for example 3KB to send from every client
-        clients[0].add_request(0, 2000)
-        clients[0].add_request(1, 2000)
+        clients[0].add_request(0, 1e3, False)
+        # clients[0].add_request(1, 1000000)
         clients[0].print_status()
         clients[0].flush()
         clients[0].print_status()

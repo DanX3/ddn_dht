@@ -43,12 +43,12 @@ class Server:
 
     def process_read_request(self, req):
         transfer_time = req.get_filesize() / self.hdd_data.get_bandwidth()
-        yield self.env.timeout(self.hdd_data.get_latency() + transfer_time)
+        yield self.env.timeout(self.hdd_data.get_latency() + round(transfer_time))
         req.get_client().receive_answer(req)
 
     def process_write_request(self, req):
         transfer_time = req.get_filesize() / self.hdd_data.get_bandwidth()
-        yield self.env.timeout(self.hdd_data.get_latency() + transfer_time)
+        yield self.env.timeout(self.hdd_data.get_latency() + round(transfer_time))
         req.get_client().receive_answer(req)
 
     def process_single_request(self):

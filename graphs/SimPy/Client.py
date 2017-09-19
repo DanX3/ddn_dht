@@ -134,8 +134,8 @@ class Client:
             self.flush_requests(target_id)
         self.check_send_queue(target_id)
 
-    def add_request(self, target_server_id, request_size):
-        client_request = ClientRequest(self, target_server_id, filesize_kb=request_size, read=True)
+    def add_request(self, target_server_id, request_size, read):
+        client_request = ClientRequest(self, target_server_id, filesize_kb=request_size, read=read)
         self.request_queue[client_request.get_target_ID()].append(client_request)
         self.check_request_queue(client_request.get_target_ID())
 

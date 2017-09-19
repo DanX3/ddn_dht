@@ -2,7 +2,7 @@ import simpy
 from Server import Server
 from Contract import Contract
 from Utils import *
-from FunctionDesigner import Function2D
+from FunctionDesigner import Function2D, Plotter
 
 class ServerManager:
     def __init__(self, env, server_params, misc_params, clients):
@@ -33,12 +33,12 @@ class ServerManager:
         :return:
         """
         target_server = self.servers[send_group.get_target_ID()]
-        overhead = int(self.misc_params[Contract.M_NETWORK_LATENCY_MS]) * 1e3
-        ang_coefficient = 1e6/int(self.misc_params[Contract.M_HUB_BW_Gbps]) * 2e6
-        time_required = Function2D.get_diag_limit(overhead, ang_coefficient)(send_group.get_size())
+        overhead = int(self.misc_params[Contract.M_NETWORK_LATENCY_MS])
+        max_bandwidth = int(self.misc_params[Contract.M_HUB_BW_Gbps]) * 1e6 / 8
+        time_required = Function2D.get_bandwidth_model(overhead, max_bandwidth)(send_group.get_size())
         avg_bandwidth = send_group.get_size() / time_required
         self.HUB_usage += avg_bandwidth
-
+        Plotter.plot_bandwidth_model(overhead, max_bandwidth, packet_size_kB=send_group.get_size())
         yield self.env.timeout(time_required)
         target_server.add_request(send_group)
 
