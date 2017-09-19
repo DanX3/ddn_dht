@@ -35,24 +35,29 @@ class ServerManager:
         """
         target_server = self.servers[send_group.get_target_ID()]
         overhead = int(self.misc_params[Contract.M_NETWORK_LATENCY_MS])
-        max_bandwidth = int(self.misc_params[Contract.M_HUB_BW_Gbps]) * 1e6 / 8
+        # max_bandwidth = int(self.misc_params[Contract.M_HUB_BW_Gbps]) * 1e6 / 8
         size = send_group.get_size()
-        time_required = Function2D.get_bandwidth_model(overhead, max_bandwidth)(size) / 1e6
-        avg_bandwidth = send_group.get_size() / time_required
-        # self.HUB.request_bandwidth(avg_bandwidth)
 
-        if self.HUB.is_available():
-            allowed_bw = self.HUB.request_bandwidth(avg_bandwidth)
-            print("sending at {}/{}".format(allowed_bw, avg_bandwidth))
-        else:
-            printmessage(0, "HUB Filled, waiting", self.env.now, False)
-            request = self.HUB.get_queue_request()
-            yield request
-            self.HUB.release_request(request)
-            printmessage(0, "HUB freed", self.env.now, True)
+        mutex_request = self.HUB.request_mutex()
+        yield mutex_request
+        available_bw = self.HUB.get_available_bw()
 
-        # Plotter.plot_bandwidth_model(overhead, max_bandwidth, packet_size_kB=send_group.get_size())
-        yield self.env.timeout(time_required)
+        # I try to round to the available bandwidth, but if there is no available
+        # I'll do the computation with the max bandwidth available
+        if available_bw == 0:
+            available_bw = int(self.misc_params[Contract.M_HUB_BW_Gbps]) * 1e6 / 8
+        time_required = Function2D.get_bandwidth_model(overhead, available_bw)(size) / 1e6
+        avg_bandwidth = int(size / time_required)
+        request, bw_allowed = self.HUB.request_bandwidth(avg_bandwidth)
+        self.HUB.release_mutex(mutex_request)
+
+        yield request
+        newtime = Function2D.get_bandwidth_model(overhead, bw_allowed)(size)
+        yield self.env.timeout(newtime)
+        self.HUB.release_bandwidth(bw_allowed)
+
+        # uncomment to see the plot of the situation
+        # Plotter.plot_bandwidth_model(overhead, available_bw, packet_size_kB=send_group.get_size())
         target_server.add_request(send_group)
 
     def request_server_single_req(self, clientRequest):

@@ -59,6 +59,8 @@ class Function2D:
 
     @staticmethod
     def get_bandwidth_model(latency_ms, bandwidth_kBps):
+        if bandwidth_kBps == 0:
+            raise ZeroDivisionError
         return Function2D.get_diag_limit(latency_ms * 1e3, 1e6/bandwidth_kBps)
 
     @staticmethod

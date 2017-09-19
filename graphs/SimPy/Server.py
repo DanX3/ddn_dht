@@ -13,7 +13,7 @@ class Server:
         self.ID = ID
         self.logger = Logger(self.ID, self.env)
         self.config = config
-        self.availability = True
+        self.is_available = True
         self.clients = clients
         self.server_manager = server_manager
         self.requests = []
@@ -26,11 +26,11 @@ class Server:
                                           config[Contract.S_HDD_METADATA_LATENCY_MS])
 
     def is_available(self):
-        return self.availability
+        return self.is_available
         # return True if self.resource.count == 0 else False
 
     def set_availability(self, new_availability):
-        self.availability = new_availability
+        self.is_available = new_availability
 
     def get_queue_length(self):
         if self.is_available:
@@ -43,18 +43,21 @@ class Server:
 
     def process_read_request(self, req):
         transfer_time = req.get_filesize() / self.hdd_data.get_bandwidth()
-        yield self.env.timeout(self.hdd_data.get_latency() + round(transfer_time))
+        # yield self.env.timeout(self.hdd_data.get_latency() + round(transfer_time))
+        yield self.env.timeout(1)
         req.get_client().receive_answer(req)
 
     def process_write_request(self, req):
         transfer_time = req.get_filesize() / self.hdd_data.get_bandwidth()
-        yield self.env.timeout(self.hdd_data.get_latency() + round(transfer_time))
+        # yield self.env.timeout((self.hdd_data.get_latency() + round(transfer_time)) * int(1e6))
+        yield self.env.timeout(1)
+        printmessage(req.get_client().get_id(), "finished writing", self.env.now)
         req.get_client().receive_answer(req)
 
     def process_single_request(self):
         req = self.requests.pop(0)
         if self.is_request_local(req):
-            printmessage(self.ID, "accepted req {}".format(req.get_client().get_id()), self.env.now)
+            printmessage(self.ID, "accepted req \n\n{}".format(req.to_string()), self.env.now)
             if req.is_read():
                 yield self.env.process(self.process_read_request(req))
             else:
@@ -69,24 +72,21 @@ class Server:
             pass
 
     def process_requests(self):
-        if len(self.requests) != 0 and self.availability == True:
-            self.availability = False
+        if len(self.requests) != 0 and self.is_available:
+            self.is_available = False
             yield self.env.process(self.process_single_request())
 
             if len(self.requests) != 0:
-                self.availability = True
+                self.is_available = True
                 self.env.process(self.process_single_request())
             else:
-                self.availability = True
+                self.is_available = True
                 printmessage(self.ID, "I'm free", self.env.now)
                 # Redirect to the correct server
                 # self.server_manager.add_request(clientRequest)
 
     def is_request_local(self, clientRequest):
-        if randint(0, 9) < 10:
-            return True
-        else:
-            return False
+        return True
 
     def get_new_target(self, clientRequest):
         return self

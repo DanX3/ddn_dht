@@ -31,6 +31,12 @@ class ClientRequest:
     def is_read(self):
         return self.read
 
+    def to_string(self):
+        result  = "ClientRequest {}:\n".format("READ" if self.read else "WRITE")
+        result += "\tfrom {} to {}\n".format(self.client.get_id(), self.target_server_ID)
+        result += "\tfilesize {} kB\n".format(self.filesize_kb)
+        return result
+
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
