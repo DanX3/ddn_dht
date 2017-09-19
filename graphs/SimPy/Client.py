@@ -28,7 +28,6 @@ class Client:
             self.request_queue[i] = []
 
     def hash_address(self):
-        # yield self.env.timeout(2)
         yield self.env.process(self.logger.work(Function2D.gauss(30, 10)))
         printmessage(self.ID, "X", self.env.now)
 

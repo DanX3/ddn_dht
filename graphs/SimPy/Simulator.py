@@ -4,7 +4,7 @@ from Server import Server
 from ServerManager import ServerManager
 import random
 import Parser
-from  FunctionDesigner import Function2D, Plotter
+from FunctionDesigner import Function2D, Plotter
 from Contract import Contract
 # from Tests import *
 
@@ -27,11 +27,10 @@ class Simulator:
                                   self.client_params, self.misc_params))
 
         # Add for example 3KB to send from every client
-        clients[0].add_request(0, 1e3, False)
-        # clients[0].add_request(1, 1000000)
-        clients[0].print_status()
+        clients[0].add_request(0, 1e11, False)
+        clients[1].add_request(0, 1000, False)
         clients[0].flush()
-        clients[0].print_status()
+        clients[1].flush()
         log = open(self.misc_params[Contract.M_CLIENT_LOGFILE_NAME], 'w')
 
     def parseFile(self):
