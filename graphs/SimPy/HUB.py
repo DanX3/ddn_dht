@@ -1,6 +1,7 @@
 import simpy
 from math import ceil
 
+
 class MutexNotOwnedError(Exception):
     pass
 
@@ -22,17 +23,18 @@ class HUB:
         if self.__mutex.count == 0:
             raise MutexNotOwnedError
 
+        # if a client requests a smaller than a treshold, the hub anyway assign it a minimum amount
+        # max_parts = 10   --> assign at least  10% of max_bandwidth
+        # max_parts = 100  --> assign at least   1% of max_bandwidth
+        # max_parts = 1000 --> assign at least 0.1% of max_bandwidth
+        max_parts = 100.0
         capacity = self.__container.capacity
         required_bw = bandwidth_required_kBps
-        required_bw = ceil(100 * (min(required_bw, capacity) / capacity)) / 100.0 * capacity
+        required_bw = ceil(max_parts * (min(required_bw, capacity) / capacity)) / max_parts * capacity
 
-        if not self.__is_full():
-            free_bw = int(self.__container.capacity - self.__container.level)
-            if bandwidth_required_kBps >= free_bw:
-                self.__mutex.count = 1
-                return self.__container.put(free_bw), free_bw
-            else:
-                return self.__container.put(required_bw), required_bw
+        free_bw = int(self.__container.capacity - self.__container.level)
+        if bandwidth_required_kBps >= free_bw:
+            return self.__container.put(free_bw), free_bw
         else:
             return self.__container.put(required_bw), required_bw
 
