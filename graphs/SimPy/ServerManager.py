@@ -52,18 +52,20 @@ class ServerManager:
         self.HUB.release_mutex(mutex_request)
 
         yield request
-        newtime = Function2D.get_bandwidth_model(overhead, bw_allowed)(size)
-        yield self.env.timeout(newtime)
+        new_time = Function2D.get_bandwidth_model(overhead, bw_allowed)(size)
+        yield self.env.timeout(new_time)
         self.HUB.release_bandwidth(bw_allowed)
 
         # uncomment to see the plot of the situation
         # Plotter.plot_bandwidth_model(overhead, available_bw, packet_size_kB=send_group.get_size())
         target_server.add_request(send_group)
 
-    def request_server_single_req(self, clientRequest):
-        target_server = self.servers[clientRequest.get_target_ID()]
-        target_server.add_single_request(clientRequest)
-        yield self.env.timeout(12)
+    def single_request_server(self, req):
+        sendgroup = SendGroup()
+        paritygroup = ParityGroup()
+        paritygroup.add_request(req)
+        sendgroup.add_request(paritygroup)
+        self.env.process(self.request_server(sendgroup))
 
     def release_server(self, server_id):
         self.server_resources.release(self.requests[server_id])

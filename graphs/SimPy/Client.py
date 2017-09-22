@@ -27,6 +27,8 @@ class Client:
             self.pending_send_queue[i] = []
             self.request_queue[i] = []
 
+        self.filename_gen = File.get_filename_generator(self.ID)
+
     def hash_address(self):
         yield self.env.process(self.logger.work(Function2D.gauss(30, 10)))
         printmessage(self.ID, "X", self.env.now)
@@ -111,10 +113,6 @@ class Client:
             printmessage(self.ID, ">[{}]SendGroup".format(target_id), self.env.now)
             self.env.process(self.send_request(send_group))
 
-    def check_send_queue(self, target_id):
-        while len(self.pending_send_queue[target_id]) >= self.config[Contract.C_PENDING_SEND_GROUP]:
-            self.flush_parities(target_id)
-
     def flush_requests(self, target_id):
         parity_group = ParityGroup()
         reqs_to_send_count = min(self.config[Contract.C_PENDING_PARITY_GROUP], len(self.request_queue[target_id]))
@@ -124,17 +122,23 @@ class Client:
             printmessage(self.ID, "+[{}]SendGroup".format(target_id), self.env.now)
             self.pending_send_queue[target_id].append(parity_group)
 
+    def check_send_queue(self, target_id):
+        while len(self.pending_send_queue[target_id]) >= self.config[Contract.C_PENDING_SEND_GROUP]:
+            self.flush_parities(target_id)
+
     def check_request_queue(self, target_id):
-        requests_size = 0
-        for req in self.request_queue[target_id]:
-            requests_size += req.get_size()
+        # requests_size = 0
+        # for req in self.request_queue[target_id]:
+        #     requests_size += req.get_size()
+
+        # requests should be delivered also when a packed request is bigger than a treshold (~1MB)
 
         while len(self.request_queue[target_id]) >= self.config[Contract.C_PENDING_PARITY_GROUP]:
             self.flush_requests(target_id)
         self.check_send_queue(target_id)
 
-    def add_request(self, target_server_id, request_size, read):
-        client_request = ClientRequest(self, target_server_id, filesize_kb=request_size, read=read)
+    def add_request(self, target_server_id, req_size_kb, read):
+        client_request = ClientRequest(self, target_server_id, File(next(self.filename_gen), req_size_kb), read=read)
         self.request_queue[client_request.get_target_ID()].append(client_request)
         self.check_request_queue(client_request.get_target_ID())
 

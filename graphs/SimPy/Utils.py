@@ -3,11 +3,35 @@ def printmessage(ID, message, time, done=True):
     print(doneChar.rjust(2), (str(time) + "us").rjust(12), ("%d)"%ID).rjust(3), str(message))
 
 
+class File:
+    def __init__(self, name, size_kB):
+        self.name = name
+        self.size = size_kB
+
+    def get_name(self):
+        return self.name
+
+    def get_size(self):
+        return self.size
+
+    def to_string(self):
+        return "File({}, {} kB)".format(self.name, self.size)
+
+    @staticmethod
+    def get_filename_generator(client_id):
+        int_name = 0
+        prepended_number = str(client_id)
+
+        while True:
+            yield prepended_number + str(int_name)
+            int_name += 1
+
+
 class ClientRequest:
-    def __init__(self, client, target_server_ID, filesize_kb=0, read=True):
+    def __init__(self, client, target_server_id, file, read=True):
         self.client = client
-        self.target_server_ID = target_server_ID
-        self.filesize_kb = filesize_kb
+        self.target_server_ID = target_server_id
+        self.file = file
         self.read = read
 
     def get_client(self):
@@ -19,22 +43,22 @@ class ClientRequest:
     def set_new_target_ID(self, new_target_ID):
         self.target_server_ID = new_target_ID
 
-    def get_filesize(self):
-        return self.filesize_kb
+    def get_file(self):
+        return self.file
 
     def get_size(self):
         if self.read:
             return 1
         else:
-            return self.filesize_kb
+            return self.file.get_size()
 
     def is_read(self):
         return self.read
 
     def to_string(self):
-        result  = "ClientRequest {}:\n".format("READ" if self.read else "WRITE")
+        result = "ClientRequest {}:\n".format("READ" if self.read else "WRITE")
         result += "\tfrom {} to {}\n".format(self.client.get_id(), self.target_server_ID)
-        result += "\tfilesize {} kB\n".format(self.filesize_kb)
+        result += "\tfile {}\n".format(self.file.to_string())
         return result
 
 
