@@ -27,8 +27,8 @@ class Simulator:
                                   self.client_params, self.misc_params))
 
         # Add for example 3KB to send from every client
-        clients[0].add_request(0, 100000, False)
-        clients[1].add_request(0, 1, False)
+        clients[0].add_request(100000, False)
+        clients[1].add_request(1, False)
         clients[0].flush()
         clients[1].flush()
         log = open(self.misc_params[Contract.M_CLIENT_LOGFILE_NAME], 'w')

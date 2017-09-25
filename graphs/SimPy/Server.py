@@ -5,7 +5,7 @@ from FunctionDesigner import *
 from random import randint
 import StorageDevice
 from Contract import Contract
-from StorageDevice import StorageDevice, DiskIdInconsistency
+from StorageDevice import StorageDevice, DiskIdInconsistency, DiskIdNotation
 
 
 class Server:
@@ -21,9 +21,9 @@ class Server:
         self.HDDs_data = []
         self.HDDs_metadata = []
 
-        data_disk_gen = StorageDevice.DiskIdNotation.get_disk_id_generator(self.id, True)
+        data_disk_gen = DiskIdNotation.get_disk_id_generator(self.id, True)
         for i in range(config[Contract.S_HDD_DATA_COUNT]):
-            self.HDDs_data.append(StorageDevice.StorageDevice(
+            self.HDDs_data.append(StorageDevice(
                 env, next(data_disk_gen),
                 config[Contract.S_HDD_DATA_CAPACITY_GB] * 1e6,
                 config[Contract.S_HDD_DATA_READ_MBPS] * 1e3,
@@ -55,35 +55,11 @@ class Server:
         return self.id
 
     def process_read_request(self, req):
-        file_to_read = req.get_file()
-        successful_read = False
-        for disk in self.HDDs_data:
-            if disk.tracked_file(file_to_read):
-                # the disk knows where the file is
-                owning_disk_id = disk.get_owning_disk_id(file_to_read.get_name())
-                if owning_disk_id.equal(disk.get_id()):
-                    # the disk owns the file
-                    successful_read = True
-                    yield self.env.process(disk.read_file(file_to_read))
-                elif owning_disk_id.get_server() == self.id:
-                    # the server owns the file
-                    yield self.env.process(self.get_data_disk(owning_disk_id).read_file(file_to_read))
-                else:
-                    # another server owns the file. Forwarding the request
-                    self.server_manager.request_server_single_req(req)
-                break
-
-        if not successful_read:
-            # ask other servers
-            pass
-
         req.get_client().receive_answer(req)
+        raise MethodNotImplemented("Server")
 
     def process_write_request(self, req):
-        transfer_time = req.get_filesize() / self.hdd_data.get_bandwidth()
-        # yield self.env.timeout((self.hdd_data.get_latency() + round(transfer_time)) * int(1e6))
-        yield self.env.timeout(1)
-        printmessage(req.get_client().get_id(), "finished writing", self.env.now)
+
         req.get_client().receive_answer(req)
 
     def process_single_request(self):
@@ -139,9 +115,3 @@ class Server:
 
     def get_metadata_disks(self):
         return self.HDDs_metadata
-
-    def get_data_disk(self, disk_id):
-        for disk in self.HDDs_data:
-            if disk_id.equal(disk.get_id()):
-                return disk
-        raise DiskIdInconsistency("Server {} doesn't own requested disk {}".format(self.id, disk_id.to_string()))

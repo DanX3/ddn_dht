@@ -3,7 +3,8 @@ from Server import Server
 from Utils import *
 from FunctionDesigner import Function2D
 from Contract import Contract
-from random import randint
+from random import randint, seed
+
 
 class Client:
     def __init__(self, ID, env, servers_manager, config, misc_params):
@@ -18,6 +19,7 @@ class Client:
         self.chosen_server = -1
 
         # requests sent. The ints shows the size of KB of the request
+        # request.queue = Dict[str, List[SendGroup]]
         self.request_queue = {}
         self.current_request = 0
 
@@ -28,6 +30,29 @@ class Client:
             self.request_queue[i] = []
 
         self.filename_gen = File.get_filename_generator(self.ID)
+
+        self.lookup_table = []
+        self._generate_primes()
+
+    def _generate_primes(self):
+        # for candidate in range(11, 1000):
+        #     is_prime = True
+        #     for divider in range(2, int(candidate/2)):
+        #         if candidate % divider == 0:
+        #             is_prime = False
+        #             break
+        #     if is_prime:
+        #         self.lookup_table.append(candidate)
+        #     if len(self.lookup_table) == 32:
+        #         break
+
+        self.lookup_table = [i for i in range(32)]
+        # important that the seed is fixed. I want always the same pseudo-random sequence
+        seed(17)
+        for i in range(32):
+            idx1 = randint(0, 31)
+            idx2 = randint(0, 31)
+            self.lookup_table[idx1], self.lookup_table[idx2] = self.lookup_table[idx2], self.lookup_table[idx1]
 
     def hash_address(self):
         yield self.env.process(self.logger.work(Function2D.gauss(30, 10)))
@@ -137,8 +162,8 @@ class Client:
             self.flush_requests(target_id)
         self.check_send_queue(target_id)
 
-    def add_request(self, target_server_id, req_size_kb, read):
-        client_request = ClientRequest(self, target_server_id, File(next(self.filename_gen), req_size_kb), read=read)
+    def add_request(self, req_size_kb, read):
+        client_request = ClientRequest(self, File(next(self.filename_gen), req_size_kb), read=read)
         self.request_queue[client_request.get_target_ID()].append(client_request)
         self.check_request_queue(client_request.get_target_ID())
 
@@ -163,5 +188,15 @@ class Client:
         for target_id in range(self.servers_manager.get_server_count()):
             self.flush_parities(target_id)
 
-# env = simpy.rt.RealtimeEnvironment(initial_time=0, factor=1.0, strict=True)
-
+    def get_target_from_file(self, file):
+        seed(0)
+        table = self.lookup_table
+        for i in range(32):
+            idx1 = randint(0, 31)
+            idx2 = randint(0, 31)
+            table[idx1], table[idx2] = table[idx2], table[idx1]
+        result = file.get_size() * table[file.get_size() % 32]
+        str_size = str(file.get_size())
+        for letter in str_size:
+            result += table[ord(letter) % 32]
+        return result % 2

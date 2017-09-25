@@ -1,9 +1,7 @@
 from FunctionDesigner import Function2D
-from Utils import printmessage
+from Utils import printmessage, CML_oid
 import simpy
-from Utils import File
-
-
+from Utils import File, MethodNotImplemented
 
 
 class DiskTooSmallError(Exception):
@@ -71,55 +69,52 @@ class StorageDevice:
         self.time_reading = Function2D.get_bandwidth_model(latency_ms, reading_kBps)
         self.time_writing = Function2D.get_bandwidth_model(latency_ms, writing_kBps)
         # self.stored_files: Dict[str, File] = {}
-        self.stored_files = {}
+        self.stored_cmloid = {}
         self.source_server = source_server
 
         # if a file is transferred to another server, it should reported here
         # in order to ask directly to the correct server
         self.transfer_list = {} # : Dict[str, int]
 
-    def write_file(self, file):
-        printmessage(0, "started writing file " + file.get_name(), self.env.now)
-        if file.get_size() > self.__container.capacity:
+    def write_cmloid(self, cmloid):
+        printmessage(0, "started writing  " + cmloid.to_string(), self.env.now)
+        if CML_oid.get_size() > self._free_space():
             raise DiskTooSmallError
 
         req = self.__mutex.request()
         yield req
-        if file.get_size() > self.__free_space():
+        if CML_oid.get_size() > self._free_space():
             # move or flush some files
-            yield self
-            pass
-        else:
-            yield self.env.timeout(314)
+            raise MethodNotImplemented("StorageDevice")
 
-        yield self.env.timeout(self.time_reading(file.get_size()))
-        self.stored_files[file.get_name()] = file
+        yield self.env.timeout(self.time_reading(CML_oid.get_size()))
+        self.stored_cmloid[cmloid.to_id()] = cmloid
 
         self.__mutex.release(req)
-        printmessage(0, "finished writing " + file.get_name(), self.env.now)
+        printmessage(0, "finished writing " + cmloid.to_string(), self.env.now)
 
     def tracked_file(self, file):
         filename = file.get_name()
-        return filename in self.stored_files or filename in self.transfer_list
+        return filename in self.stored_cmloid or filename in self.transfer_list
 
-    def get_owning_disk_id(self, filename):
+    def get_owning_disk_id(self, cmloid):
         """
         check that the file is present in the disk required. Mandatory before accessing the file
         :param filename: the filename required
         :return: returns the disk id where the resource has been moved to. In case of match it returns its id
         """
-        if filename in self.stored_files:
+        if filename in self.stored_cmloid:
             return self.id
         else:
             return self.transfer_list[filename]
 
-    def read_file(self, filename):
-        if not self.get_owning_disk_id(filename).equal(self.id):
-            raise FileNotFoundError("Before resource access, check that the file is present with is_file_present")
+    def read_cmloid(self, cmloid):
+        # if not self.get_owning_disk_id(cmloid).equal(self.id):
+        #     raise FileNotFoundError("Before resource access, check that the file is present with is_file_present")
 
         req = self.__mutex.request()
         yield req
-        file = self.stored_files[filename]
+        file = self.stored_cmloid[filename]
         yield self.env.timeout(self.time_reading(file.get_size()))
         self.__mutex.release(req)
         printmessage(0, "finished reading " + file.get_name(), self.env.now)
@@ -150,7 +145,7 @@ class StorageDevice:
             print("Requested a network movement")
             # network communication
 
-    def __free_space(self):
+    def _free_space(self):
         return self.__container.capacity - self.__container.level
 
     def get_capacity(self):
