@@ -28,7 +28,7 @@ class CML_oid:
     def get_id_tuple(self):
         return self.part_number, self.original_file.get_parts()
 
-    def to_string(self):
+    def __str__(self):
         id = self.get_id_tuple()
         return "CML_oid({}/{} of '{}')".format(id[0]+1, id[1], self.original_file.get_name())
 
@@ -68,36 +68,41 @@ class File:
         prepended_number = str(client_id)
 
         while True:
-            yield prepended_number + str(int_name)
+            yield prepended_number + ":" + str(int_name)
             int_name += 1
 
 
+class MetaFile(File):
+    def get_cmloid_generator(self):
+        raise Exception("Not an actual file. Only metadata")
+
+    def __str__(self):
+        return "MetaFile({}, {} kB)".format(self.name, self.size)
+
+
 class ClientRequest:
-    def __init__(self, client, file, read=True):
+    def __init__(self, client, target_server_id, cmloid, read=True):
         self.client = client
-        self.target_server_ID = target_server_id
-        self.file = file
+        self.target_server_id = target_server_id
+        self.cmloid = cmloid
         self.read = read
 
     def get_client(self):
         return self.client
 
     def get_target_ID(self):
-        return self.target_server_ID
+        return self.target_server_id
 
-    def set_new_target_ID(self, new_target_ID):
-        self.target_server_ID = new_target_ID
-
-    def get_file(self):
-        return self.file
+    def get_cmloid(self):
+        return self.cmloid
 
     def is_read(self):
         return self.read
 
-    def to_string(self):
+    def __str__(self):
         result = "ClientRequest {}:\n".format("READ" if self.read else "WRITE")
-        result += "\tfrom {} to {}\n".format(self.client.get_id(), self.target_server_ID)
-        result += "\t{}\n".format(self.file)
+        result += "\tfrom Client {} to Server {}\n".format(self.client.get_id(), self.target_server_id)
+        result += "\t{}\n".format(self.cmloid)
         return result
 
     @staticmethod
@@ -105,7 +110,11 @@ class ClientRequest:
         return 128
 
 
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+def get_requests_from_file(client, target_server_id, file, read=True):
+    parts_num = int(ceil(file.get_size() / ClientRequest.get_cmloid_size()))
+    for cmloid_id in range(parts_num):
+        cmloid = CML_oid(file, cmloid_id)
+        yield ClientRequest(client, target_server_id, cmloid, read)
 
 
 class SendGroup:
@@ -140,8 +149,6 @@ class SendGroup:
             size = max(len(self.requests) / 5, 1)
         return size
 
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
-
 
 class ParityGroup(SendGroup):
     def __init__(self):
@@ -171,6 +178,4 @@ class ParityGroup(SendGroup):
 
 
 if __name__ == "__main__":
-    file = File("mklmklmkl", 300)
-    for part in file.get_cmloid_generator():
-        print(part.to_id())
+    file = File("mklmklmkl", 257)

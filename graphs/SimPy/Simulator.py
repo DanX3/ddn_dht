@@ -27,10 +27,10 @@ class Simulator:
                                   self.client_params, self.misc_params))
 
         # Add for example 3KB to send from every client
-        clients[0].add_request(100000, False)
-        clients[1].add_request(1, False)
+        filename1 = clients[0].add_write_request(2800)
+        # filename2 = clients[1].add_write_request(1)
         clients[0].flush()
-        clients[1].flush()
+        # clients[1].flush()
         log = open(self.misc_params[Contract.M_CLIENT_LOGFILE_NAME], 'w')
 
     def parseFile(self):
