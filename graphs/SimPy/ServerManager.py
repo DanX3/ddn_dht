@@ -33,10 +33,10 @@ class ServerManager:
         :param send_group: the formed request
         :return: yield the time required for the transaction to complete
         """
-        target_server = self.servers[send_group.get_target_ID()]
+        target_server = self.servers[send_group[0].get_target_ID()]
         overhead = int(self.misc_params[Contract.M_NETWORK_LATENCY_MS])
         # max_bandwidth = int(self.misc_params[Contract.M_HUB_BW_Gbps]) * 1e6 / 8
-        size = send_group.get_size()
+        size = len(send_group) * ClientRequest.get_cmloid_size()
 
         mutex_request = self.HUB.request_mutex()
         yield mutex_request

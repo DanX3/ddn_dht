@@ -30,7 +30,7 @@ class CML_oid:
 
     def __str__(self):
         id = self.get_id_tuple()
-        return "CML_oid({}/{} of '{}')".format(id[0]+1, id[1], self.original_file.get_name())
+        return "CML_oid({:3d}/{:3d} of '{}')".format(id[0]+1, id[1], self.original_file.get_name())
 
     def to_id(self):
         return "{}:{}".format(self.original_file.get_name(), self.part_number)

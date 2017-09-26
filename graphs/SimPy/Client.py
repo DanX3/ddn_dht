@@ -107,7 +107,7 @@ class Client:
             yield self.timeout(self.config[Contract.C_TOKEN_REFRESH])
 
     def receive_answer(self, req):
-        printmessage(self.ID, "Received {}".format(req.get_filesize()), self.env.now)
+        printmessage(self.ID, "Received {}".format(req.get_cmloid()), self.env.now)
 
     def run(self):
         yield self.env.timeout(0)
@@ -124,7 +124,7 @@ class Client:
         # start = self.env.now
         print("Client {} requested Server {}".format(self.ID, packed_reqs[0].get_target_ID()))
         # clientRequest = ClientRequest(self, target_server_ID, self.ID * 100)
-        yield self.env.timeout(20)
+        yield self.env.process(self.servers_manager.request_server(packed_reqs))
         # yield self.env.process(self.servers_manager.request_server(send_group))
         # self.logger.add_idle_time(self.env.now - start)
 
@@ -172,7 +172,6 @@ class Client:
             packed_reqs = self.request_queue[target_id]
             yield self.env.process(self.send_request(packed_reqs))
             self.request_queue[target_id].clear()
-        print("queue length after flush = {}".format(len(self.request_queue[target_id])))
         # self.check_send_queue(target_id)
 
     def add_write_request(self, req_size_kb):

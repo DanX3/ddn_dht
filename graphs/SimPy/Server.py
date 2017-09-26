@@ -14,7 +14,7 @@ class Server:
         self.id = ID
         self.logger = Logger(self.id, self.env)
         self.config = config
-        self.is_available = True
+        self._mutex = simpy.Resource(env, capacity=1)
         self.clients = clients
         self.server_manager = server_manager
         self.requests = []
@@ -59,39 +59,34 @@ class Server:
         raise MethodNotImplemented("Server")
 
     def process_write_request(self, req):
-
+        # print("Processing " + str(req))
+        yield self.env.timeout(10)
         req.get_client().receive_answer(req)
 
     def process_single_request(self):
         req = self.requests.pop(0)
-        if self.is_request_local(req):
-            printmessage(self.id, "accepted req \n\n{}".format(req.to_string()), self.env.now)
-            if req.is_read():
-                yield self.env.process(self.process_read_request(req))
-            else:
-                yield self.env.process(self.process_write_request(req))
+        # printmessage(self.id, "accepted req \n\n{}".format(req), self.env.now)
+        if req.is_read():
+            yield self.env.process(self.process_read_request(req))
         else:
-            new_target_id = self.id
-            while new_target_id == self.id:
-                new_target_id = randint(0, len(self.server_manager.servers) - 1)
-            req.set_new_target_ID(new_target_id)
-            printmessage(self.id, "({}) {} --> {}".format(req.get_client().get_id(), self.id, new_target_id), self.env.now)
-            self.env.process(self.server_manager.request_server_single_req(req))
-            pass
+            yield self.env.process(self.process_write_request(req))
 
     def process_requests(self):
-        if len(self.requests) != 0 and self.is_available:
-            self.is_available = False
+        mutex_req = self._mutex.request()
+        yield mutex_req
+        if len(self.requests) == 0:
+            yield self.env.timeout(0)
+            self._mutex.release(mutex_req)
+            return
+
+        while len(self.requests) > 0:
             yield self.env.process(self.process_single_request())
 
-            if len(self.requests) != 0:
-                self.is_available = True
-                self.env.process(self.process_single_request())
-            else:
-                self.is_available = True
-                printmessage(self.id, "I'm free", self.env.now)
-                # Redirect to the correct server
-                # self.server_manager.add_request(clientRequest)
+        if len(self.requests) == 0:
+            printmessage(self.id, "I'm free", self.env.now)
+        self._mutex.release(mutex_req)
+        # Redirect to the correct server
+        # self.server_manager.add_request(clientRequest)
 
     def is_request_local(self, clientRequest):
         return True
@@ -101,9 +96,15 @@ class Server:
 
     def add_request(self, send_group):
         # requests unpacking
-        for parityGroup in send_group.get_requests():
-            for single_request in parityGroup.get_requests():
-                self.requests.append(single_request)
+        # for parityGroup in send_group.get_requests():
+        #     for single_request in parityGroup.get_requests():
+        #         self.requests.append(single_request)
+
+        if len(send_group) > 8:
+            raise Exception("Server {}: Arrived more than 1MB in a single request".format(self.id))
+
+        for req in send_group:
+            self.requests.append(req)
         self.env.process(self.process_requests())
 
     def add_single_request(self, single_request):
