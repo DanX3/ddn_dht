@@ -14,13 +14,15 @@ class Server:
         self.id = ID
         self.logger = Logger(self.id, self.env)
         self.config = config
-        self._mutex = simpy.Resource(env, capacity=1)
+        self.__mutex = simpy.Resource(env, capacity=1)
         self.clients = clients
         self.server_manager = server_manager
         self.requests = []
         self.HDDs_data = []
         self.HDDs_metadata = []
+        self.receiving_files = {}  # Dict[str, List[CML_oid]]
 
+        self.lookup_table = generate_lookup_table(32)
         data_disk_gen = DiskIdNotation.get_disk_id_generator(self.id, True)
         for i in range(config[Contract.S_HDD_DATA_COUNT]):
             self.HDDs_data.append(StorageDevice(
@@ -38,13 +40,6 @@ class Server:
         #                                   config[Contract.S_HDD_METADATA_BW_MB_PER_SEC] * 2e3,
         #                                   config[Contract.S_HDD_METADATA_LATENCY_MS])
 
-    def is_available(self):
-        return self.is_available
-        # return True if self.resource.count == 0 else False
-
-    def set_availability(self, new_availability):
-        self.is_available = new_availability
-
     def get_queue_length(self):
         if self.is_available:
             return 0
@@ -58,33 +53,55 @@ class Server:
         req.get_client().receive_answer(req)
         raise MethodNotImplemented("Server")
 
-    def process_write_request(self, req):
-        # print("Processing " + str(req))
-        yield self.env.timeout(10)
-        req.get_client().receive_answer(req)
+    def _write_file(self, file):
+        write_requests = []
+        for cmloid in file.get_cmloid_generator():
+            req = self.env.process(self.HDDs_data[self.get_disk_from_cmloid(cmloid)]
+                                   .write_cmloid(cmloid))
+            write_requests.append(req)
+        yield simpy.events.AllOf(self.env, write_requests)
+        printmessage(self.id, "finished writing all cmloids", self.env.now)
 
-    def process_single_request(self):
+
+    def __process_write_request(self, req):
+        cmloid = req.get_cmloid()
+        filename = cmloid.get_file().get_name()
+        yield self.env.timeout(10)
+
+        # adds the file to the queue collection
+        if filename not in self.receiving_files:
+            self.receiving_files[filename] = [cmloid]
+        else:
+            self.receiving_files[filename].append(cmloid)
+
+        # send confirmation if file has been completely collected
+        if len(self.receiving_files[filename]) == cmloid.get_id_tuple()[1]:
+            req.get_client().receive_answer(cmloid.get_file())
+            yield self.env.process(self._write_file(cmloid.get_file()))
+            del(self.receiving_files[filename])
+
+    def __process_single_request(self):
         req = self.requests.pop(0)
         # printmessage(self.id, "accepted req \n\n{}".format(req), self.env.now)
         if req.is_read():
             yield self.env.process(self.process_read_request(req))
         else:
-            yield self.env.process(self.process_write_request(req))
+            yield self.env.process(self.__process_write_request(req))
 
     def process_requests(self):
-        mutex_req = self._mutex.request()
+        mutex_req = self.__mutex.request()
         yield mutex_req
         if len(self.requests) == 0:
             yield self.env.timeout(0)
-            self._mutex.release(mutex_req)
+            self.__mutex.release(mutex_req)
             return
 
         while len(self.requests) > 0:
-            yield self.env.process(self.process_single_request())
+            yield self.env.process(self.__process_single_request())
 
-        if len(self.requests) == 0:
-            printmessage(self.id, "I'm free", self.env.now)
-        self._mutex.release(mutex_req)
+        # if len(self.requests) == 0:
+        #     printmessage(self.id, "I'm free", self.env.now)
+        self.__mutex.release(mutex_req)
         # Redirect to the correct server
         # self.server_manager.add_request(clientRequest)
 
@@ -116,3 +133,17 @@ class Server:
 
     def get_metadata_disks(self):
         return self.HDDs_metadata
+
+    def get_disk_from_cmloid(self, cmloid):
+        """
+        Hash function to assign a determined disk to a cmloid, based on its number id and its filename
+        :param cmloid: the cmloid to interact with
+        :type cmloid: CML_oid
+        :return: the disk id valid in the current server
+        :rtype: int
+        """
+        result = 0
+        for letter in cmloid.get_file().get_name():
+            result += self.lookup_table[ord(letter) % 32]
+        result += self.lookup_table[cmloid.get_id_tuple()[0] % 32]
+        return result % len(self.HDDs_data)

@@ -1,4 +1,5 @@
 from math import ceil
+from random import randint, seed
 
 
 class MethodNotImplemented(Exception):
@@ -44,7 +45,7 @@ class File:
     def __init__(self, name, size_kB):
         self.name = name
         self.size = size_kB
-        self.parts = ceil(size_kB / 128)
+        self.parts = ceil(size_kB / ClientRequest.get_cmloid_size())
 
     def get_name(self):
         return self.name
@@ -115,6 +116,17 @@ def get_requests_from_file(client, target_server_id, file, read=True):
     for cmloid_id in range(parts_num):
         cmloid = CML_oid(file, cmloid_id)
         yield ClientRequest(client, target_server_id, cmloid, read)
+
+
+def generate_lookup_table(length):
+    table = [i for i in range(length)]
+    # important that the seed is fixed. I want always the same pseudo-random sequence
+    seed(17)
+    for i in range(length):
+        idx1 = randint(0, length-1)
+        idx2 = randint(0, length-1)
+        table[idx1], table[idx2] = table[idx2], table[idx1]
+    return table
 
 
 class SendGroup:

@@ -3,7 +3,6 @@ from Server import Server
 from Utils import *
 from FunctionDesigner import Function2D
 from Contract import Contract
-from random import randint, seed
 
 
 class Client:
@@ -29,29 +28,7 @@ class Client:
             self.request_queue[i] = []
 
         self.filename_gen = File.get_filename_generator(self.ID)
-
-        self.lookup_table = []
-        self._generate_primes()
-
-    def _generate_primes(self):
-        # for candidate in range(11, 1000):
-        #     is_prime = True
-        #     for divider in range(2, int(candidate/2)):
-        #         if candidate % divider == 0:
-        #             is_prime = False
-        #             break
-        #     if is_prime:
-        #         self.lookup_table.append(candidate)
-        #     if len(self.lookup_table) == 32:
-        #         break
-
-        self.lookup_table = [i for i in range(32)]
-        # important that the seed is fixed. I want always the same pseudo-random sequence
-        seed(17)
-        for i in range(32):
-            idx1 = randint(0, 31)
-            idx2 = randint(0, 31)
-            self.lookup_table[idx1], self.lookup_table[idx2] = self.lookup_table[idx2], self.lookup_table[idx1]
+        self.lookup_table = generate_lookup_table(32)
 
     def hash_address(self):
         yield self.env.process(self.logger.work(Function2D.gauss(30, 10)))
@@ -106,8 +83,8 @@ class Client:
         else:
             yield self.timeout(self.config[Contract.C_TOKEN_REFRESH])
 
-    def receive_answer(self, req):
-        printmessage(self.ID, "Received {}".format(req.get_cmloid()), self.env.now)
+    def receive_answer(self, file_received):
+        printmessage(self.ID, "Confirmed communication of {}".format(file_received), self.env.now)
 
     def run(self):
         yield self.env.timeout(0)
@@ -122,7 +99,7 @@ class Client:
 
     def send_request(self, packed_reqs):
         # start = self.env.now
-        print("Client {} requested Server {}".format(self.ID, packed_reqs[0].get_target_ID()))
+        # print("Client {} requested Server {}".format(self.ID, packed_reqs[0].get_target_ID()))
         # clientRequest = ClientRequest(self, target_server_ID, self.ID * 100)
         yield self.env.process(self.servers_manager.request_server(packed_reqs))
         # yield self.env.process(self.servers_manager.request_server(send_group))
@@ -168,7 +145,7 @@ class Client:
             packed_reqs = [self.request_queue[target_id].pop(0) for i in range(send_treshold)]
             yield self.env.process(self.send_request(packed_reqs))
 
-        if force:
+        if force and len(self.request_queue[target_id]) > 0:
             packed_reqs = self.request_queue[target_id]
             yield self.env.process(self.send_request(packed_reqs))
             self.request_queue[target_id].clear()
@@ -185,7 +162,6 @@ class Client:
         target_id = self.get_target_from_file(file)
         req = ClientRequest(self, target_id, file, read=False)
         new_reqs = [req for req in get_requests_from_file(self, target_id, file, False)]
-        print(len(new_reqs))
         self.request_queue[target_id] += new_reqs
         self.env.process(self.check_request_queue(req.get_target_ID()))
         return filename

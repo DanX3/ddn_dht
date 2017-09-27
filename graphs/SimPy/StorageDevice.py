@@ -68,6 +68,7 @@ class StorageDevice:
         self.latency = latency_ms
         self.time_reading = Function2D.get_bandwidth_model(latency_ms, reading_kBps)
         self.time_writing = Function2D.get_bandwidth_model(latency_ms, writing_kBps)
+        self.writing_kBps = writing_kBps
         # self.stored_files: Dict[str, File] = {}
         self.stored_cmloid = {}
         self.source_server = source_server
@@ -77,21 +78,23 @@ class StorageDevice:
         self.transfer_list = {} # : Dict[str, int]
 
     def write_cmloid(self, cmloid):
-        printmessage(0, "started writing  " + cmloid.to_string(), self.env.now)
         if CML_oid.get_size() > self._free_space():
             raise DiskTooSmallError
 
         req = self.__mutex.request()
         yield req
+        # printmessage(0, "started writing " + str(cmloid), self.env.now)
+
         if CML_oid.get_size() > self._free_space():
             # move or flush some files
             raise MethodNotImplemented("StorageDevice")
 
-        yield self.env.timeout(self.time_reading(CML_oid.get_size()))
+        # yield self.env.timeout(self.time_reading(CML_oid.get_size()))
+        yield self.env.timeout(int(CML_oid.get_size() / self.writing_kBps * 1e6))
         self.stored_cmloid[cmloid.to_id()] = cmloid
 
         self.__mutex.release(req)
-        printmessage(0, "finished writing " + cmloid.to_string(), self.env.now)
+        # printmessage(0, "finished writing " + str(cmloid), self.env.now)
 
     def tracked_file(self, file):
         filename = file.get_name()
