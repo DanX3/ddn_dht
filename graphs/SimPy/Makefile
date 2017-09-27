@@ -1,20 +1,10 @@
-# Minimal makefile for Sphinx documentation
-#
+SRCS=$(shell find . -name "[A-Z]*.py")
 
-# You can set these variables from the command line.
-SPHINXOPTS    =
-SPHINXBUILD   = python -msphinx
-SPHINXPROJ    = ime_simulator
-SOURCEDIR     = .
-BUILDDIR      = _build
+all: $(SRCS)
+	python3.5 Simulator.py
 
-# Put it first so that "make" without argument is like "make help".
-help:
-	@$(SPHINXBUILD) -M help "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
+print:
+	@echo $(SRCS)
 
-.PHONY: help Makefile
-
-# Catch-all target: route all unknown targets to Sphinx using the new
-# "make mode" option.  $(O) is meant as a shortcut for $(SPHINXOPTS).
-%: Makefile
-	@$(SPHINXBUILD) -M $@ "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
+doc: $(SRCS) Doxyfile
+	doxygen Doxyfile
