@@ -1,7 +1,6 @@
 import simpy
 from Logger import Logger
 from Utils import *
-from FunctionDesigner import *
 from random import randint
 import StorageDevice
 from Contract import Contract
@@ -53,15 +52,22 @@ class Server:
         req.get_client().receive_answer(req)
         raise MethodNotImplemented("Server")
 
-    def _write_file(self, file):
+    def __write_file(self, file):
+        """
+        Writes files to the disks, exploiting the RAID configuration
+        For performance purposes, instead of creating and writing all the CML_oid,
+        it pre-computes the amount that each disk will write and request a single big file write
+        From outside the result is the same but is much more lightweight
+        :param file: The file to be written
+        :return: None
+        """
         write_requests = []
-        for cmloid in file.get_cmloid_generator():
-            req = self.env.process(self.HDDs_data[self.get_disk_from_cmloid(cmloid)]
-                                   .write_cmloid(cmloid))
+        load_per_disk = self.get_load_per_disk(file)
+        for i in range(len(self.HDDs_data)):
+            req = self.env.process(self.HDDs_data[i].simulate_write(File('', load_per_disk[i])))
             write_requests.append(req)
         yield simpy.events.AllOf(self.env, write_requests)
         printmessage(self.id, "finished writing all cmloids", self.env.now)
-
 
     def __process_write_request(self, req):
         cmloid = req.get_cmloid()
@@ -77,7 +83,7 @@ class Server:
         # send confirmation if file has been completely collected
         if len(self.receiving_files[filename]) == cmloid.get_id_tuple()[1]:
             req.get_client().receive_answer(cmloid.get_file())
-            yield self.env.process(self._write_file(cmloid.get_file()))
+            yield self.env.process(self.__write_file(cmloid.get_file()))
             del(self.receiving_files[filename])
 
     def __process_single_request(self):
@@ -147,3 +153,18 @@ class Server:
             result += self.lookup_table[ord(letter) % 32]
         result += self.lookup_table[cmloid.get_id_tuple()[0] % 32]
         return result % len(self.HDDs_data)
+
+    def get_load_per_disk(self, file):
+        """
+        Get how data is supposed to be distributed over the disks.
+        Size is rounded up to a multiple of CML_oid size.
+        :param file: file to be written
+        :return: List[int] where len(return) = len(HDDs_data)
+        """
+        disk_count = len(self.HDDs_data)
+        cmloid_count = ceil(file.get_size() / CML_oid.get_size())
+        min_load = int(cmloid_count / disk_count) * CML_oid.get_size()
+        load = [min_load for i in range(disk_count)]
+        for i in range(int(cmloid_count % disk_count)):
+            load[i] += CML_oid.get_size()
+        return load

@@ -3,6 +3,7 @@ from Server import Server
 from Utils import *
 from FunctionDesigner import Function2D
 from Contract import Contract
+from collections import deque
 
 
 class Client:
@@ -18,33 +19,17 @@ class Client:
         self.chosen_server = -1
 
         # requests sent. The ints shows the size of KB of the request
-        # request.queue = Dict[str, List[SendGroup]]
+        # request.queue = Dict[str, deque[SendGroup]]
         self.request_queue = {}
         self.current_request = 0
 
         # self.pending_send_queue = {}
         for i in range(servers_manager.get_server_count()):
             # self.pending_send_queue[i] = []
-            self.request_queue[i] = []
+            self.request_queue[i] = deque()
 
         self.filename_gen = File.get_filename_generator(self.ID)
         self.lookup_table = generate_lookup_table(32)
-
-    def hash_address(self):
-        yield self.env.process(self.logger.work(Function2D.gauss(30, 10)))
-        printmessage(self.ID, "X", self.env.now)
-
-
-    # def find_most_free_server(self):
-        # most_free_server_id = -1
-        # max_queue_length = 2e31
-        # for server in self.servers:
-            # if server.is_available():
-                # most_free_server_id = server.get_id()
-            # elif server.get_queue_length() < max_queue_length:
-                # max_queue_length = server.get_queue_length()
-                # most_free_server_id = server.get_id()
-        # self.chosen_server = self.get_server_by_id(most_free_server_id)
 
     def decide_which_server(self):
         printmessage(self.ID, "->", self.env.now)
@@ -142,7 +127,9 @@ class Client:
         # requests should be delivered also when a packed request is bigger than a treshold (1MB)
         send_treshold = int(1024 / ClientRequest.get_cmloid_size())
         while len(self.request_queue[target_id]) >= send_treshold:
-            packed_reqs = [self.request_queue[target_id].pop(0) for i in range(send_treshold)]
+            packed_reqs = [self.request_queue[target_id].popleft() for i in range(send_treshold)]
+            # packed_reqs = self.request_queue[:send_treshold]
+            # del(self.request_queue[0:send_treshold])
             yield self.env.process(self.send_request(packed_reqs))
 
         if force and len(self.request_queue[target_id]) > 0:
@@ -161,8 +148,12 @@ class Client:
         file = File(filename, req_size_kb)
         target_id = self.get_target_from_file(file)
         req = ClientRequest(self, target_id, file, read=False)
-        new_reqs = [req for req in get_requests_from_file(self, target_id, file, False)]
-        self.request_queue[target_id] += new_reqs
+        # new_reqs = [req for req in get_requests_from_file(self, target_id, file, False)]
+        # for req in get_requests_from_file(self, target_id, file, False):
+        #     self.request_queue[target_id] += req
+        self.request_queue[target_id] += get_requests_from_file(self, target_id, file, False)
+        print("request_queue[{}] size is {}".format(target_id, len(self.request_queue[target_id])))
+        # self.request_queue[target_id] += new_reqs
         self.env.process(self.check_request_queue(req.get_target_ID()))
         return filename
 

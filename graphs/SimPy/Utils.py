@@ -1,5 +1,6 @@
 from math import ceil
 from random import randint, seed
+from collections import deque
 
 
 class MethodNotImplemented(Exception):
@@ -12,7 +13,13 @@ class MethodNotImplemented(Exception):
 
 def printmessage(ID, message, time, done=True):
     doneChar = u"\u2713" if done else u"\u279C"
-    print(doneChar.rjust(2), (str(time) + "us").rjust(12), ("%d)"%ID).rjust(3), str(message))
+    dottedtime = ""
+    while time > 0:
+        dottedtime = str(time % 1000) + " " + dottedtime
+        time = int(time / 1000)
+
+    print(doneChar.rjust(2), (dottedtime + "us").rjust(12), ("%d)"%ID).rjust(3), str(message))
+    # print(doneChar.rjust(2), (str(time)+ "us").rjust(12), ("%d)"%ID).rjust(3), str(message))
 
 
 class CML_oid:
@@ -21,6 +28,9 @@ class CML_oid:
         self.part_number = part_number
 
     def get_file(self):
+        """
+        :return: the original file that this CML_oid has been extracted from
+        """
         return self.original_file
 
     def get_id(self):
@@ -34,10 +44,16 @@ class CML_oid:
         return "CML_oid({:3d}/{:3d} of '{}')".format(id[0]+1, id[1], self.original_file.get_name())
 
     def to_id(self):
+        """
+        Returns a string in the format of an id for the current CML_oid
+        Example: CML_oid(12/32 of 'Hello') --> 'Hello:12'
+        :rtype: str
+        """
         return "{}:{}".format(self.original_file.get_name(), self.part_number)
 
     @staticmethod
     def get_size():
+        """Returns the size of the elementary component CML_oid. Set to 128"""
         return 128
 
 
@@ -111,11 +127,20 @@ class ClientRequest:
         return 128
 
 
-def get_requests_from_file(client, target_server_id, file, read=True):
+def get_requests_from_file(client, target, file, read=True):
+    """
+    Get the list of ClientRequest from a file
+    :param client: the client instance
+    :type client: Client
+    :param target: id of the server, target of the file
+    :type target: int
+    :param file: the file that needs to be written
+    :type file: File
+    :param read: bool=True
+    :return:deque[ClientRequest]
+    """
     parts_num = int(ceil(file.get_size() / ClientRequest.get_cmloid_size()))
-    for cmloid_id in range(parts_num):
-        cmloid = CML_oid(file, cmloid_id)
-        yield ClientRequest(client, target_server_id, cmloid, read)
+    return [ClientRequest(client, target, CML_oid(file, id), read) for id in range(parts_num)]
 
 
 def generate_lookup_table(length):

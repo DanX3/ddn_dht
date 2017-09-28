@@ -57,6 +57,10 @@ class DiskIdNotation:
 
 
 class StorageDevice:
+    """
+    Hard Disk Drive simulator
+    Since in the simulation
+    """
     def __init__(self, env, id, capacity_kb, reading_kBps, writing_kBps, latency_ms, source_server):
         self.env = env
         self.id = id
@@ -75,52 +79,52 @@ class StorageDevice:
 
         # if a file is transferred to another server, it should reported here
         # in order to ask directly to the correct server
-        self.transfer_list = {} # : Dict[str, int]
+
+    def simulate_write(self, dummy_file):
+        """
+        Simulates a transaction of a dummy file. Disk space is filled but the disk will not keep track of
+        any CML_oid. Useful in case of a server write that is interested only in the time result.
+        :param dummy_file: the file to write. It is only considered its size
+        :return: generator
+        """
+        if dummy_file.get_size() > self.__free_space():
+            raise MethodNotImplemented("StorageDevice: consider the case where disk doesn't fit anymore")
+        req = self.__mutex.request()
+        yield req
+
+        printmessage(0, "Started writing {}".format(dummy_file), self.env.now)
+        # yield self.env.timeout(self.time_reading(CML_oid.get_size()))
+        yield self.env.timeout(int(dummy_file.get_size() / self.writing_kBps * 1e6))
+
+        self.__mutex.release(req)
+        printmessage(0, "Finished writing {}".format(dummy_file), self.env.now)
 
     def write_cmloid(self, cmloid):
-        if CML_oid.get_size() > self._free_space():
+        """
+        Writes a CML_oid to its storage. The CML_oid is added to the list of item holded by this object
+        :param cmloid: CML_oid to write
+        :return: generator
+        """
+        if CML_oid.get_size() > self.__free_space():
             raise DiskTooSmallError
 
         req = self.__mutex.request()
         yield req
-        # printmessage(0, "started writing " + str(cmloid), self.env.now)
 
-        if CML_oid.get_size() > self._free_space():
+        if CML_oid.get_size() > self.__free_space():
             # move or flush some files
             raise MethodNotImplemented("StorageDevice")
 
         # yield self.env.timeout(self.time_reading(CML_oid.get_size()))
         yield self.env.timeout(int(CML_oid.get_size() / self.writing_kBps * 1e6))
+        self.__container.put(CML_oid.get_size())
         self.stored_cmloid[cmloid.to_id()] = cmloid
 
         self.__mutex.release(req)
-        # printmessage(0, "finished writing " + str(cmloid), self.env.now)
 
     def tracked_file(self, file):
         filename = file.get_name()
         return filename in self.stored_cmloid or filename in self.transfer_list
-
-    def get_owning_disk_id(self, cmloid):
-        """
-        check that the file is present in the disk required. Mandatory before accessing the file
-        :param filename: the filename required
-        :return: returns the disk id where the resource has been moved to. In case of match it returns its id
-        """
-        if filename in self.stored_cmloid:
-            return self.id
-        else:
-            return self.transfer_list[filename]
-
-    def read_cmloid(self, cmloid):
-        # if not self.get_owning_disk_id(cmloid).equal(self.id):
-        #     raise FileNotFoundError("Before resource access, check that the file is present with is_file_present")
-
-        req = self.__mutex.request()
-        yield req
-        file = self.stored_cmloid[filename]
-        yield self.env.timeout(self.time_reading(file.get_size()))
-        self.__mutex.release(req)
-        printmessage(0, "finished reading " + file.get_name(), self.env.now)
 
     def move_file_to(self, file, target_disk_id):
         """
@@ -148,7 +152,7 @@ class StorageDevice:
             print("Requested a network movement")
             # network communication
 
-    def _free_space(self):
+    def __free_space(self):
         return self.__container.capacity - self.__container.level
 
     def get_capacity(self):

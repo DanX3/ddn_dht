@@ -4,9 +4,7 @@ from Server import Server
 from ServerManager import ServerManager
 import random
 import Parser
-from FunctionDesigner import Function2D, Plotter
 from Contract import Contract
-# from Tests import *
 
 
 class Simulator:
@@ -27,7 +25,7 @@ class Simulator:
                                   self.client_params, self.misc_params))
 
         # Add for example 3KB to send from every client
-        filename1 = clients[0].add_write_request(int(1e6))
+        filename1 = clients[0].add_write_request(int(1e8))
         # filename2 = clients[1].add_write_request(1)
         clients[0].flush()
         # clients[1].flush()
@@ -73,18 +71,18 @@ class Simulator:
 if __name__ == "__main__":
     parser = Parser.createparser()
     args = parser.parse_args()
-    if args.function:
-        if args.function == "gauss":
-            Plotter.plot_gauss(args.mu, args.sigma)
-        if args.function == "uniform":
-            Plotter.plot_uniform(args.value)
-        if args.function == "diag":
-            Plotter.plot_diag_limit(args.overhead, args.angular_coeff)
+    # if args.function:
+    #     if args.function == "gauss":
+    #         Plotter.plot_gauss(args.mu, args.sigma)
+    #     if args.function == "uniform":
+    #         Plotter.plot_uniform(args.value)
+    #     if args.function == "diag":
+    #         Plotter.plot_diag_limit(args.overhead, args.angular_coeff)
+    # else:
+    simulator = Simulator(args)
+    if args.params:
+        simulator.printParams(verbose=True)
     else:
-        simulator = Simulator(args)
-        if args.params:
-            simulator.printParams(verbose=True)
-        else:
-            simulator.run()
+        simulator.run()
 
 

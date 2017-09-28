@@ -2,7 +2,7 @@ import simpy
 from Server import Server
 from Contract import Contract
 from Utils import *
-from FunctionDesigner import Function2D, Plotter
+from FunctionDesigner import Function2D
 from HUB import HUB
 
 
@@ -28,8 +28,8 @@ class ServerManager:
 
     def request_server(self, send_group):
         """
-        sending the packed request to the servers
-        it uses HUB resources. Should force a lower bandwidth in case of traffic
+        Send the packed request to the servers
+        It uses HUB resources. Should force a lower bandwidth in case of traffic
         :param send_group: the formed request
         :return: yield the time required for the transaction to complete
         """

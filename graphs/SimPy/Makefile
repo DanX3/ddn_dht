@@ -8,3 +8,7 @@ print:
 
 doc: $(SRCS) Doxyfile
 	doxygen Doxyfile
+
+profile: $(SRCS)
+	pypy3 -m vmprof --lines -o profile_data Simulator.py 
+	grep -e "/SimPy/" profile_data
