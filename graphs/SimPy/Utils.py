@@ -11,16 +11,14 @@ class MethodNotImplemented(Exception):
         return "{}: method still not implemented"
 
 
-def printmessage(ID, message, time, done=True):
+def printmessage(id, message, time, done=True):
+    print(getmessage(id, message, time, done))
+
+def getmessage(id, message, time, done=True):
     doneChar = u"\u2713" if done else u"\u279C"
-    dottedtime = ""
-    while time > 0:
-        dottedtime = str(time % 1000) + " " + dottedtime
-        time = int(time / 1000)
-
-    print(doneChar.rjust(2), (dottedtime + "us").rjust(12), ("%d)"%ID).rjust(3), str(message))
-    # print(doneChar.rjust(2), (str(time)+ "us").rjust(12), ("%d)"%ID).rjust(3), str(message))
-
+    time = str(time)
+    dottedtime = (time[-12:-9] + " " + time[-9:-6] + " " + time[-6:-3] + " " + time[-3:]).strip()
+    return "{:3s} {:15s} us <{}> {}".format(doneChar, dottedtime.rjust(15), id, message)
 
 class CML_oid:
     def __init__(self, original_file, part_number):
@@ -35,6 +33,9 @@ class CML_oid:
 
     def get_id(self):
         return self.part_number
+
+    def get_total_parts(self):
+        return self.original_file.get_parts()
 
     def get_id_tuple(self):
         return self.part_number, self.original_file.get_parts()

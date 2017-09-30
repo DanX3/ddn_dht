@@ -30,6 +30,7 @@ class Client:
 
         self.filename_gen = File.get_filename_generator(self.ID)
         self.lookup_table = generate_lookup_table(32)
+        self.log = open('client.log', 'w')
 
     def decide_which_server(self):
         printmessage(self.ID, "->", self.env.now)
@@ -69,7 +70,8 @@ class Client:
             yield self.timeout(self.config[Contract.C_TOKEN_REFRESH])
 
     def receive_answer(self, file_received):
-        printmessage(self.ID, "Confirmed communication of {}".format(file_received), self.env.now)
+        self.log.write(getmessage(self.ID, "written {}\n".format(file_received), self.env.now))
+        # printmessage(self.ID, "Confirmed writing of {}".format(file_received), self.env.now)
 
     def run(self):
         yield self.env.timeout(0)
@@ -152,7 +154,6 @@ class Client:
         # for req in get_requests_from_file(self, target_id, file, False):
         #     self.request_queue[target_id] += req
         self.request_queue[target_id] += get_requests_from_file(self, target_id, file, False)
-        print("request_queue[{}] size is {}".format(target_id, len(self.request_queue[target_id])))
         # self.request_queue[target_id] += new_reqs
         self.env.process(self.check_request_queue(req.get_target_ID()))
         return filename

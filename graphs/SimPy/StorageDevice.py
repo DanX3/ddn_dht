@@ -92,12 +92,12 @@ class StorageDevice:
         req = self.__mutex.request()
         yield req
 
-        printmessage(0, "Started writing {}".format(dummy_file), self.env.now)
+        # printmessage(0, "Started writing {}".format(dummy_file), self.env.now)
         # yield self.env.timeout(self.time_reading(CML_oid.get_size()))
         yield self.env.timeout(int(dummy_file.get_size() / self.writing_kBps * 1e6))
 
         self.__mutex.release(req)
-        printmessage(0, "Finished writing {}".format(dummy_file), self.env.now)
+        # printmessage(0, "Finished writing {}".format(dummy_file), self.env.now)
 
     def write_cmloid(self, cmloid):
         """

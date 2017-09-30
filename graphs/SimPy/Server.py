@@ -5,6 +5,7 @@ from random import randint
 import StorageDevice
 from Contract import Contract
 from StorageDevice import StorageDevice, DiskIdInconsistency, DiskIdNotation
+from collections import deque
 
 
 class Server:
@@ -16,10 +17,10 @@ class Server:
         self.__mutex = simpy.Resource(env, capacity=1)
         self.clients = clients
         self.server_manager = server_manager
-        self.requests = []
+        self.requests = deque()
         self.HDDs_data = []
         self.HDDs_metadata = []
-        self.receiving_files = {}  # Dict[str, List[CML_oid]]
+        self.receiving_files = {}  # Dict[str, Deque[CML_oid]]
 
         self.lookup_table = generate_lookup_table(32)
         data_disk_gen = DiskIdNotation.get_disk_id_generator(self.id, True)
@@ -67,27 +68,25 @@ class Server:
             req = self.env.process(self.HDDs_data[i].simulate_write(File('', load_per_disk[i])))
             write_requests.append(req)
         yield simpy.events.AllOf(self.env, write_requests)
-        printmessage(self.id, "finished writing all cmloids", self.env.now)
 
     def __process_write_request(self, req):
         cmloid = req.get_cmloid()
         filename = cmloid.get_file().get_name()
-        yield self.env.timeout(10)
 
         # adds the file to the queue collection
         if filename not in self.receiving_files:
-            self.receiving_files[filename] = [cmloid]
+            self.receiving_files[filename] = [cmloid.get_id()]
         else:
-            self.receiving_files[filename].append(cmloid)
+            self.receiving_files[filename].append(cmloid.get_id())
 
         # send confirmation if file has been completely collected
-        if len(self.receiving_files[filename]) == cmloid.get_id_tuple()[1]:
-            req.get_client().receive_answer(cmloid.get_file())
+        if len(self.receiving_files[filename]) == cmloid.get_total_parts():
             yield self.env.process(self.__write_file(cmloid.get_file()))
             del(self.receiving_files[filename])
+            req.get_client().receive_answer(cmloid.get_file())
 
     def __process_single_request(self):
-        req = self.requests.pop(0)
+        req = self.requests.popleft()
         # printmessage(self.id, "accepted req \n\n{}".format(req), self.env.now)
         if req.is_read():
             yield self.env.process(self.process_read_request(req))
@@ -128,7 +127,8 @@ class Server:
 
         for req in send_group:
             self.requests.append(req)
-        self.env.process(self.process_requests())
+        if len(self.requests) > 0:
+            self.env.process(self.process_requests())
 
     def add_single_request(self, single_request):
         self.requests.append(single_request)

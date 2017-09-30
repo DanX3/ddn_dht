@@ -25,7 +25,9 @@ class Simulator:
                                   self.client_params, self.misc_params))
 
         # Add for example 3KB to send from every client
-        filename1 = clients[0].add_write_request(int(1e8))
+
+        # for i in range(7812):
+        filename1 = clients[0].add_write_request(100000000)
         # filename2 = clients[1].add_write_request(1)
         clients[0].flush()
         # clients[1].flush()
