@@ -1,6 +1,8 @@
-from math import ceil
+from math import ceil, floor
 from random import randint, seed
+from typing import List
 from collections import deque
+from enum import Enum
 
 
 class MethodNotImplemented(Exception):
@@ -11,14 +13,16 @@ class MethodNotImplemented(Exception):
         return "{}: method still not implemented"
 
 
-def printmessage(id, message, time, done=True):
+def printmessage(id: int, message: str, time, done: bool=True):
     print(getmessage(id, message, time, done))
+
 
 def getmessage(id, message, time, done=True):
     doneChar = u"\u2713" if done else u"\u279C"
     time = str(time)
     dottedtime = (time[-12:-9] + " " + time[-9:-6] + " " + time[-6:-3] + " " + time[-3:]).strip()
     return "{:3s} {:15s} us <{}> {}".format(doneChar, dottedtime.rjust(15), id, message)
+
 
 class CML_oid:
     def __init__(self, original_file, part_number):
@@ -58,6 +62,29 @@ class CML_oid:
         return 128
 
 
+class Chunk:
+    def __init__(self, filename: str, id: int, totparts: int, size: int):
+        self.__filename = filename
+        self.__id = id
+        self.__totparts = totparts
+        self.__size = size
+
+    def get_filename(self):
+        return self.__filename
+
+    def get_id(self):
+        return self.__id
+
+    def get_size(self):
+        return self.__size
+
+    def get_tot_parts(self):
+        return self.__totparts
+
+    def __str__(self):
+        return "Chunk('{}', {}, {} kB)".format(self.__filename, self.__id, self.__size)
+
+
 class File:
     def __init__(self, name, size_kB):
         self.name = name
@@ -80,6 +107,20 @@ class File:
     def __str__(self):
         return "File({}, {} kB)".format(self.name, self.size)
 
+    def get_chunks(self) -> List[Chunk]:
+        """
+        A chunk is nothing more than a List[filename:str, id:int, size:int]
+        This function creates the chunks given a file
+        :return: a list of parts from the given file
+        """
+        parts_count = int(ceil(self.size / 8192))
+        s = self.size
+        result = []
+        for i in range(parts_count):
+            result.append(Chunk(self.name, i, parts_count, min(s, 8192)))
+            s -= 8192
+        return result
+
     @staticmethod
     def get_filename_generator(client_id):
         int_name = 0
@@ -98,33 +139,46 @@ class MetaFile(File):
         return "MetaFile({}, {} kB)".format(self.name, self.size)
 
 
+class NetworkBuffer:
+    def __init__(self, payload: List[CML_oid], read: bool=True):
+        self.__payload = payload
+        self.__read = read
+
+    def get_payload(self) -> List[CML_oid]:
+        return self.__payload
+
+
 class ClientRequest:
-    def __init__(self, client, target_server_id, cmloid, read=True):
-        self.client = client
-        self.target_server_id = target_server_id
-        self.cmloid = cmloid
-        self.read = read
+    def __init__(self, client, target_server_id: int, chunk: Chunk, read: bool=True):
+        self.__client = client
+        self.__target_server_id = target_server_id
+        self.__chunk = chunk
+        self.__read = read
 
     def get_client(self):
-        return self.client
+        return self.__client
 
-    def get_target_ID(self):
-        return self.target_server_id
+    def get_target_ID(self) -> int:
+        return self.__target_server_id
 
-    def get_cmloid(self):
-        return self.cmloid
+    # def get_cmloid(self):
+    #     return self.cmloid
+    #
+
+    def get_chunk(self) -> Chunk:
+        return self.__chunk
 
     def is_read(self):
-        return self.read
+        return self.__read
 
     def __str__(self):
-        result = "ClientRequest {}:\n".format("READ" if self.read else "WRITE")
-        result += "\tfrom Client {} to Server {}\n".format(self.client.get_id(), self.target_server_id)
-        result += "\t{}\n".format(self.cmloid)
+        result = "ClientRequest {}:\n".format("READ" if self.__read else "WRITE")
+        result += "\tfrom Client {} to Server {}\n".format(self.__client.get_id(), self.__target_server_id)
+        result += "\t{}\n".format(self.__chunk)
         return result
 
     @staticmethod
-    def get_cmloid_size():
+    def get_cmloid_size() -> int:
         return 128
 
 

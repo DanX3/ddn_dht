@@ -21,8 +21,7 @@ digraph {
 
     subgraph cluster_server {
         label = "Server"
-        add_request -> process_request -> process_single_request
-        process_single_request -> process_write_request -> write_file
+        add_request -> process_request -> process_write_request -> write_file
     }
 
     subgraph cluster_storagedevice {

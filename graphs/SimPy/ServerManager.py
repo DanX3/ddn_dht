@@ -19,53 +19,46 @@ class ServerManager:
 
         # This will keep the queue for the client requests
         self.requests = {}
-        self.HUB = HUB(env, int(misc_params[Contract.M_HUB_BW_Gbps]) * 1e6 / 8)
+        # self.__HUB = HUB(env, int(misc_params[Contract.M_HUB_BW_Gbps]) * 1e6 / 8)
+        self.__HUB = simpy.Resource(env)
+        self.__overhead = int(self.misc_params[Contract.M_NETWORK_LATENCY_MS])
+        self.__max_bandwidth = int(self.misc_params[Contract.M_HUB_BW_Gbps]) * 1e6 / 8
+        self.__time_function = Function2D.get_bandwidth_model(self.__overhead, self.__max_bandwidth)
 
     def get_server_by_id(self, ID):
         for server in self.servers:
             if ID == server.get_id():
                 return server
 
-    def request_server(self, send_group):
+    def request_server(self, request: ClientRequest):
         """
-        Send the packed request to the servers
-        It uses HUB resources. Should force a lower bandwidth in case of traffic
-        :param send_group: the formed request
+        Send the chunk request to the servers
+        It uses HUB resources. Every request is queued.
+        Every request of 1MB is sent at max bandwidth
+        A request smaller takes more time, based on Diagonal Limit configuration
+        :param request: client request holding the chunk to send
         :return: yield the time required for the transaction to complete
         """
-        target_server = self.servers[send_group[0].get_target_ID()]
-        overhead = int(self.misc_params[Contract.M_NETWORK_LATENCY_MS])
-        # max_bandwidth = int(self.misc_params[Contract.M_HUB_BW_Gbps]) * 1e6 / 8
-        size = len(send_group) * ClientRequest.get_cmloid_size()
+        size = min(1024, request.get_chunk().get_size())
 
-        mutex_request = self.HUB.request_mutex()
+        mutex_request = self.__HUB.request()
         yield mutex_request
-        available_bw = self.HUB.get_available_bw()
 
         # I try to round to the available bandwidth, but if there is no available
         # I'll do the computation with the max bandwidth available
-        if available_bw == 0:
-            available_bw = int(self.misc_params[Contract.M_HUB_BW_Gbps]) * 1e6 / 8
-        time_required = Function2D.get_bandwidth_model(overhead, available_bw)(size) / 1e6
-        avg_bandwidth = int(size / time_required)
-        request, bw_allowed = self.HUB.request_bandwidth(avg_bandwidth)
-        self.HUB.release_mutex(mutex_request)
-
-        yield request
-        new_time = Function2D.get_bandwidth_model(overhead, bw_allowed)(size)
-        yield self.env.timeout(new_time)
-        self.HUB.release_bandwidth(bw_allowed)
-
+        time_required = int(self.__time_function(size) / 1e6)
+        yield self.env.timeout(time_required)
+        self.__HUB.release(mutex_request)
         # uncomment to see the plot of the situation
         # Plotter.plot_bandwidth_model(overhead, available_bw, packet_size_kB=send_group.get_size())
-        target_server.add_request(send_group)
+        self.servers[request.get_target_ID()].add_request(request)
 
     def single_request_server(self, req):
-        sendgroup = SendGroup()
-        paritygroup = ParityGroup()
-        paritygroup.add_request(req)
-        sendgroup.add_request(paritygroup)
-        self.env.process(self.request_server(sendgroup))
+        # sendgroup = SendGroup()
+        # paritygroup = ParityGroup()
+        # paritygroup.add_request(req)
+        # sendgroup.add_request(paritygroup)
+        self.env.process(self.request_server(req))
 
     def release_server(self, server_id):
         self.server_resources.release(self.requests[server_id])

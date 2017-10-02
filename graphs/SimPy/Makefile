@@ -3,7 +3,7 @@ PROFILEOUT=profile_data
 PROFILELINES=profile_lines
 FLAME=profile.flame
 FLAMEIMG=profile.svg
-FLAMEOPTS= --title "IME Simulation" --width 3000 --colors red --fontsize 10
+FLAMEOPTS= --title "IME Simulation" --colors blue
 
 all: $(SRCS)
 	pypy3 Simulator.py

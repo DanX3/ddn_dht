@@ -19,7 +19,7 @@ class Client:
         self.chosen_server = -1
 
         # requests sent. The ints shows the size of KB of the request
-        # request.queue = Dict[str, deque[SendGroup]]
+        # request.queue = Dict[int, deque[ClientRequest]]
         self.request_queue = {}
         self.current_request = 0
 
@@ -28,9 +28,11 @@ class Client:
             # self.pending_send_queue[i] = []
             self.request_queue[i] = deque()
 
+        seed(0)
         self.filename_gen = File.get_filename_generator(self.ID)
         self.lookup_table = generate_lookup_table(32)
         self.log = open('client.log', 'w')
+        self.send_treshold = int(1024 / ClientRequest.get_cmloid_size())
 
     def decide_which_server(self):
         printmessage(self.ID, "->", self.env.now)
@@ -69,9 +71,10 @@ class Client:
         else:
             yield self.timeout(self.config[Contract.C_TOKEN_REFRESH])
 
-    def receive_answer(self, file_received):
-        self.log.write(getmessage(self.ID, "written {}\n".format(file_received), self.env.now))
-        # printmessage(self.ID, "Confirmed writing of {}".format(file_received), self.env.now)
+    def receive_answer(self, chunk_received: Chunk):
+        # self.log.write(getmessage(self.ID, "written {}\n".format(chunk_received), self.env.now))
+        if chunk_received.get_id() == chunk_received.get_tot_parts() - 1:
+            printmessage(self.ID, "Confirmed writing of {}".format(chunk_received), self.env.now)
 
     def run(self):
         yield self.env.timeout(0)
@@ -84,11 +87,10 @@ class Client:
         # yield self.env.process(self.check_tokens())
         # yield self.env.process(self.send_request(self.chosen_server))
 
-    def send_request(self, packed_reqs):
+    def send_request(self, request: ClientRequest):
         # start = self.env.now
-        # print("Client {} requested Server {}".format(self.ID, packed_reqs[0].get_target_ID()))
         # clientRequest = ClientRequest(self, target_server_ID, self.ID * 100)
-        yield self.env.process(self.servers_manager.request_server(packed_reqs))
+        yield self.env.process(self.servers_manager.request_server(request))
         # yield self.env.process(self.servers_manager.request_server(send_group))
         # self.logger.add_idle_time(self.env.now - start)
 
@@ -125,20 +127,9 @@ class Client:
         for req in self.request_queue[target_id]:
             size += req.get
 
-    def check_request_queue(self, target_id, force=False):
-        # requests should be delivered also when a packed request is bigger than a treshold (1MB)
-        send_treshold = int(1024 / ClientRequest.get_cmloid_size())
-        while len(self.request_queue[target_id]) >= send_treshold:
-            packed_reqs = [self.request_queue[target_id].popleft() for i in range(send_treshold)]
-            # packed_reqs = self.request_queue[:send_treshold]
-            # del(self.request_queue[0:send_treshold])
-            yield self.env.process(self.send_request(packed_reqs))
-
-        if force and len(self.request_queue[target_id]) > 0:
-            packed_reqs = self.request_queue[target_id]
-            yield self.env.process(self.send_request(packed_reqs))
-            self.request_queue[target_id].clear()
-        # self.check_send_queue(target_id)
+    def check_request_queue(self, target_id):
+        while self.request_queue[target_id]:
+            yield self.env.process(self.send_request(self.request_queue[target_id].popleft()))
 
     def add_write_request(self, req_size_kb):
         """
@@ -148,14 +139,13 @@ class Client:
         """
         filename = next(self.filename_gen)
         file = File(filename, req_size_kb)
-        target_id = self.get_target_from_file(file)
-        req = ClientRequest(self, target_id, file, read=False)
-        # new_reqs = [req for req in get_requests_from_file(self, target_id, file, False)]
-        # for req in get_requests_from_file(self, target_id, file, False):
-        #     self.request_queue[target_id] += req
-        self.request_queue[target_id] += get_requests_from_file(self, target_id, file, False)
-        # self.request_queue[target_id] += new_reqs
-        self.env.process(self.check_request_queue(req.get_target_ID()))
+        chunks = file.get_chunks()
+        for chunk in chunks:
+            target_id = self.get_target_from_chunk(chunk)
+            self.request_queue[target_id].append(ClientRequest(self, target_id, chunk, read=False))
+        for target_id in range(len(self.request_queue)):
+            if len(self.request_queue[target_id]) > self.send_treshold:
+                self.env.process(self.check_request_queue(target_id))
         return filename
 
     def print_status(self):
@@ -173,11 +163,8 @@ class Client:
         return self.ID
 
     def flush(self):
-        for target_id in range(self.servers_manager.get_server_count()):
-            self.env.process(self.check_request_queue(target_id, force=True))
-
-        # for target_id in range(self.servers_manager.get_server_count()):
-        #     self.flush_parities(target_id)
+        for target_id in range(len(self.request_queue)):
+            self.env.process(self.check_request_queue(target_id))
 
     def get_target_from_file(self, file):
         """
@@ -185,7 +172,7 @@ class Client:
         :param file: the file or metadata file we want to work on
         :return: the int id of the target server
         """
-        seed(0)
+
         table = self.lookup_table
         for i in range(32):
             idx1 = randint(0, 31)
@@ -197,3 +184,5 @@ class Client:
             result += table[ord(letter) % 32]
         return result % self.servers_manager.get_server_count()
 
+    def get_target_from_chunk(self, chunk: Chunk):
+        return chunk.get_id() % self.servers_manager.get_server_count()

@@ -1,10 +1,9 @@
 import simpy
 from Logger import Logger
 from Utils import *
-from random import randint
 import StorageDevice
 from Contract import Contract
-from StorageDevice import StorageDevice, DiskIdInconsistency, DiskIdNotation
+from StorageDevice import StorageDevice, DiskIdNotation
 from collections import deque
 
 
@@ -49,11 +48,11 @@ class Server:
     def get_id(self):
         return self.id
 
-    def process_read_request(self, req):
+    def __process_read_request(self, req):
         req.get_client().receive_answer(req)
         raise MethodNotImplemented("Server")
 
-    def __write_file(self, file):
+    def __write_file(self, file: File):
         """
         Writes files to the disks, exploiting the RAID configuration
         For performance purposes, instead of creating and writing all the CML_oid,
@@ -69,29 +68,32 @@ class Server:
             write_requests.append(req)
         yield simpy.events.AllOf(self.env, write_requests)
 
-    def __process_write_request(self, req):
-        cmloid = req.get_cmloid()
-        filename = cmloid.get_file().get_name()
-
-        # adds the file to the queue collection
-        if filename not in self.receiving_files:
-            self.receiving_files[filename] = [cmloid.get_id()]
-        else:
-            self.receiving_files[filename].append(cmloid.get_id())
-
-        # send confirmation if file has been completely collected
-        if len(self.receiving_files[filename]) == cmloid.get_total_parts():
-            yield self.env.process(self.__write_file(cmloid.get_file()))
-            del(self.receiving_files[filename])
-            req.get_client().receive_answer(cmloid.get_file())
-
-    def __process_single_request(self):
-        req = self.requests.popleft()
-        # printmessage(self.id, "accepted req \n\n{}".format(req), self.env.now)
-        if req.is_read():
-            yield self.env.process(self.process_read_request(req))
-        else:
-            yield self.env.process(self.__process_write_request(req))
+    def __process_write_request(self, req: ClientRequest):
+        load = self.get_load_from_chunk(req.get_chunk())
+        write_requests = []
+        for i in range(len(self.HDDs_data)):
+            write_requests.append(self.env.process(self.HDDs_data[i].simulate_write(File('', load[i]))))
+        yield simpy.events.AllOf(self.env, write_requests)
+        req.get_client().receive_answer(req.get_chunk())
+        del req
+        # for network_buffer in range(int(ceil(req.get_chunk().get_size() / 1024))):
+        #     for CML_oid in range(int(ceil(1024/ClientRequest.get_cmloid_size()))):
+        #
+        # # # # # #
+        # cmloid = req.get_cmloid()
+        # filename = cmloid.get_file().get_name()
+        #
+        # # adds the file to the queue collection
+        # if filename not in self.receiving_files:
+        #     self.receiving_files[filename] = [cmloid.get_id()]
+        # else:
+        #     self.receiving_files[filename].append(cmloid.get_id())
+        #
+        # # send confirmation if file has been completely collected
+        # if len(self.receiving_files[filename]) == cmloid.get_total_parts():
+        #     yield self.env.process(self.__write_file(cmloid.get_file()))
+        #     del(self.receiving_files[filename])
+        #     req.get_client().receive_answer(cmloid.get_file())
 
     def process_requests(self):
         mutex_req = self.__mutex.request()
@@ -102,13 +104,13 @@ class Server:
             return
 
         while len(self.requests) > 0:
-            yield self.env.process(self.__process_single_request())
+            req = self.requests.popleft()
+            if req.is_read():
+                yield self.env.process(self.__process_read_request(req))
+            else:
+                yield self.env.process(self.__process_write_request(req))
 
-        # if len(self.requests) == 0:
-        #     printmessage(self.id, "I'm free", self.env.now)
         self.__mutex.release(mutex_req)
-        # Redirect to the correct server
-        # self.server_manager.add_request(clientRequest)
 
     def is_request_local(self, clientRequest):
         return True
@@ -116,19 +118,9 @@ class Server:
     def get_new_target(self, clientRequest):
         return self
 
-    def add_request(self, send_group):
-        # requests unpacking
-        # for parityGroup in send_group.get_requests():
-        #     for single_request in parityGroup.get_requests():
-        #         self.requests.append(single_request)
-
-        if len(send_group) > 8:
-            raise Exception("Server {}: Arrived more than 1MB in a single request".format(self.id))
-
-        for req in send_group:
-            self.requests.append(req)
-        if len(self.requests) > 0:
-            self.env.process(self.process_requests())
+    def add_request(self, request: ClientRequest):
+        self.requests.append(request)
+        self.env.process(self.process_requests())
 
     def add_single_request(self, single_request):
         self.requests.append(single_request)
@@ -154,7 +146,7 @@ class Server:
         result += self.lookup_table[cmloid.get_id_tuple()[0] % 32]
         return result % len(self.HDDs_data)
 
-    def get_load_per_disk(self, file):
+    def get_load_per_disk(self, file: File) -> List[int]:
         """
         Get how data is supposed to be distributed over the disks.
         Size is rounded up to a multiple of CML_oid size.
@@ -167,4 +159,13 @@ class Server:
         load = [min_load for i in range(disk_count)]
         for i in range(int(cmloid_count % disk_count)):
             load[i] += CML_oid.get_size()
+        return load
+
+    def get_load_from_chunk(self, chunk: Chunk) -> List[int]:
+        cmloid_size = ClientRequest.get_cmloid_size()
+        cmloid_count = int(ceil(chunk.get_size() / cmloid_size))
+        min_load = int(floor(cmloid_count / len(self.HDDs_data)) * cmloid_size)
+        load = [min_load] * len(self.HDDs_data)
+        for i in range(cmloid_count % len(self.HDDs_data)):
+            load[i] += cmloid_size
         return load
