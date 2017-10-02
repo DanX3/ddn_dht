@@ -1,0 +1,35 @@
+digraph {
+    mincross=2.0
+    style = dashed
+    splines=ortho
+    subgraph cluster_client {
+        label = Client
+        add_write_request[shape=box]
+        receive_answer[shape=box]
+        add_write_request -> check_request_queue -> send_request
+    }
+
+    send_request -> request_server -> add_request
+
+    subgraph cluster_server_manager {
+        label = "Server manager"
+        request_server
+        answer_client
+    }
+
+    write_file -> answer_client -> receive_answer
+
+    subgraph cluster_server {
+        label = "Server"
+        add_request -> process_request -> process_single_request
+        process_single_request -> process_write_request -> write_file
+    }
+
+    subgraph cluster_storagedevice {
+        label = "Storage Device"
+        simulate_write
+    }
+
+    write_file -> simulate_write
+    simulate_write -> write_file
+}

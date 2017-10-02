@@ -28,3 +28,6 @@ flame: $(SRCS)
 	vmprof-flamegraph.py $(PROFILEOUT) > $(FLAME)
 	flamegraph.pl $(FLAMEOPTS) $(FLAME) > $(FLAMEIMG)
 	eog $(FLAMEIMG)
+
+graph: map.gv
+	dot -Tsvg $< > map.svg
