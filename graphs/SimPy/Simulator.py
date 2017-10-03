@@ -15,6 +15,7 @@ class Simulator:
         self.server_params = {}
         self.misc_params = {}
         self.parseFile()
+        self.requests = {}
         random.seed(args.seed)
 
         clients = []
@@ -24,18 +25,11 @@ class Simulator:
             clients.append(Client(i, self.env, self.servers_manager,
                                   self.client_params, self.misc_params))
 
-        # Add for example 3KB to send from every client
-
-        # for i in range(7812):
-        filename1 = clients[0].add_write_request(int(2**30))
-        # filename2 = clients[1].add_write_request(1)
-        clients[0].flush()
-        # clients[1].flush()
+        self.__parse_requests()
         log = open(self.misc_params[Contract.M_CLIENT_LOGFILE_NAME], 'w')
 
     def parseFile(self):
         configuration = open(self.args.config, "r")
-
         for line in configuration:
             couple = line.strip().split('=')
             try:
@@ -48,11 +42,58 @@ class Simulator:
                 elif field[0] == "M":   # Misc Options
                     self.misc_params[field] = value
                 
-
                 # self.params[couple[0].strip()] = int(couple[1].strip())
             except Exception:
                 if line[0] == '#':
                     continue
+
+    def __parse_requests(self):
+        requests = open(self.args.requests, 'r')
+
+        # parses the file once to create an empty container of requests
+        clients_count = 0
+        for line in requests:
+            try:
+                if line == "" or line.startswith('#'):
+                    continue
+                if line.strip()[0] != '*':
+                    clients_count += 1
+            except Exception:
+                pass
+
+        for i in range(clients_count):
+            self.requests[i] = []
+
+        requests.seek(0)
+        line_number = 0
+        for line in requests:
+            line = line.strip()
+            try:
+                if line == "" or line.startswith('#'):
+                    continue
+                words = line.split(" ")
+                if words[0] == '*':
+                    print("global request")
+                    req = (int(words[1]), int(words[2]))
+                    if req[0] != 0 and req[1] != 0:
+                        for i in range(clients_count):
+                            self.requests[i].append(req)
+                else:
+                    print("single request")
+                    req = (int(words[0]), int(words[1]))
+                    if req[0] != 0 and req[1] != 0:
+                        self.requests[line_number].append(req)
+                    line_number += 1
+            except Exception:
+                if line[0] == '#':
+                    continue
+
+        for key, value in self.requests.items():
+            # print(key, len(value))
+            for req in value:
+                print(key)
+                print(req, end=", ")
+            print()
 
     def printParams(self, verbose=False):
         if args.verbose or verbose:
