@@ -1,4 +1,4 @@
-from numpy import exp, linspace
+from numpy import exp, linspace, exp
 import random
 from os import getpid
 from math import sqrt, pi
@@ -45,10 +45,10 @@ class Function2D:
         return int(abs(random.gauss(mu, sigma)))
 
     @staticmethod
-    def get_bandwidth_model(latency_ms, bandwidth_kBps):
+    def get_bandwidth_model(latency_us, bandwidth_kBps):
         if bandwidth_kBps == 0:
             raise ZeroDivisionError
-        return Function2D.get_diag_limit(latency_ms * 1e3, 1e6/bandwidth_kBps)
+        return Function2D.get_diag_limit(latency_us, 1e6/bandwidth_kBps)
 
     @staticmethod
     def get_diag_limit(overhead, angular_coeff):
@@ -61,7 +61,7 @@ class Function2D:
         #b = overhead / angular_coeff
         a = overhead
         b = a / angular_coeff
-        return lambda x: round(sqrt(a*a * (1.0 + x**2/b**2)))
+        return lambda x: round(sqrt(a*a * (1.0 + (x*x)/(b*b))))
 
 
 # if __name__ == "__main__":

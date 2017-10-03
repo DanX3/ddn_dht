@@ -1,3 +1,4 @@
+import simpy
 from Logger import Logger
 from Server import Server
 from Utils import *
@@ -7,38 +8,32 @@ from collections import deque
 
 
 class Client:
-    def __init__(self, ID, env, servers_manager, config, misc_params):
+    def __init__(self, id, env, servers_manager, config, misc_params):
         self.env = env
-        self.ID = ID
+        self.id = id
         self.servers_manager = servers_manager
         self.config = config
         self.misc_params = misc_params
         # self.env.process(self.run())
-        self.logger = Logger(ID, env)
+        self.logger = Logger(id, env)
         self.tokens = 24
         self.chosen_server = -1
 
-        # requests sent. The ints shows the size of KB of the request
         # request.queue = Dict[int, deque[ClientRequest]]
         self.request_queue = {}
         self.current_request = 0
 
-        # self.pending_send_queue = {}
         for i in range(servers_manager.get_server_count()):
-            # self.pending_send_queue[i] = []
             self.request_queue[i] = deque()
 
         seed(0)
-        self.filename_gen = File.get_filename_generator(self.ID)
+        self.filename_gen = File.get_filename_generator(self.id)
         self.lookup_table = generate_lookup_table(32)
         self.log = open('client.log', 'w')
         self.send_treshold = int(1024 / ClientRequest.get_cmloid_size())
+        self.data_sent = 0
+        self.data_received = 0
 
-    def decide_which_server(self):
-        printmessage(self.ID, "->", self.env.now)
-        # self.chosen_server = self.find_most_free_server()
-        yield self.env.process(self.logger.work(Function2D.gauss(10, 2)))
-    
     def get_pending_parity_size(self):
         size = 0
         for request in self.pending_parity_queue:
@@ -72,9 +67,11 @@ class Client:
             yield self.timeout(self.config[Contract.C_TOKEN_REFRESH])
 
     def receive_answer(self, chunk_received: Chunk):
-        # self.log.write(getmessage(self.ID, "written {}\n".format(chunk_received), self.env.now))
-        if chunk_received.get_id() == chunk_received.get_tot_parts() - 1:
-            printmessage(self.ID, "Confirmed writing of {}".format(chunk_received), self.env.now)
+        self.data_received += chunk_received.get_size()
+        if self.data_received >= self.data_sent:
+            printmessage(self.id, "Finished all the transactions", self.env.now)
+        # if chunk_received.get_id() == chunk_received.get_tot_parts() - 1:
+        # printmessage(self.ID, "Confirmed writing of {}".format(chunk_received), self.env.now)
 
     def run(self):
         yield self.env.timeout(0)
@@ -90,7 +87,7 @@ class Client:
     def send_request(self, request: ClientRequest):
         # start = self.env.now
         # clientRequest = ClientRequest(self, target_server_ID, self.ID * 100)
-        yield self.env.process(self.servers_manager.request_server(request))
+        yield self.env.process(self.servers_manager.request_server(request, test_net=True))
         # yield self.env.process(self.servers_manager.request_server(send_group))
         # self.logger.add_idle_time(self.env.now - start)
 
@@ -116,7 +113,6 @@ class Client:
         #     self.pending_send_queue[target_id].append(parity_group)
         self.send_request(target_id)
 
-
     def check_send_queue(self, target_id):
         pass
         # while len(self.pending_send_queue[target_id]) >= self.config[Contract.C_PENDING_SEND_GROUP]:
@@ -139,17 +135,19 @@ class Client:
         """
         filename = next(self.filename_gen)
         file = File(filename, req_size_kb)
-        chunks = file.get_chunks()
-        for chunk in chunks:
+        self.data_sent += req_size_kb
+        for chunk in file.get_chunks():
             target_id = self.get_target_from_chunk(chunk)
             self.request_queue[target_id].append(ClientRequest(self, target_id, chunk, read=False))
+
+        # trigger sending processes
         for target_id in range(len(self.request_queue)):
-            if len(self.request_queue[target_id]) > self.send_treshold:
-                self.env.process(self.check_request_queue(target_id))
+            # if len(self.request_queue[target_id]) > self.send_treshold:
+            self.env.process(self.check_request_queue(target_id))
         return filename
 
     def print_status(self):
-        print("Client {}".format(self.ID))
+        print("Client {}".format(self.id))
         print("\tReqs queue:")
         for target_id in self.request_queue:
             print("\t\t[{}] : {}".format(target_id, len(self.request_queue[target_id])))
@@ -160,11 +158,11 @@ class Client:
         print()
 
     def get_id(self):
-        return self.ID
+        return self.id
 
     def flush(self):
         for target_id in range(len(self.request_queue)):
-            self.env.process(self.check_request_queue(target_id))
+            return self.env.process(self.check_request_queue(target_id))
 
     def get_target_from_file(self, file):
         """

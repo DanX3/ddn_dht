@@ -4,6 +4,7 @@ from Server import Server
 from ServerManager import ServerManager
 import random
 import Parser
+from Utils import printmessage
 from Contract import Contract
 
 
@@ -24,9 +25,22 @@ class Simulator:
         for i in range(self.client_params[Contract.C_CLIENT_COUNT]):
             clients.append(Client(i, self.env, self.servers_manager,
                                   self.client_params, self.misc_params))
-
         self.__parse_requests()
+        for key, req_list in self.requests.items():
+            for req in req_list:
+                # if key not in clients:
+                #     raise Exception(str(key) + " not in clients")
+                try:
+                    for i in range(req[0]):
+                        clients[key].add_write_request(req[1])
+                except IndexError:
+                    raise Exception("Inconsistent number of clients across config and request")
+
+        for key, req_list in self.requests.items():
+            clients[key].flush()
+
         log = open(self.misc_params[Contract.M_CLIENT_LOGFILE_NAME], 'w')
+
 
     def parseFile(self):
         configuration = open(self.args.config, "r")
@@ -48,7 +62,7 @@ class Simulator:
                     continue
 
     def __parse_requests(self):
-        requests = open(self.args.requests, 'r')
+        requests = open(self.args.request, 'r')
 
         # parses the file once to create an empty container of requests
         clients_count = 0
@@ -73,13 +87,11 @@ class Simulator:
                     continue
                 words = line.split(" ")
                 if words[0] == '*':
-                    print("global request")
                     req = (int(words[1]), int(words[2]))
                     if req[0] != 0 and req[1] != 0:
                         for i in range(clients_count):
                             self.requests[i].append(req)
                 else:
-                    print("single request")
                     req = (int(words[0]), int(words[1]))
                     if req[0] != 0 and req[1] != 0:
                         self.requests[line_number].append(req)
@@ -87,13 +99,6 @@ class Simulator:
             except Exception:
                 if line[0] == '#':
                     continue
-
-        for key, value in self.requests.items():
-            # print(key, len(value))
-            for req in value:
-                print(key)
-                print(req, end=", ")
-            print()
 
     def printParams(self, verbose=False):
         if args.verbose or verbose:
@@ -114,18 +119,13 @@ class Simulator:
 if __name__ == "__main__":
     parser = Parser.createparser()
     args = parser.parse_args()
-    # if args.function:
-    #     if args.function == "gauss":
-    #         Plotter.plot_gauss(args.mu, args.sigma)
-    #     if args.function == "uniform":
-    #         Plotter.plot_uniform(args.value)
-    #     if args.function == "diag":
-    #         Plotter.plot_diag_limit(args.overhead, args.angular_coeff)
-    # else:
+
     simulator = Simulator(args)
     if args.params:
         simulator.printParams(verbose=True)
     else:
         simulator.run()
+
+
 
 

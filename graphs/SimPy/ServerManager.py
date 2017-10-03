@@ -21,7 +21,7 @@ class ServerManager:
         self.requests = {}
         # self.__HUB = HUB(env, int(misc_params[Contract.M_HUB_BW_Gbps]) * 1e6 / 8)
         self.__HUB = simpy.Resource(env)
-        self.__overhead = int(self.misc_params[Contract.M_NETWORK_LATENCY_MS])
+        self.__overhead = int(self.misc_params[Contract.M_NETWORK_LATENCY_US])
         self.__max_bandwidth = int(self.misc_params[Contract.M_HUB_BW_Gbps]) * 1e6 / 8
         self.__time_function = Function2D.get_bandwidth_model(self.__overhead, self.__max_bandwidth)
 
@@ -30,7 +30,7 @@ class ServerManager:
             if ID == server.get_id():
                 return server
 
-    def request_server(self, request: ClientRequest):
+    def request_server(self, request: ClientRequest, test_net: bool=False):
         """
         Send the chunk request to the servers
         It uses HUB resources. Every request is queued.
@@ -44,14 +44,13 @@ class ServerManager:
         mutex_request = self.__HUB.request()
         yield mutex_request
 
-        # I try to round to the available bandwidth, but if there is no available
-        # I'll do the computation with the max bandwidth available
-        time_required = int(self.__time_function(size) / 1e6)
+        time_required = int(self.__time_function(size) / 1e6) if size == 1024 else int(size / self.__max_bandwidth)
         yield self.env.timeout(time_required)
         self.__HUB.release(mutex_request)
-        # uncomment to see the plot of the situation
-        # Plotter.plot_bandwidth_model(overhead, available_bw, packet_size_kB=send_group.get_size())
-        self.servers[request.get_target_ID()].add_request(request)
+        if test_net:
+            request.get_client().receive_answer(request.get_chunk())
+        else:
+            self.servers[request.get_target_ID()].add_request(request)
 
     def single_request_server(self, req):
         # sendgroup = SendGroup()

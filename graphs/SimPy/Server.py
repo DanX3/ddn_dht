@@ -8,9 +8,9 @@ from collections import deque
 
 
 class Server:
-    def __init__(self, env, ID, config, misc_params, clients, server_manager):
+    def __init__(self, env, id, config, misc_params, clients, server_manager):
         self.env = env
-        self.id = ID
+        self.id = id
         self.logger = Logger(self.id, self.env)
         self.config = config
         self.__mutex = simpy.Resource(env, capacity=1)
@@ -52,21 +52,21 @@ class Server:
         req.get_client().receive_answer(req)
         raise MethodNotImplemented("Server")
 
-    def __write_file(self, file: File):
-        """
-        Writes files to the disks, exploiting the RAID configuration
-        For performance purposes, instead of creating and writing all the CML_oid,
-        it pre-computes the amount that each disk will write and request a single big file write
-        From outside the result is the same but is much more lightweight
-        :param file: The file to be written
-        :return: None
-        """
-        write_requests = []
-        load_per_disk = self.get_load_per_disk(file)
-        for i in range(len(self.HDDs_data)):
-            req = self.env.process(self.HDDs_data[i].simulate_write(File('', load_per_disk[i])))
-            write_requests.append(req)
-        yield simpy.events.AllOf(self.env, write_requests)
+    # def __write_file(self, file: File):
+    #     """
+    #     Writes files to the disks, exploiting the RAID configuration
+    #     For performance purposes, instead of creating and writing all the CML_oid,
+    #     it pre-computes the amount that each disk will write and request a single big file write
+    #     From outside the result is the same but is much more lightweight
+    #     :param file: The file to be written
+    #     :return: None
+    #     """
+    #     write_requests = []
+    #     load_per_disk = self.get_load_per_disk(file)
+    #     for i in range(len(self.HDDs_data)):
+    #         req = self.env.process(self.HDDs_data[i].simulate_write(File('', load_per_disk[i])))
+    #         write_requests.append(req)
+    #     yield simpy.events.AllOf(self.env, write_requests)
 
     def __process_write_request(self, req: ClientRequest):
         load = self.get_load_from_chunk(req.get_chunk())
