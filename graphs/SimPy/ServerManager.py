@@ -21,9 +21,9 @@ class ServerManager:
         self.requests = {}
         # self.__HUB = HUB(env, int(misc_params[Contract.M_HUB_BW_Gbps]) * 1e6 / 8)
         self.__HUB = simpy.Resource(env)
-        self.__overhead = int(self.misc_params[Contract.M_NETWORK_LATENCY_US])
+        self.__overhead = int(self.misc_params[Contract.M_NETWORK_LATENCY_nS])
         self.__max_bandwidth = int(self.misc_params[Contract.M_HUB_BW_Gbps]) * 1e6 / 8
-        self.__time_function = Function2D.get_bandwidth_model(self.__overhead, self.__max_bandwidth)
+        self.__time_function = Function2D.get_bandwidth_model(self.__overhead, self.__max_bandwidth / 1e6)
 
     def get_server_by_id(self, ID):
         for server in self.servers:
@@ -39,12 +39,14 @@ class ServerManager:
         :param request: client request holding the chunk to send
         :return: yield the time required for the transaction to complete
         """
-        size = min(1024, request.get_chunk().get_size())
-
         mutex_request = self.__HUB.request()
         yield mutex_request
-
-        time_required = int(self.__time_function(size) / 1e6) if size == 1024 else int(size / self.__max_bandwidth)
+        size = request.get_chunk().get_size()
+        # 1 MB packets at full speed
+        time_required = int((size / 1024) * (1024 / self.__max_bandwidth * 1e9))
+        # smaller packages based on time function
+        if size % 1024 != 0:
+            time_required += int((size % 1024) * self.__time_function(size))
         yield self.env.timeout(time_required)
         self.__HUB.release(mutex_request)
         if test_net:

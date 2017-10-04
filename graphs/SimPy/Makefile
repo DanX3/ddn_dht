@@ -28,7 +28,7 @@ flame: $(SRCS)
 	$(CC) -m vmprof --lines -o $(PROFILEOUT) Simulator.py
 	vmprof-flamegraph.py $(PROFILEOUT) > $(FLAME)
 	flamegraph.pl $(FLAMEOPTS) $(FLAME) > $(FLAMEIMG)
-	eog $(FLAMEIMG)
+	firefox $(FLAMEIMG)
 
 graph: map.gv
 	dot -Tsvg $< > map.svg

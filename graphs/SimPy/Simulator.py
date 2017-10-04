@@ -61,6 +61,16 @@ class Simulator:
                 if line[0] == '#':
                     continue
 
+    def __from_human(self, human_number: str):
+        """
+        Replace human readable format with machine readable numbers.
+        Used to improve request file readability
+        :param human_number: the string representing the number
+        :return: the integer represented
+        """
+        r = human_number.replace("P", "GG").replace("T", "GM").replace("G", "MM").replace("M", "000")
+        return int(r)
+
     def __parse_requests(self):
         requests = open(self.args.request, 'r')
 
@@ -87,12 +97,12 @@ class Simulator:
                     continue
                 words = line.split(" ")
                 if words[0] == '*':
-                    req = (int(words[1]), int(words[2]))
+                    req = (self.__from_human(words[1]), self.__from_human(words[2]))
                     if req[0] != 0 and req[1] != 0:
                         for i in range(clients_count):
                             self.requests[i].append(req)
                 else:
-                    req = (int(words[0]), int(words[1]))
+                    req = (self.__from_human(words[0]), self.__from_human(words[1]))
                     if req[0] != 0 and req[1] != 0:
                         self.requests[line_number].append(req)
                     line_number += 1

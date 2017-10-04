@@ -94,7 +94,7 @@ class StorageDevice:
 
         # printmessage(0, "Started writing {}".format(dummy_file), self.env.now)
         # yield self.env.timeout(self.time_reading(CML_oid.get_size()))
-        yield self.env.timeout(int(dummy_file.get_size() / self.writing_kBps * 1e6))
+        yield self.env.timeout(int(dummy_file.get_size() / self.writing_kBps * 1e9))
 
         self.__mutex.release(req)
         # printmessage(0, "Finished writing {}".format(dummy_file), self.env.now)
@@ -116,7 +116,7 @@ class StorageDevice:
             raise MethodNotImplemented("StorageDevice")
 
         # yield self.env.timeout(self.time_reading(CML_oid.get_size()))
-        yield self.env.timeout(int(CML_oid.get_size() / self.writing_kBps * 1e6))
+        yield self.env.timeout(int(CML_oid.get_size() / self.writing_kBps * 1e9))
         self.__container.put(CML_oid.get_size())
         self.stored_cmloid[cmloid.to_id()] = cmloid
 

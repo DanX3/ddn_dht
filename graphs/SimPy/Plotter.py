@@ -5,7 +5,7 @@ import Parser
 
 class Plotter:
     @staticmethod
-    def plot_function(range_min=0.0, range_max=10.0, plot_function=plt.plot, ref_function=lambda x: x**2,
+    def plot_function(range_min=0.0, range_max=1.0, plot_function=plt.plot, ref_function=lambda x: x**2,
                       label="Plot", xlabel="x", ylabel="y", show=True):
         x = arange(range_min, range_max, (range_max-range_min) / 100).tolist()
         print(len(x))
@@ -19,7 +19,6 @@ class Plotter:
         plt.grid(True, color='#e0e0e0', linestyle='dashed')
         if show:
             plt.show()
-
 
     @staticmethod
     def plot_uniform(value):
@@ -36,7 +35,7 @@ class Plotter:
         Plotter.plot_function(ref_function=g, label="Gauss")
 
     @staticmethod
-    def plot_diag_limit(overhead, angular_coeff, range_min=0.0, range_max=100000.0):
+    def plot_diag_limit(overhead, angular_coeff, range_min=0.0, range_max=1e3):
         """
         Don't use this method directly. Call plot_bandwidth_model instead
         :param overhead: time required for a size 0 transaction
@@ -45,16 +44,15 @@ class Plotter:
         :param range_max: end of plotting in MB. Generally the size of the packet sent
         :return: the function to use to evaluate your transaction
         """
-        label = "DiagLimit ({}, {})" .format(overhead, angular_coeff)
-        angular_coeff = 1000.0 / angular_coeff
+        label = "DiagLimit ({} ns latency, {} GBps)" .format(overhead, 1e3 / angular_coeff)
         d = Function2D.get_diag_limit(overhead, angular_coeff)
         diag2D = lambda x: x * angular_coeff
         Plotter.plot_function(ref_function=diag2D, range_min=range_min, range_max=range_max, show=False)
-        Plotter.plot_function(ref_function=d, range_min=range_min, range_max=range_max, label="Diag Limit", xlabel="File Size(MB)", ylabel="Time (us)")
+        Plotter.plot_function(ref_function=d, range_min=range_min, range_max=range_max, label=label, xlabel="File Size(KB)", ylabel="Time (us)")
 
     @staticmethod
-    def plot_bandwidth_model(latency_us, bandwidth_kBps):
-        Plotter.plot_diag_limit(latency_us, 1e6/bandwidth_kBps, range_max=10.0)
+    def plot_bandwidth_model(latency_ns, bandwidth_GBps):
+        Plotter.plot_diag_limit(latency_ns, 1/bandwidth_GBps, range_max=1e6)
 
 
 if __name__ == "__main__":

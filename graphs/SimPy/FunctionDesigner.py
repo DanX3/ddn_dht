@@ -45,10 +45,10 @@ class Function2D:
         return int(abs(random.gauss(mu, sigma)))
 
     @staticmethod
-    def get_bandwidth_model(latency_us, bandwidth_kBps):
-        if bandwidth_kBps == 0:
+    def get_bandwidth_model(latency_ns, bandwidth_GBps):
+        if bandwidth_GBps == 0:
             raise ZeroDivisionError
-        return Function2D.get_diag_limit(latency_us, 1e6/bandwidth_kBps)
+        return Function2D.get_diag_limit(latency_ns, 1/bandwidth_GBps)
 
     @staticmethod
     def get_diag_limit(overhead, angular_coeff):
@@ -57,11 +57,14 @@ class Function2D:
         #Y^2/a^2 - X^2/b^2 = 1
         #extracting y and selecting the positive part it becomes
         #y = sqrt(a^2 * (1 + x^2/b^2))
-        #a = overhead
-        #b = overhead / angular_coeff
         a = overhead
         b = a / angular_coeff
-        return lambda x: round(sqrt(a*a * (1.0 + (x*x)/(b*b))))
+
+        # This should be the canonical one, but the 1e0 makes it too far away from the limit
+        # I want that the limit curve is as close as possible starting at 1024
+        # packets sent bigger than 1024 has already peak efficiency
+        # return lambda x: round(sqrt(a*a * (1e0 + (x*x)/(b*b))))
+        return lambda x: round(sqrt(a*a * (1e-5 + (x*x)/(b*b))))
 
 
 # if __name__ == "__main__":
