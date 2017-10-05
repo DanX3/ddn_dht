@@ -2,6 +2,7 @@ import simpy
 from Utils import get_formatted_time
 from collections import OrderedDict
 
+
 class Logger:
     """
     Class to track wait time of a set of agents.

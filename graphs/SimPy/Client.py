@@ -6,6 +6,7 @@ from FunctionDesigner import Function2D
 from Contract import Contract
 from collections import deque
 from ServerManager import  ServerManager
+from simpy.util import start_delayed
 
 
 class Client:
@@ -16,10 +17,12 @@ class Client:
         self.servers_manager = servers_manager
         self.config = config
         self.misc_params = misc_params
-        # self.env.process(self.run())
         self.logger = logger
-        self.tokens = 24
-        self.chosen_server = -1
+
+        token_amount = config[Contract.C_TOKEN_COUNT]
+        self.tokens = simpy.Container(env, capacity=token_amount, init=token_amount)
+        self.env.process(self.refresh_tokens())
+        self.__token_refresh_delay = config[Contract.C_TOKEN_REFRESH_INTERVAL_ms] * int(1e6)
 
         self.request_queue = {}
         self.current_request = 0
@@ -33,6 +36,14 @@ class Client:
         self.send_treshold = int(1024 / ClientRequest.get_cmloid_size())
         self.data_sent = 0
         self.data_received = 0
+
+    def refresh_tokens(self):
+        tokens_missing = self.tokens.capacity - self.tokens.level
+        if tokens_missing != 0:
+            self.tokens.put(tokens_missing)
+        yield self.env.timeout(self.__token_refresh_delay)
+        if self.data_received < self.data_sent:
+            self.env.process(self.refresh_tokens())
 
     def get_pending_parity_size(self):
         size = 0
@@ -60,12 +71,6 @@ class Client:
     def pending_send_grouping(self):
         yield self.env.process(self.logger.work(self.config[Contract.C_PENDING_SEND_GROUP]))
 
-    def check_tokens(self):
-        if self.tokens > 0:
-            self.tokens -= 1
-        else:
-            yield self.timeout(self.config[Contract.C_TOKEN_REFRESH])
-
     def receive_answer(self, chunk_received: Chunk):
         self.data_received += chunk_received.get_size()
         if self.data_received >= self.data_sent:
@@ -88,6 +93,7 @@ class Client:
     def send_request(self, request: ClientRequest):
         start = self.env.now
         # clientRequest = ClientRequest(self, target_server_ID, self.ID * 100)
+        yield self.tokens.get(1)
         yield self.env.process(self.servers_manager.request_server(request))
         # yield self.env.process(self.servers_manager.request_server(send_group))
         self.logger.add_task_time("send_request", self.env.now - start)
@@ -126,7 +132,6 @@ class Client:
 
     def check_request_queue(self, target_id):
         while self.request_queue[target_id]:
-            self.logger.add_task_time("nonsense", self.request_queue[target_id][0].get_chunk().get_size())
             yield self.env.process(self.send_request(self.request_queue[target_id].popleft()))
 
     def add_write_request(self, req_size_kb):
@@ -185,4 +190,7 @@ class Client:
         return result % self.servers_manager.get_server_count()
 
     def get_target_from_chunk(self, chunk: Chunk):
-        return chunk.get_id() % self.servers_manager.get_server_count()
+        target = 0
+        for letter in chunk.get_filename():
+            target += ord(letter)
+        return (target + chunk.get_id()) % self.servers_manager.get_server_count()

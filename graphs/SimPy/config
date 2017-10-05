@@ -1,4 +1,6 @@
-C_CLIENT_COUNT = 2
+# ClientCount is now based on the number of requests in the 'request' file
+# Every client that communicates, is created. There are no completely quiet clients
+# C_CLIENT_COUNT = 2
 C_ENQUEUE_PARITY_GROUP = 10
 C_FORMING_PARITY_GROUP = 100
 C_ENQUEUE_SEND_GROUP = 10
@@ -11,7 +13,8 @@ C_PENDING_PARITY_GROUP = 5
 # treshold before packing parity groups in send packets
 C_PENDING_SEND_GROUP = 4
 
-C_TOKEN_REFRESH = 300
+C_TOKEN_REFRESH_INTERVAL_ms = 1000
+C_TOKEN_COUNT = 24
 C_PENDING_PARITY_TRESHOLD = 5
 
 S_SERVER_COUNT = 10
