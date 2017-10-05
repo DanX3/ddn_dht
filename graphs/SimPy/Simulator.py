@@ -6,6 +6,7 @@ import random
 import Parser
 from Utils import printmessage
 from Contract import Contract
+from Logger import Logger
 
 
 class Simulator:
@@ -18,26 +19,26 @@ class Simulator:
         self.parseFile()
         self.requests = {}
         random.seed(args.seed)
-
-        clients = []
+        self.__clients = []
         self.servers_manager = ServerManager(self.env, self.server_params,
-                                             self.misc_params, clients)
-        for i in range(self.client_params[Contract.C_CLIENT_COUNT]):
-            clients.append(Client(i, self.env, self.servers_manager,
-                                  self.client_params, self.misc_params))
+                                             self.misc_params, self.__clients)
         self.__parse_requests()
+        client_logger = Logger(self.env)
+        for i in range(len(self.requests)):
+            self.__clients.append(Client(self.env, i, client_logger, self.servers_manager,
+                                  self.client_params, self.misc_params))
         for key, req_list in self.requests.items():
             for req in req_list:
                 # if key not in clients:
                 #     raise Exception(str(key) + " not in clients")
                 try:
                     for i in range(req[0]):
-                        clients[key].add_write_request(req[1])
+                        self.__clients[key].add_write_request(req[1])
                 except IndexError:
                     raise Exception("Inconsistent number of clients across config and request")
 
         for key, req_list in self.requests.items():
-            clients[key].flush()
+            self.__clients[key].flush()
 
         log = open(self.misc_params[Contract.M_CLIENT_LOGFILE_NAME], 'w')
 
@@ -121,6 +122,8 @@ class Simulator:
 
             for key, value in self.server_params.iteritems():
                 print('{:>30} : {:d}'.format(key, value))
+
+
 
     def run(self):
         self.env.run()

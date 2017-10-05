@@ -5,21 +5,22 @@ from Utils import *
 from FunctionDesigner import Function2D
 from Contract import Contract
 from collections import deque
+from ServerManager import  ServerManager
 
 
 class Client:
-    def __init__(self, id, env, servers_manager, config, misc_params):
+    def __init__(self, env: simpy.Environment, id: int, logger: Logger,
+                 servers_manager: ServerManager, config, misc_params):
         self.env = env
         self.id = id
         self.servers_manager = servers_manager
         self.config = config
         self.misc_params = misc_params
         # self.env.process(self.run())
-        self.logger = Logger(id, env)
+        self.logger = logger
         self.tokens = 24
         self.chosen_server = -1
 
-        # request.queue = Dict[int, deque[ClientRequest]]
         self.request_queue = {}
         self.current_request = 0
 
@@ -29,7 +30,6 @@ class Client:
         seed(0)
         self.filename_gen = File.get_filename_generator(self.id)
         self.lookup_table = generate_lookup_table(32)
-        self.log = open('client.log', 'w')
         self.send_treshold = int(1024 / ClientRequest.get_cmloid_size())
         self.data_sent = 0
         self.data_received = 0
@@ -70,6 +70,7 @@ class Client:
         self.data_received += chunk_received.get_size()
         if self.data_received >= self.data_sent:
             printmessage(self.id, "Finished all the transactions", self.env.now)
+            self.servers_manager.client_confirm_completed()
         # if chunk_received.get_id() == chunk_received.get_tot_parts() - 1:
         # printmessage(self.ID, "Confirmed writing of {}".format(chunk_received), self.env.now)
 
@@ -85,11 +86,11 @@ class Client:
         # yield self.env.process(self.send_request(self.chosen_server))
 
     def send_request(self, request: ClientRequest):
-        # start = self.env.now
+        start = self.env.now
         # clientRequest = ClientRequest(self, target_server_ID, self.ID * 100)
-        yield self.env.process(self.servers_manager.request_server(request, test_net=True))
+        yield self.env.process(self.servers_manager.request_server(request))
         # yield self.env.process(self.servers_manager.request_server(send_group))
-        # self.logger.add_idle_time(self.env.now - start)
+        self.logger.add_task_time("send_request", self.env.now - start)
 
     def flush_parities(self, target_id):
         pass
@@ -125,6 +126,7 @@ class Client:
 
     def check_request_queue(self, target_id):
         while self.request_queue[target_id]:
+            self.logger.add_task_time("nonsense", self.request_queue[target_id][0].get_chunk().get_size())
             yield self.env.process(self.send_request(self.request_queue[target_id].popleft()))
 
     def add_write_request(self, req_size_kb):

@@ -8,10 +8,10 @@ from collections import deque
 
 
 class Server:
-    def __init__(self, env, id, config, misc_params, clients, server_manager):
+    def __init__(self, env, id, logger, config, misc_params, clients, server_manager):
         self.env = env
         self.id = id
-        self.logger = Logger(self.id, self.env)
+        self.logger = logger
         self.config = config
         self.__mutex = simpy.Resource(env, capacity=1)
         self.clients = clients
@@ -73,27 +73,11 @@ class Server:
         write_requests = []
         for i in range(len(self.HDDs_data)):
             write_requests.append(self.env.process(self.HDDs_data[i].simulate_write(File('', load[i]))))
+        start = self.env.now
         yield simpy.events.AllOf(self.env, write_requests)
+        self.logger.add_task_time("disk_write", self.env.now - start)
         req.get_client().receive_answer(req.get_chunk())
         del req
-        # for network_buffer in range(int(ceil(req.get_chunk().get_size() / 1024))):
-        #     for CML_oid in range(int(ceil(1024/ClientRequest.get_cmloid_size()))):
-        #
-        # # # # # #
-        # cmloid = req.get_cmloid()
-        # filename = cmloid.get_file().get_name()
-        #
-        # # adds the file to the queue collection
-        # if filename not in self.receiving_files:
-        #     self.receiving_files[filename] = [cmloid.get_id()]
-        # else:
-        #     self.receiving_files[filename].append(cmloid.get_id())
-        #
-        # # send confirmation if file has been completely collected
-        # if len(self.receiving_files[filename]) == cmloid.get_total_parts():
-        #     yield self.env.process(self.__write_file(cmloid.get_file()))
-        #     del(self.receiving_files[filename])
-        #     req.get_client().receive_answer(cmloid.get_file())
 
     def process_requests(self):
         mutex_req = self.__mutex.request()

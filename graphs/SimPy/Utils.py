@@ -13,15 +13,18 @@ class MethodNotImplemented(Exception):
         return "{}: method still not implemented"
 
 
+def get_formatted_time(time: int):
+    time = str(time)[:-3]
+    return (time[-12:-9] + " " + time[-9:-6] + " " + time[-6:-3] + " " + time[-3:]).strip()
+
+
 def printmessage(id: int, message: str, time, done: bool=True):
     print(getmessage(id, message, time, done))
 
 
 def getmessage(id, message, time, done=True):
     doneChar = u"\u2713" if done else u"\u279C"
-    time = str(time)[:-3]
-    dottedtime = (time[-12:-9] + " " + time[-9:-6] + " " + time[-6:-3] + " " + time[-3:]).strip()
-    return "{:3s} {:15s} us <{}> {}".format(doneChar, dottedtime.rjust(15), id, message)
+    return "{:3s} {:15s} us <{}> {}".format(doneChar, get_formatted_time(time).rjust(15), id, message)
 
 
 class CML_oid:

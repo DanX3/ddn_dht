@@ -1,9 +1,26 @@
+import simpy
+from Utils import get_formatted_time
+from collections import OrderedDict
+
 class Logger:
-    def __init__(self, ID, env):
-        self.ID = ID
+    """
+    Class to track wait time of a set of agents.
+    Is created a single logger for all the server and another one for all the clients
+    Each tracks wait time for every task.
+    A task is a string that is registered inside the logger. In the end will be printed a log about
+    the time spent on that action, making easier to spot bottlenecks
+    """
+    def __init__(self, env: simpy.Environment):
         self.idle_time = 0
         self.work_time = 0
+        self.__tasks = OrderedDict()   # OrderedDict[str:int]
         self.env = env
+
+    def add_task_time(self, task: str, time: int):
+        if task in self.__tasks:
+            self.__tasks[task] += time
+        else:
+            self.__tasks[task] = time
 
     def add_idle_time(self, time):
         self.idle_time += time
@@ -34,18 +51,8 @@ class Logger:
             print("No data added so far")
     
     def print_info_to_file(self, filename):
-        total_time = float(self.idle_time + self.work_time)
-        log = open(filename, 'a')
-        if total_time > 0:
-            # log.write("Idle {:.2f} - {:4.2f} %\n".format(self.idle_time, 100.0 * 
-                    # self.idle_time / total_time))
-            # log.write("Work {:.2f} - {:4.2f} %".format(self.work_time, 100.0 * 
-                    # self.work_time / total_time))
-            log.write("{} {} {} {:5.4f} {:5.4f}\n".format(
-                self.ID, self.idle_time, self.work_time,
-                float(self.idle_time)/total_time,  
-                float(self.work_time)/total_time,  
-                ))
-        else:
-            log.write("No data added so far for {}\n".format(self.ID))
+        # total_time = float(self.idle_time + self.work_time)
+        log = open(filename, 'w')
+        for key, value in self.__tasks.items():
+            log.write("{} {}\n".format(str(value)[:-3], key))
         log.close()

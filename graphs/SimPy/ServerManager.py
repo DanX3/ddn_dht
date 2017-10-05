@@ -3,6 +3,7 @@ from Server import Server
 from Contract import Contract
 from Utils import *
 from FunctionDesigner import Function2D
+from Logger import Logger
 from HUB import HUB
 
 
@@ -11,11 +12,13 @@ class ServerManager:
         self.env = env
         self.server_params = server_params
         self.misc_params = misc_params
+        self.__client_completed = 0
+        self.__clients = clients
+        self.__server_logger = Logger(self.env)
         self.servers = []
         for i in range(self.server_params[Contract.S_SERVER_COUNT]):
             self.servers.append(
-                    Server(self.env, i, self.server_params, self.misc_params, clients, self))
-        self.server_resources = simpy.Resource(self.env, len(self.servers))
+                    Server(self.env, i, self.__server_logger, self.server_params, self.misc_params, clients, self))
 
         # This will keep the queue for the client requests
         self.requests = {}
@@ -61,24 +64,11 @@ class ServerManager:
         # sendgroup.add_request(paritygroup)
         self.env.process(self.request_server(req))
 
-    def release_server(self, server_id):
-        self.server_resources.release(self.requests[server_id])
-        if len(self.requests[server_id]) == 0:
-            print("server {} is available".format(server_id))
-            self.servers[server_id].set_availability(True)
-        else:
-            printmessage(0, "requests[{}].pop()".format(server_id), self.env.now)
-            self.env.process(self.servers[server_id].process_request(
-                self.requests[server_id].pop(0)))
-
-    def get_users_count(self):
-        return self.server_resources.count
-
-    def get_resource_capacity(self):
-        return self.server_resources.capacity
-
-    def get_queue(self):
-        return self.server_resources.queue
-
     def get_server_count(self):
         return len(self.servers)
+
+    def client_confirm_completed(self):
+        self.__client_completed += 1
+        if self.__client_completed == len(self.__clients):
+            self.__clients[0].logger.print_info_to_file("client.log")
+            self.__server_logger.print_info_to_file("server.log")
