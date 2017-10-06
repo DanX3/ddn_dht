@@ -90,12 +90,13 @@ class Client:
         # yield self.env.process(self.check_tokens())
         # yield self.env.process(self.send_request(self.chosen_server))
 
-    def send_request(self, request: ClientRequest):
+    def send_request(self, requests: List[ClientRequest]):
         start = self.env.now
-        # clientRequest = ClientRequest(self, target_server_ID, self.ID * 100)
-        yield self.tokens.get(1)
-        yield self.env.process(self.servers_manager.request_server(request))
-        # yield self.env.process(self.servers_manager.request_server(send_group))
+        yield self.tokens.get(ceil(get_requests_size(requests) / NetworkBuffer.get_size()))
+        self.logger.add_task_time("token_wait", self.env.now - start)
+
+        start = self.env.now
+        yield self.env.process(self.servers_manager.request_server(requests))
         self.logger.add_task_time("send_request", self.env.now - start)
 
     def flush_parities(self, target_id):
@@ -130,9 +131,15 @@ class Client:
         for req in self.request_queue[target_id]:
             size += req.get
 
-    def check_request_queue(self, target_id):
-        while self.request_queue[target_id]:
-            yield self.env.process(self.send_request(self.request_queue[target_id].popleft()))
+    def check_request_queue(self, target_id, flush: bool=False):
+        while self.enough_requests(self.request_queue[target_id]) or\
+                (flush and self.request_queue[target_id]):
+            packed_requests = []
+            size = 0
+            while size <= NetworkBuffer.get_size() and self.request_queue[target_id]:
+                size += self.request_queue[target_id][0].get_chunk().get_size()
+                packed_requests.append(self.request_queue[target_id].popleft())
+            yield self.env.process(self.send_request(packed_requests))
 
     def add_write_request(self, req_size_kb):
         """
@@ -148,9 +155,9 @@ class Client:
             self.request_queue[target_id].append(ClientRequest(self, target_id, chunk, read=False))
 
         # trigger sending processes
-        for target_id in range(len(self.request_queue)):
-            # if len(self.request_queue[target_id]) > self.send_treshold:
-            self.env.process(self.check_request_queue(target_id))
+        for target_id in range(self.servers_manager.get_server_count()):
+            if len(self.request_queue[target_id]) > self.send_treshold:
+                self.env.process(self.check_request_queue(target_id))
         return filename
 
     def print_status(self):
@@ -168,8 +175,8 @@ class Client:
         return self.id
 
     def flush(self):
-        for target_id in range(len(self.request_queue)):
-            return self.env.process(self.check_request_queue(target_id))
+        for target_id in range(self.servers_manager.get_server_count()):
+            self.env.process(self.check_request_queue(target_id, flush=True))
 
     def get_target_from_file(self, file):
         """
@@ -194,3 +201,11 @@ class Client:
         for letter in chunk.get_filename():
             target += ord(letter)
         return (target + chunk.get_id()) % self.servers_manager.get_server_count()
+
+    def enough_requests(self, requests: List[ClientRequest]) -> bool:
+        size = 0
+        for req in requests:
+            size += req.get_chunk().get_size()
+            if size >= NetworkBuffer.get_size():
+                return True
+        return False

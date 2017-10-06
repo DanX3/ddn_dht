@@ -106,6 +106,10 @@ class Server:
         self.requests.append(request)
         self.env.process(self.process_requests())
 
+    def add_requests(self, requests: List[ClientRequest]):
+        self.requests += requests
+        self.env.process(self.process_requests())
+
     def add_single_request(self, single_request):
         self.requests.append(single_request)
         self.env.process(self.process_requests())

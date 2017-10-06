@@ -33,18 +33,18 @@ class ServerManager:
             if ID == server.get_id():
                 return server
 
-    def request_server(self, request: ClientRequest, test_net: bool=False):
+    def request_server(self, requests: List[ClientRequest], test_net: bool=False):
         """
         Send the chunk request to the servers
-        It uses HUB resources. Every request is queued.
+        Every request is queued.
         Every request of 1MB is sent at max bandwidth
         A request smaller takes more time, based on Diagonal Limit configuration
-        :param request: client request holding the chunk to send
+        :param requests: list of client request holding the chunk to send
         :return: yield the time required for the transaction to complete
         """
         mutex_request = self.__HUB.request()
         yield mutex_request
-        size = request.get_chunk().get_size()
+        size = get_requests_size(requests)
         # 1 MB packets at full speed
         time_required = int((size / 1024) * (1024 / self.__max_bandwidth * 1e9))
         # smaller packages based on time function
@@ -53,9 +53,11 @@ class ServerManager:
         yield self.env.timeout(time_required)
         self.__HUB.release(mutex_request)
         if test_net:
-            request.get_client().receive_answer(request.get_chunk())
+            for request in requests:
+                request.get_client().receive_answer(request.get_chunk())
         else:
-            self.servers[request.get_target_ID()].add_request(request)
+            self.servers[requests[0].get_target_ID()].add_requests(requests)
+
 
     def single_request_server(self, req):
         # sendgroup = SendGroup()

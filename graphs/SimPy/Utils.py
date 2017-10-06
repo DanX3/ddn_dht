@@ -150,6 +150,10 @@ class NetworkBuffer:
     def get_payload(self) -> List[CML_oid]:
         return self.__payload
 
+    @staticmethod
+    def get_size() -> int:
+        return 1024
+
 
 class ClientRequest:
     def __init__(self, client, target_server_id: int, chunk: Chunk, read: bool=True):
@@ -211,6 +215,12 @@ def generate_lookup_table(length):
         table[idx1], table[idx2] = table[idx2], table[idx1]
     return table
 
+
+def get_requests_size(requests: List[ClientRequest]) -> int:
+    size = 0
+    for req in requests:
+        size += req.get_chunk().get_size()
+    return size
 
 class SendGroup:
     def __init__(self):
