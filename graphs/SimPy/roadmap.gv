@@ -1,0 +1,21 @@
+digraph {
+    style = dashed
+    splines=ortho
+    nodesep=0.3
+    node [shape=box]
+    edge [penwidth=2]
+    
+    fs [label=FailureSimulation]
+    pc [label=ParityConsideration]
+    fc [label=FlushConsideration]
+    sfr [label=SuccessfulFileRead]
+    tt [label=TransactionalTraffic]
+    raf [label=ReadAfterFailure]
+
+    now -> fc -> pc -> sfr -> tt -> fs -> disks -> raf
+    fc -> MassStorageTuning [shape=oval]
+    sfr -> ReadTuning [shape=oval]
+    sfr -> NormalCondition
+    sfr -> AfterFlush
+    fs -> server -> raf
+}
