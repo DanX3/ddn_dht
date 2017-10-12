@@ -40,6 +40,7 @@ class ServerManager:
         Every request of 1MB is sent at max bandwidth
         A request smaller takes more time, based on Diagonal Limit configuration
         :param requests: list of client request holding the chunk to send
+        :param test_net: boolean type, False by default. If True, forward an answer right to the client, skipping data writing to server. Used to test the network capabilities
         :return: yield the time required for the transaction to complete
         """
         mutex_request = self.__HUB.request()

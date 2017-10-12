@@ -1,6 +1,6 @@
 from math import ceil, floor
 from random import randint, seed
-from typing import List
+from typing import List, NewType, TypeVar
 from collections import deque
 from enum import Enum
 
@@ -32,37 +32,84 @@ class CML_oid:
         self.original_file = original_file
         self.part_number = part_number
 
-    def get_file(self):
-        """
-        :return: the original file that this CML_oid has been extracted from
-        """
-        return self.original_file
-
-    def get_id(self):
-        return self.part_number
-
-    def get_total_parts(self):
-        return self.original_file.get_parts()
-
-    def get_id_tuple(self):
-        return self.part_number, self.original_file.get_parts()
-
-    def __str__(self):
-        id = self.get_id_tuple()
-        return "CML_oid({:3d}/{:3d} of '{}')".format(id[0]+1, id[1], self.original_file.get_name())
-
-    def to_id(self):
-        """
-        Returns a string in the format of an id for the current CML_oid
-        Example: CML_oid(12/32 of 'Hello') --> 'Hello:12'
-        :rtype: str
-        """
-        return "{}:{}".format(self.original_file.get_name(), self.part_number)
+    # def get_file(self):
+    #     """
+    #     :return: the original file that this CML_oid has been extracted from
+    #     """
+    #     return self.original_file
+    #
+    # def get_id(self):
+    #     return self.part_number
+    #
+    # def get_total_parts(self):
+    #     return self.original_file.get_parts()
+    #
+    # def get_id_tuple(self):
+    #     return self.part_number, self.original_file.get_parts()
+    #
+    # def __str__(self):
+    #     id = self.get_id_tuple()
+    #     return "CML_oid({:3d}/{:3d} of '{}')".format(id[0]+1, id[1], self.original_file.get_name())
+    #
+    # def to_id(self):
+    #     """
+    #     Returns a string in the format of an id for the current CML_oid
+    #     Example: CML_oid(12/32 of 'Hello') --> 'Hello:12'
+    #     :rtype: str
+    #     """
+    #     return "{}:{}".format(self.original_file.get_name(), self.part_number)
 
     @staticmethod
     def get_size():
         """Returns the size of the elementary component CML_oid. Set to 128"""
         return 128
+
+
+class Cmloid_struct:
+    def __init__(self, server_id, device_id):
+        self.__server_id = server_id
+        self.__device_id = device_id
+
+    def get_server_id(self):
+        return self.__server_id
+
+    def get_device_id(self):
+        return self.__device_id
+
+
+class CMLoidSet:
+    """
+    Utility class to record a set of CML_oid instead of one by one, that turns out
+    to be extremely inefficient
+    """
+    def __init__(self, start_idx: int, count: int, interval: int):
+        self.__start_idx = start_idx
+        self.__count = count
+        self.__interval = interval
+        self.__max_printed_vals = 5
+
+    def get_count(self) -> int:
+        return self.__count
+
+    def __str__(self):
+        result = "[ "
+        for i in range(min(self.__count, self.__max_printed_vals)):
+            result += str(self.__start_idx + i * self.__interval) + " "
+        if self.__count > self.__max_printed_vals:
+            result += "... "
+            for i in range(max(self.__max_printed_vals, self.__count-self.__max_printed_vals), self.__count):
+                result += str(self.__start_idx + i * self.__interval) + " "
+        return "CMLoidSet(len {})({}])".format(self.__count, result)
+
+    def pop(self, count: int):
+        if count > self.__count:
+            raise ValueError("Requested {}/{} elements for CMLoidSet".format(count, self.__count))
+        result = CMLoidSet(self.__start_idx, count, self.__interval)
+        self.__start_idx += count * self.__interval
+        self.__count -= count
+        return result
+
+
 
 
 class Chunk:
@@ -205,6 +252,13 @@ def get_requests_from_file(client, target, file, read=True):
     return [ClientRequest(client, target, CML_oid(file, id), read) for id in range(parts_num)]
 
 
+def simple_hash(filename: str, mod: int, offset: int=0) -> int:
+    result = 0
+    for letter in filename:
+        result += ord(letter)
+    return (result + offset) % mod
+
+
 def generate_lookup_table(length):
     table = [i for i in range(length)]
     # important that the seed is fixed. I want always the same pseudo-random sequence
@@ -282,5 +336,5 @@ class ParityGroup(SendGroup):
         return self.requests
 
 
-if __name__ == "__main__":
-    file = File("mklmklmkl", 257)
+# if __name__ == "__main__":
+

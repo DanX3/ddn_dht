@@ -197,10 +197,7 @@ class Client:
         return result % self.servers_manager.get_server_count()
 
     def get_target_from_chunk(self, chunk: Chunk):
-        target = 0
-        for letter in chunk.get_filename():
-            target += ord(letter)
-        return (target + chunk.get_id()) % self.servers_manager.get_server_count()
+        return simple_hash(chunk.get_filename(), self.servers_manager.get_server_count(), chunk.get_id())
 
     def enough_requests(self, requests: List[ClientRequest]) -> bool:
         size = 0
