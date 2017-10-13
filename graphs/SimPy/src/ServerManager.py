@@ -5,6 +5,7 @@ from Utils import *
 from FunctionDesigner import Function2D
 from Logger import Logger
 from HUB import HUB
+from DHT import DHT
 
 
 class ServerManager:
@@ -27,6 +28,7 @@ class ServerManager:
         self.__overhead = int(self.misc_params[Contract.M_NETWORK_LATENCY_nS])
         self.__max_bandwidth = int(self.misc_params[Contract.M_HUB_BW_Gbps]) * 1e6 / 8
         self.__time_function = Function2D.get_bandwidth_model(self.__overhead, self.__max_bandwidth / 1e6)
+        self.__dht = DHT(len(self.servers), server_params[Contract.S_HDD_DATA_COUNT])
 
     def get_server_by_id(self, ID):
         for server in self.servers:

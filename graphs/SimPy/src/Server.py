@@ -24,6 +24,7 @@ class Server:
 
         self.lookup_table = generate_lookup_table(32)
         data_disk_gen = DiskIdNotation.get_disk_id_generator(self.id, True)
+        self.__cmloids_stored = {}  # Dict[str, Cmloid_struct]
         for i in range(config[Contract.S_HDD_DATA_COUNT]):
             self.HDDs_data.append(StorageDevice(
                 env, next(data_disk_gen),

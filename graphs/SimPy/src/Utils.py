@@ -3,6 +3,7 @@ from random import randint, seed
 from typing import List, NewType, TypeVar
 from collections import deque
 from enum import Enum
+from CmloidIdGenerator import CmloidIdGenerator
 
 
 class MethodNotImplemented(Exception):
@@ -66,12 +67,9 @@ class CML_oid:
 
 
 class Cmloid_struct:
-    def __init__(self, server_id, device_id):
-        self.__server_id = server_id
+    def __init__(self, device_id: int, cmloid_id_gen: CmloidIdGenerator):
         self.__device_id = device_id
-
-    def get_server_id(self):
-        return self.__server_id
+        self.id = next(cmloid_id_gen)
 
     def get_device_id(self):
         return self.__device_id
@@ -108,8 +106,6 @@ class CMLoidSet:
         self.__start_idx += count * self.__interval
         self.__count -= count
         return result
-
-
 
 
 class Chunk:

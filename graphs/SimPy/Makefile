@@ -1,5 +1,5 @@
 CC=pypy3
-SRCS=$(shell find . -name "[A-Z]*.py")
+SRCS=$(shell find src/ -name "[A-Z]*.py")
 PROFILEOUT=profile_data
 PROFILELINES=profile_lines
 FLAME=profile.flame
@@ -25,7 +25,7 @@ profile: $(SRCS)
 	vmprofshow $(PROFILEOUT) | head -30
 
 flame: $(SRCS)
-	$(CC) -m vmprof --lines -o $(PROFILEOUT) Simulator.py
+	python3.5 -m vmprof --lines -o $(PROFILEOUT) Simulator.py
 	vmprof-flamegraph.py $(PROFILEOUT) > $(FLAME)
 	flamegraph.pl $(FLAMEOPTS) $(FLAME) > $(FLAMEIMG)
 	firefox $(FLAMEIMG)

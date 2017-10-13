@@ -1,6 +1,7 @@
 import simpy
 from Utils import *
 from typing import List
+from collections import deque
 
 
 class NotInDHTError(Exception):
@@ -15,10 +16,12 @@ class DHT:
     def __init__(self, server_count: int, device_per_server: int):
         self.__server_count = server_count
         self.__devs_per_server = device_per_server
-        self.__table = {}
+        self.__files = {}  # Dict[File]
+        self.__parities = []
 
-    def get_cmloids(self, filename: str, offset: int, length: int):
-        if filename not in self.__table:
+    def get_cmloids(self, file: File, offset: int, length: int):
+        filename = file.get_name()
+        if filename not in self.__files:
             raise NotInDHTError(filename)
 
         starting_server = (simple_hash(filename, self.__server_count)
@@ -27,13 +30,17 @@ class DHT:
         cmloids_count = int(ceil(length / CML_oid.get_size()))
         starting_cmloid_id = int(offset / CML_oid.get_size())
         for i in range(starting_cmloid_id, starting_cmloid_id + cmloids_count):
-            print(self.get_device_id(filename, i))
+            print(self.get_device_id(file, i))
 
-    def get_device_id(self, filename: str, cmloid_id: int) -> int:
-        return simple_hash(filename, self.__devs_per_server, cmloid_id)
+    @staticmethod
+    def get_device_id(self, file: File, cmloid_id: int) -> int:
+        return simple_hash(file.get_name(), self.__devs_per_server, cmloid_id)
 
-    def add_file(self, filename: str, size: int):
-        self.__table[filename] = size
+    def add_file(self, file: File):
+        self.__files[file.get_name()] = file
+
+    def remove_file(self, file: File):
+        del self.__files[file.get_name()]
 
 
 if __name__ == "__main__":

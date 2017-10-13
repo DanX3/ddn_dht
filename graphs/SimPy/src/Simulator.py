@@ -40,11 +40,8 @@ class Simulator:
         for key, req_list in self.requests.items():
             self.__clients[key].flush()
 
-        log = open(self.misc_params[Contract.M_CLIENT_LOGFILE_NAME], 'w')
-
-
     def parseFile(self):
-        configuration = open(self.args.config, "r")
+        configuration = open("../" + self.args.config, "r")
         for line in configuration:
             couple = line.strip().split('=')
             try:
@@ -73,7 +70,7 @@ class Simulator:
         return int(r)
 
     def __parse_requests(self):
-        requests = open(self.args.request, 'r')
+        requests = open("../" + self.args.request, 'r')
 
         # parses the file once to create an empty container of requests
         clients_count = 0
