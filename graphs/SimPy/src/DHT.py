@@ -56,12 +56,12 @@ class DHT:
             if filename == filename_requested:
                 start_pos = int(counter / cmloid_size)
                 end_pos = start_pos + int(partsize / cmloid_size) + 1
-                # print("({}, {})".format(start_pos, end_pos))
+                if partsize >= self.__devs_per_server * cmloid_size:
+                    load = [int(partsize / (self.__devs_per_server * cmloid_size))] * self.__devs_per_server
+                    start_pos += load[0] * len(load)
                 for i in range(start_pos, end_pos):
                     load[i % self.__devs_per_server] += 1
-            # print(counter)
             counter += partsize
-        # print(counter)
         return load
 
 
@@ -69,11 +69,8 @@ if __name__ == "__main__":
     dht = DHT(3, 6)
     # dht.add_file_part('a', 200)
     # dht.add_file_part('b', 10)
-    # dht.add_file_part('c', 128+45)
-    dht.add_file_part('c', int(2**20 - 1))
+    dht.add_file_part('c', 2**40-1)
     dht.add_file_part('d', 1)
     dht.add_file_part('e', 1)
-    dht.add_file_part('f', 127)
-    dht.add_file_part('g', 1)
-    for i in "cdefg":
+    for i in "cde":
         print(dht.get_file_cmloids(i))
