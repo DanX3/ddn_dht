@@ -1,5 +1,3 @@
-
-
 class CmloidIdGenerator:
     """
     CML_oid Id has validity only inside a server. So only server class should use this class

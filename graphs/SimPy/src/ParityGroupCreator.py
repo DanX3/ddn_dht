@@ -5,11 +5,11 @@ from typing import Dict
 from random import sample, randint, seed
 
 
-"""
-ParityGroupCreator is a singleton that, given the parity geometry, returns each time a different parity
-group
-"""
 class ParityGroupCreator:
+    """
+    ParityGroupCreator is a singleton that, given the parity geometry, returns each time a different parity
+    group
+    """
     class __ParityGroupCreator:
         def __init__(self, geometry_base, geometry_plus, server_count):
             self.__geometry_base = geometry_base
