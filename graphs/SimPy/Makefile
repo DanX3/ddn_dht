@@ -1,5 +1,5 @@
 CC=pypy3
-SRCS=$(shell find src/ -name "[A-Z]*.py")
+SRCS=$(shell find . -name "[A-Z]*.py")
 PROFILEOUT=profile_data
 PROFILELINES=profile_lines
 FLAME=profile.flame

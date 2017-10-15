@@ -57,6 +57,7 @@ class DHT:
                 start_pos = int(counter / cmloid_size)
                 end_pos = start_pos + int(partsize / cmloid_size) + 1
                 if partsize >= self.__devs_per_server * cmloid_size:
+                    del load
                     load = [int(partsize / (self.__devs_per_server * cmloid_size))] * self.__devs_per_server
                     start_pos += load[0] * len(load)
                 for i in range(start_pos, end_pos):

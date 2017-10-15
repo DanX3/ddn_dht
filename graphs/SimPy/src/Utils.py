@@ -66,6 +66,10 @@ class CML_oid:
         return 128
 
 
+# class NetworkBuffer:
+#     def __init__(self, file_parts, parity_group_id):
+
+
 class Cmloid_struct:
     def __init__(self, device_id: int, cmloid_id_gen: CmloidIdGenerator):
         self.__device_id = device_id
@@ -175,6 +179,23 @@ class File:
         while True:
             yield prepended_number + ":" + str(int_name)
             int_name += 1
+
+class FilePart:
+    def __init__(self, file: File, start: int, end: int):
+        self.__file = file
+        self.__start = start
+        self.__end = end
+
+    def get_part(self, amount: int):
+        amount_given = min(amount, self.__end - self.__start)
+        self.__start += amount_given
+        return FilePart(self.__file, self.__start - amount_given, self.__start)
+
+    def get_size(self) -> int:
+        return self.__end - self.__start
+
+    def __str__(self):
+        return "FilePart('{}' ({}, {}) {} kB)".format(self.__file.get_name(), self.__start, self.__end, self.get_size())
 
 
 class MetaFile(File):
@@ -332,5 +353,9 @@ class ParityGroup(SendGroup):
         return self.requests
 
 
-# if __name__ == "__main__":
-
+if __name__ == "__main__":
+    part = FilePart(File("a", 2048), 0, 1024)
+    print(part)
+    print(part.get_part(512))
+    print(part.get_part(512))
+    print(part)

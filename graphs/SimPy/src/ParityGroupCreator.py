@@ -23,12 +23,13 @@ class ParityGroupCreator:
         def int_to_positions(self):
             pass
 
-        def get_int(self):
+        def get_targets(self):
             """
             Get an integer representing the targets of the packet to send.
             Its binary representation shows the targets of the current parity group
-            0011 0110 -> targets are server 1, 2, 4, 5
-            :return: the integer representation of the target
+            In a case where server_count = 4
+            0011 0110 -> targets are server 5, 4, 2, 1
+            :return: the integer representation of the targets
             """
             bits = sample(range(self.__server_count), self.__geometry_base + self.__geometry_plus)
             result = 0

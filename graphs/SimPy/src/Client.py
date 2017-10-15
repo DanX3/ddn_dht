@@ -41,6 +41,12 @@ class Client:
         tokens_missing = self.tokens.capacity - self.tokens.level
         if tokens_missing != 0:
             self.tokens.put(tokens_missing)
+
+        # trigger sending processes
+        for target_id in range(self.servers_manager.get_server_count()):
+            if len(self.request_queue[target_id]) > self.send_treshold:
+                self.env.process(self.check_request_queue(target_id))
+
         yield self.env.timeout(self.__token_refresh_delay)
         if self.data_received < self.data_sent:
             self.env.process(self.refresh_tokens())
@@ -153,11 +159,6 @@ class Client:
         for chunk in file.get_chunks():
             target_id = self.get_target_from_chunk(chunk)
             self.request_queue[target_id].append(ClientRequest(self, target_id, chunk, read=False))
-
-        # trigger sending processes
-        for target_id in range(self.servers_manager.get_server_count()):
-            if len(self.request_queue[target_id]) > self.send_treshold:
-                self.env.process(self.check_request_queue(target_id))
         return filename
 
     def print_status(self):
