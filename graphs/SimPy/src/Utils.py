@@ -139,20 +139,12 @@ class File:
     def __init__(self, name, size_kB):
         self.name = name
         self.size = size_kB
-        self.parts = ceil(size_kB / ClientRequest.get_cmloid_size())
 
     def get_name(self):
         return self.name
 
     def get_size(self):
         return self.size
-
-    def get_parts(self):
-        return self.parts
-
-    def get_cmloid_generator(self):
-        for part in range(self.parts):
-            yield CML_oid(self, part)
 
     def __str__(self):
         return "File({}, {} kB)".format(self.name, self.size)
@@ -180,23 +172,6 @@ class File:
             yield prepended_number + ":" + str(int_name)
             int_name += 1
 
-class FilePart:
-    def __init__(self, file: File, start: int, end: int):
-        self.__file = file
-        self.__start = start
-        self.__end = end
-
-    def get_part(self, amount: int):
-        amount_given = min(amount, self.__end - self.__start)
-        self.__start += amount_given
-        return FilePart(self.__file, self.__start - amount_given, self.__start)
-
-    def get_size(self) -> int:
-        return self.__end - self.__start
-
-    def __str__(self):
-        return "FilePart('{}' ({}, {}) {} kB)".format(self.__file.get_name(), self.__start, self.__end, self.get_size())
-
 
 class MetaFile(File):
     def get_cmloid_generator(self):
@@ -219,12 +194,59 @@ class NetworkBuffer:
         return 1024
 
 
+class FilePart:
+    def __init__(self, file: File, start: int, end: int):
+        self.__file = file
+        if start > file.get_size():
+            raise Exception("FilePart: requested start of part from %d with filesize %d"
+                            .format(start, file.get_size()))
+        self.__start = start
+        self.__end = min(file.get_size(), end)
+        if self.__end != end:
+            print("WARNING Filepart: end of file has been corrected from {} to {}".format(end, self.__end))
+
+    def pop_part(self, amount: int):
+        amount_given = min(amount, self.__end - self.__start)
+        self.__start += amount_given
+        return FilePart(self.__file, self.__start - amount_given, self.__start)
+
+    def get_size(self) -> int:
+        return self.__end - self.__start
+
+    def get_bound(self) -> (int, int):
+        return self.__start, self.__end
+
+    def __str__(self):
+        return "FilePart('{}' ({}, {}) {} kB)".format(self.__file.get_name(), self.__start, self.__end, self.get_size())
+
+
+class FileAggregator:
+    def __init__(self, filename: str, start: int, length: int):
+        self.__filename = filename
+        self.__start = start
+        self.__end = start + length
+        self.__len = length
+        self.__amount_received = 0
+
+    def add_part(self, part: FilePart) -> bool:
+        part_bound = part.get_bound()
+        amount_valid = max(0, min(part_bound[1], self.__end) - max(part_bound[0], self.__start))
+        self.__amount_received += amount_valid
+        return self.__amount_received == self.__len
+
 class ClientRequest:
-    def __init__(self, client, target_server_id: int, chunk: Chunk, read: bool=True):
+    def __init__(self, client, target_server_id: int, read: bool=True):
         self.__client = client
         self.__target_server_id = target_server_id
-        self.__chunk = chunk
         self.__read = read
+        self.__file_parts = []
+
+    def add_file_part(self, part: FilePart):
+        self.__file_parts.append(part)
+
+    def set_parts(self, parts: List[FilePart]):
+        del self.__file_parts
+        self.__file_parts = parts
 
     def get_client(self):
         return self.__client
@@ -232,20 +254,20 @@ class ClientRequest:
     def get_target_ID(self) -> int:
         return self.__target_server_id
 
-    # def get_cmloid(self):
-    #     return self.cmloid
-    #
-
-    def get_chunk(self) -> Chunk:
-        return self.__chunk
-
     def is_read(self):
         return self.__read
+
+    def  get_size(self):
+        result = 0
+        for part in self.__file_parts:
+            result += part.get_size()
+        return result
 
     def __str__(self):
         result = "ClientRequest {}:\n".format("READ" if self.__read else "WRITE")
         result += "\tfrom Client {} to Server {}\n".format(self.__client.get_id(), self.__target_server_id)
-        result += "\t{}\n".format(self.__chunk)
+        for part in self.__file_parts:
+            result += "\t{}\n".format(part)
         return result
 
     @staticmethod
@@ -293,69 +315,10 @@ def get_requests_size(requests: List[ClientRequest]) -> int:
         size += req.get_chunk().get_size()
     return size
 
-class SendGroup:
-    def __init__(self):
-        self.requests = []
-        self.size = 0
-
-    def add_request(self, parity_req):
-        self.requests.append(parity_req)
-        for req in parity_req.get_requests():
-            if not req.is_read():
-                self.size += ClientRequest.get_cmloid_size()
-        
-    def get_target_ID(self):
-        if self.requests:
-            return self.requests[0].get_target_ID()
-        else:
-            return -1
-
-    def get_client(self):
-        if self.requests:
-            return self.requests[0].get_client()
-        else:
-            return -1
-
-    def get_requests(self):
-        return self.requests
-
-    def get_size(self):
-        size = self.size
-        if size == 0:
-            size = max(len(self.requests) / 5, 1)
-        return size
-
-
-class ParityGroup(SendGroup):
-    def __init__(self):
-        self.requests = []
-        self.is_read = None
-        self.size = 0
-
-    def get_hash_time(self):
-        return len(self.requests) * 20
-
-    def get_size(self):
-        return self.size
-
-    def add_request(self, client_req):
-        self.requests.append(client_req)
-        if client_req.is_read():
-            self.size += client_req.get_filesize()
-            self.is_read = True
-        else:
-            self.is_read = False
-
-    def is_read(self):
-        return self.is_read
-
-    def get_requests(self):
-        return self.requests
-
 
 if __name__ == "__main__":
-    part = FilePart(File("a", 2048), 0, 1024)
+    part = FilePart(File("a", 2048), 2048, 2048)
     print(part)
-    print(part.get_part(512))
-    print(part.get_part(512))
-    print(part)
+    aggregator = FileAggregator("a", 512, 1024)
+    while part.get_size() != 0:
+        print(aggregator.add_part(part.pop_part(2048)))

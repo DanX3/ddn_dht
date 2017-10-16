@@ -7,52 +7,67 @@ from random import sample, randint, seed
 
 class ParityGroupCreator:
     """
-    ParityGroupCreator is a singleton that, given the parity geometry, returns each time a different parity
-    group
+    Given the parity geometry, returns each time a different parity group
     """
-    class __ParityGroupCreator:
-        def __init__(self, geometry_base, geometry_plus, server_count):
-            self.__geometry_base = geometry_base
-            self.__geometry_plus = geometry_plus
-            self.__server_count = server_count
-            seed(10)
-
-        def __str__(self):
-            return "ParityGroupCreator({}+{})".format(self.__geometry_base, self.__geometry_plus)
-
-        def int_to_positions(self):
-            pass
-
-        def get_targets(self):
-            """
-            Get an integer representing the targets of the packet to send.
-            Its binary representation shows the targets of the current parity group
-            In a case where server_count = 4
-            0011 0110 -> targets are server 5, 4, 2, 1
-            :return: the integer representation of the targets
-            """
-            bits = sample(range(self.__server_count), self.__geometry_base + self.__geometry_plus)
-            result = 0
-            for bit_shift in bits:
-                result |= 1 << bit_shift
-            del bits
-            return result
-
-    instance = None
-
     def __init__(self, client_params: Dict[str, int], server_params: Dict[str, int]):
-        if not ParityGroupCreator.instance:
-            geometry_base = client_params[Contract.C_GEOMETRY_BASE]
-            geometry_plus = client_params[Contract.C_GEOMETRY_PLUS]
-            server_count = server_params[Contract.S_SERVER_COUNT]
-            ParityGroupCreator.instance = ParityGroupCreator.__ParityGroupCreator(geometry_base, geometry_plus, server_count)
+        self.__geometry_base = client_params[Contract.C_GEOMETRY_BASE]
+        self.__geometry_plus = client_params[Contract.C_GEOMETRY_PLUS]
+        self.__server_count = server_params[Contract.S_SERVER_COUNT]
+        seed(10)
 
-    def __getattr__(self, item):
-        return getattr(self.instance, item)
+    def __str__(self):
+        return "ParityGroupCreator({}+{})".format(self.__geometry_base, self.__geometry_plus)
+
+    @staticmethod
+    def int_to_positions(int_target: int) -> List[int]:
+        """
+        Reads a single int representing the targets
+        :param int_target: the int representation of the targets
+        :return: a list of int with the target's ids
+        """
+        result = []
+        counter = 0
+        while True:
+            current_step = 1 << counter
+            if (current_step & int_target) == current_step:
+                result.append(counter)
+            counter += 1
+            if current_step > int_target:
+                break
+        return result
+
+    def get_targets(self) -> int:
+        """
+        Get an integer representing the targets of the packet to send.
+        Its binary representation shows the targets of the current parity group
+        In a case where server_count = 4
+        0011 0110 -> targets are server 5, 4, 2, 1
+        :return: the integer representation of the targets
+        """
+        bits = sample(range(self.__server_count), self.__geometry_base + self.__geometry_plus)
+        result = 0
+        for bit_shift in bits:
+            result |= 1 << bit_shift
+        del bits
+        return result
+
+    def get_targets_list(self, length: int) -> List[int]:
+        """
+        Same as get_targets but returns a list of targets.
+        :param length:
+        :return:
+        """
+        result = []
+        for i in range(length):
+            result.append(self.get_targets())
+        return result
 
 
 if __name__ == "__main__":
     client_params = {Contract.C_GEOMETRY_BASE: 3, Contract.C_GEOMETRY_PLUS: 1}
-    server_params = {Contract.S_SERVER_COUNT: 6}
+    server_params = {Contract.S_SERVER_COUNT: 8}
     creator = ParityGroupCreator(client_params, server_params)
-    print(creator.get_int())
+    targets_int = creator.get_targets()
+    print(targets_int)
+    print(ParityGroupCreator.int_to_positions(targets_int))
+

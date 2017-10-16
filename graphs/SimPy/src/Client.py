@@ -7,11 +7,13 @@ from Contract import Contract
 from collections import deque
 from ServerManager import  ServerManager
 from simpy.util import start_delayed
+from ParityGroupCreator import ParityGroupCreator
 
 
 class Client:
     def __init__(self, env: simpy.Environment, id: int, logger: Logger,
-                 servers_manager: ServerManager, config, misc_params):
+                 servers_manager: ServerManager, config, misc_params,
+                 pgc: ParityGroupCreator):
         self.env = env
         self.id = id
         self.servers_manager = servers_manager
@@ -23,16 +25,19 @@ class Client:
         self.tokens = simpy.Container(env, capacity=token_amount, init=token_amount)
         self.env.process(self.refresh_tokens())
         self.__token_refresh_delay = config[Contract.C_TOKEN_REFRESH_INTERVAL_ms] * int(1e6)
-
-        self.request_queue = {}
-        self.current_request = 0
+        self.__geometry = (config[Contract.C_GEOMETRY_BASE], config[Contract.C_GEOMETRY_PLUS])
+        self.request_queue = {}  # Dict[int, deque]
+        self.__single_request_queue = deque()
+        self.__single_request_queue_size = 0
+        # TODO: find a balanced value to the length of the parity targets list
+        self.__parity_targets = pgc.get_targets_list(int(servers_manager.get_server_count() / 2))
+        self.__parity_index = 0
 
         for i in range(servers_manager.get_server_count()):
             self.request_queue[i] = deque()
 
         seed(0)
         self.filename_gen = File.get_filename_generator(self.id)
-        self.lookup_table = generate_lookup_table(32)
         self.send_treshold = int(1024 / ClientRequest.get_cmloid_size())
         self.data_sent = 0
         self.data_received = 0
@@ -51,50 +56,11 @@ class Client:
         if self.data_received < self.data_sent:
             self.env.process(self.refresh_tokens())
 
-    def get_pending_parity_size(self):
-        size = 0
-        for request in self.pending_parity_queue:
-            size += request
-        return size
-
-    def forming_parity_group(self):
-        treshold = self.config[Contract.C_PENDING_PARITY_GROUP]
-        if self.get_pending_parity_size() < treshold:
-            yield self.env.timeout(0)
-        else:
-            send_size = 0
-            while send_size <= treshold:
-                send_size += self.request_queue.pop(0)
-            self.pending_send_queue.append(send_size)
-            yield self.env.process(self.logger.work(self.config[Contract.C_FORMING_PARITY_GROUP]))
-
-    def pending_parity_group(self, request_size):
-        # probably this time is negligible
-        self.pending_parity_queue.append(request_size)
-        yield self.env.process(self.logger.work(
-            self.config[Contract.C_ENQUEUE_PARITY_GROUP]))
-
-    def pending_send_grouping(self):
-        yield self.env.process(self.logger.work(self.config[Contract.C_PENDING_SEND_GROUP]))
-
     def receive_answer(self, chunk_received: Chunk):
         self.data_received += chunk_received.get_size()
         if self.data_received >= self.data_sent:
             printmessage(self.id, "Finished all the transactions", self.env.now)
             self.servers_manager.client_confirm_completed()
-        # if chunk_received.get_id() == chunk_received.get_tot_parts() - 1:
-        # printmessage(self.ID, "Confirmed writing of {}".format(chunk_received), self.env.now)
-
-    def run(self):
-        yield self.env.timeout(0)
-        # if self.request_queue:
-            # self.current_request = self.request_queue.pop(0)
-        # else:
-            # print ("Client {} has finished all tasks".format(self.ID))
-            # return
-
-        # yield self.env.process(self.check_tokens())
-        # yield self.env.process(self.send_request(self.chosen_server))
 
     def send_request(self, requests: List[ClientRequest]):
         start = self.env.now
@@ -104,38 +70,6 @@ class Client:
         start = self.env.now
         yield self.env.process(self.servers_manager.request_server(requests))
         self.logger.add_task_time("send_request", self.env.now - start)
-
-    def flush_parities(self, target_id):
-        pass
-
-        # send_group = SendGroup()
-        # reqs_to_send_count = min(self.config[Contract.C_PENDING_SEND_GROUP], len(self.pending_send_queue[target_id]))
-        # for i in range(reqs_to_send_count):
-        #     send_req = self.pending_send_queue[target_id].pop(0)
-        #     send_group.add_request(send_req)
-        # if reqs_to_send_count != 0:
-        #     printmessage(self.ID, ">[{}]SendGroup".format(target_id), self.env.now)
-        #     self.env.process(self.send_request(send_group))
-
-    def flush_requests(self, target_id):
-        # parity_group = ParityGroup()
-        # reqs_to_send_count = min(self.config[Contract.C_PENDING_PARITY_GROUP], len(self.request_queue[target_id]))
-        # for i in range(reqs_to_send_count):
-        #     parity_group.add_request(self.request_queue[target_id].pop(0))
-        # if reqs_to_send_count != 0:
-        #     printmessage(self.ID, "+[{}]SendGroup".format(target_id), self.env.now)
-        #     self.pending_send_queue[target_id].append(parity_group)
-        self.send_request(target_id)
-
-    def check_send_queue(self, target_id):
-        pass
-        # while len(self.pending_send_queue[target_id]) >= self.config[Contract.C_PENDING_SEND_GROUP]:
-        #     self.flush_parities(target_id)
-
-    def _get_request_queue_size(self, target_id):
-        size = 0
-        for req in self.request_queue[target_id]:
-            size += req.get
 
     def check_request_queue(self, target_id, flush: bool=False):
         while self.enough_requests(self.request_queue[target_id]) or\
@@ -147,55 +81,61 @@ class Client:
                 packed_requests.append(self.request_queue[target_id].popleft())
             yield self.env.process(self.send_request(packed_requests))
 
-    def add_write_request(self, req_size_kb):
+    def add_write_request(self, req_size_kb, file_count=1) -> List[str]:
         """
         Add a write request to the client.
         :param req_size_kb: int saying the size of the request to be done
         :return: the filename so generated. It chooses on his own the filename to avoid name collisions
         """
-        filename = next(self.filename_gen)
-        file = File(filename, req_size_kb)
-        self.data_sent += req_size_kb
-        for chunk in file.get_chunks():
-            target_id = self.get_target_from_chunk(chunk)
-            self.request_queue[target_id].append(ClientRequest(self, target_id, chunk, read=False))
-        return filename
+        filenames = []
+        for i in range(file_count):
+            filename = next(self.filename_gen)
+            file = File(filename, int(req_size_kb * sum(self.__geometry) / self.__geometry[0]))
+            filenames.append(filename)
+            print("Added request for file of size " + str(file.get_size()))
+            # self.data_sent += file.get_size()
+            self.__single_request_queue.append(FilePart(file, 0, file.get_size()))
+        self.__single_request_queue_size += int(req_size_kb * sum(self.__geometry) / self.__geometry[0]) * file_count
+        self.__scatter_files_in_queues()
+        return filenames
 
-    def print_status(self):
-        print("Client {}".format(self.id))
-        print("\tReqs queue:")
-        for target_id in self.request_queue:
-            print("\t\t[{}] : {}".format(target_id, len(self.request_queue[target_id])))
+    def __scatter_files_in_queues(self):
+        """
+        Divides the files in the queue in network buffers and append the in the correct queue
+        """
+        send_treshold = sum(self.__geometry) * NetworkBuffer.get_size()
+        print(self.__single_request_queue_size)
+        while self.__single_request_queue_size >= send_treshold:
+            self.__single_request_queue_size -= send_treshold
+            # TODO write a class in which remember the targets and the current index
+            targets = ParityGroupCreator.int_to_positions(self.__parity_targets[self.__parity_index])
+            self.__parity_index = (self.__parity_index + 1) % len(self.__parity_targets)
+            for target_id in targets:
+                request = ClientRequest(self, target_id, False)
+                request.set_parts(self.pop_netbuffer_from_queue())
+                self.request_queue[target_id].append(request)
+                print(request)
+            del targets
 
-        print("\tSend queue:")
-        for target_id in self.pending_send_queue:
-            print("\t\t[{}] : {}".format(target_id, len(self.pending_send_queue[target_id])))
-        print()
+    def pop_netbuffer_from_queue(self) -> List[FilePart]:
+        result = []
+        free_space = self.config[Contract.C_NETWORK_BUFFER_SIZE_KB]
+        while free_space > 0 and len(self.__single_request_queue) > 0:
+            if self.__single_request_queue[0].get_size() <= free_space:
+                free_space -= self.__single_request_queue[0].get_size()
+                result.append(self.__single_request_queue.popleft())
+            else:
+                result.append(self.__single_request_queue[0].pop_part(free_space))
+                free_space = 0
+        return result
 
     def get_id(self):
         return self.id
 
     def flush(self):
-        for target_id in range(self.servers_manager.get_server_count()):
-            self.env.process(self.check_request_queue(target_id, flush=True))
-
-    def get_target_from_file(self, file):
-        """
-        Given a file or its metadata, extract the target server ID where it is stored
-        :param file: the file or metadata file we want to work on
-        :return: the int id of the target server
-        """
-
-        table = self.lookup_table
-        for i in range(32):
-            idx1 = randint(0, 31)
-            idx2 = randint(0, 31)
-            table[idx1], table[idx2] = table[idx2], table[idx1]
-        result = file.get_size() * table[file.get_size() % 32]
-        str_size = str(file.get_size())
-        for letter in str_size:
-            result += table[ord(letter) % 32]
-        return result % self.servers_manager.get_server_count()
+        pass
+        # for target_id in range(self.servers_manager.get_server_count()):
+        #     self.env.process(self.check_request_queue(target_id, flush=True))
 
     def get_target_from_chunk(self, chunk: Chunk):
         return simple_hash(chunk.get_filename(), self.servers_manager.get_server_count(), chunk.get_id())

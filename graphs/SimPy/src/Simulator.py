@@ -7,7 +7,7 @@ import Parser
 from Utils import printmessage
 from Contract import Contract
 from Logger import Logger
-
+from ParityGroupCreator import ParityGroupCreator
 
 class Simulator:
     def __init__(self, args):
@@ -24,16 +24,16 @@ class Simulator:
                                              self.misc_params, self.__clients)
         self.__parse_requests()
         client_logger = Logger(self.env)
+        parityGroupCreator = ParityGroupCreator(self.client_params, self.server_params)
         for i in range(len(self.requests)):
             self.__clients.append(Client(self.env, i, client_logger, self.servers_manager,
-                                  self.client_params, self.misc_params))
+                                  self.client_params, self.misc_params, parityGroupCreator))
         for key, req_list in self.requests.items():
-            for req in req_list:
+            for count, filesize in req_list:
                 # if key not in clients:
                 #     raise Exception(str(key) + " not in clients")
                 try:
-                    for i in range(req[0]):
-                        self.__clients[key].add_write_request(req[1])
+                    self.__clients[key].add_write_request(filesize, file_count=count)
                 except IndexError:
                     raise Exception("Inconsistent number of clients across config and request")
 
