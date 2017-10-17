@@ -173,14 +173,6 @@ class File:
             int_name += 1
 
 
-class MetaFile(File):
-    def get_cmloid_generator(self):
-        raise Exception("Not an actual file. Only metadata")
-
-    def __str__(self):
-        return "MetaFile({}, {} kB)".format(self.name, self.size)
-
-
 class NetworkBuffer:
     def __init__(self, payload: List[CML_oid], read: bool=True):
         self.__payload = payload
@@ -188,11 +180,6 @@ class NetworkBuffer:
 
     def get_payload(self) -> List[CML_oid]:
         return self.__payload
-
-    @staticmethod
-    def get_size() -> int:
-        return 1024
-
 
 class FilePart:
     def __init__(self, file: File, start: int, end: int):
@@ -216,6 +203,13 @@ class FilePart:
     def get_bound(self) -> (int, int):
         return self.__start, self.__end
 
+    def get_filename(self) -> str:
+        return self.__file.get_name()
+
+    @staticmethod
+    def get_parity_part(size: int):
+        return FilePart(File('parity', size), 0, size)
+
     def __str__(self):
         return "FilePart('{}' ({}, {}) {} kB)".format(self.__file.get_name(), self.__start, self.__end, self.get_size())
 
@@ -235,11 +229,14 @@ class FileAggregator:
         return self.__amount_received == self.__len
 
 class ClientRequest:
-    def __init__(self, client, target_server_id: int, read: bool=True):
-        self.__client = client
+    def __init__(self, client_id: int, target_server_id: int, parity_group: int,
+                 parity_id: int, read: bool=True):
+        self.__client_id = client_id
         self.__target_server_id = target_server_id
         self.__read = read
         self.__file_parts = []
+        self.__parity_id = parity_id
+        self.__parity_group = parity_group
 
     def add_file_part(self, part: FilePart):
         self.__file_parts.append(part)
@@ -248,26 +245,34 @@ class ClientRequest:
         del self.__file_parts
         self.__file_parts = parts
 
-    def get_client(self):
-        return self.__client
+    def get_client(self) -> int:
+        return self.__client_id
 
-    def get_target_ID(self) -> int:
+    def get_target_id(self) -> int:
         return self.__target_server_id
 
-    def is_read(self):
+    def is_read(self) -> bool:
         return self.__read
 
-    def  get_size(self):
+    def get_size(self):
         result = 0
         for part in self.__file_parts:
             result += part.get_size()
         return result
 
+    def get_parity_group(self):
+        return self.__parity_group
+
+    def set_parity_group(self, parity_group: int):
+        self.__parity_group = parity_group
+
     def __str__(self):
-        result = "ClientRequest {}:\n".format("READ" if self.__read else "WRITE")
-        result += "\tfrom Client {} to Server {}\n".format(self.__client.get_id(), self.__target_server_id)
-        for part in self.__file_parts:
-            result += "\t{}\n".format(part)
+        rw = "<-" if self.__read else "->"
+        result = "ClientRequest(id {}, parity map {}, {} {} {}):\n"\
+            .format(self.__parity_id, self.__parity_group, self.__client_id, rw, self.__target_server_id)
+        if self.__file_parts:
+            for part in self.__file_parts:
+                result += "\t{}\n".format(part)
         return result
 
     @staticmethod

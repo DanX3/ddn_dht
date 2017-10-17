@@ -7,7 +7,7 @@ from Contract import Contract
 from collections import deque
 from ServerManager import  ServerManager
 from simpy.util import start_delayed
-from ParityGroupCreator import ParityGroupCreator
+from ParityGroupCreator import ParityGroupCreator, ParityId
 
 
 class Client:
@@ -16,7 +16,7 @@ class Client:
                  pgc: ParityGroupCreator):
         self.env = env
         self.id = id
-        self.servers_manager = servers_manager
+        self.__servers_manager = servers_manager
         self.config = config
         self.misc_params = misc_params
         self.logger = logger
@@ -26,15 +26,19 @@ class Client:
         self.env.process(self.refresh_tokens())
         self.__token_refresh_delay = config[Contract.C_TOKEN_REFRESH_INTERVAL_ms] * int(1e6)
         self.__geometry = (config[Contract.C_GEOMETRY_BASE], config[Contract.C_GEOMETRY_PLUS])
-        self.request_queue = {}  # Dict[int, deque]
+        self.__parity_id_creator = ParityId()
+        self.__network_buffer_size = config[Contract.C_NETWORK_BUFFER_SIZE_KB]
+        self.__send_treshold = self.__geometry[0] * self.__network_buffer_size
+        self.__request_queue = {}  # Dict[int, deque]
         self.__single_request_queue = deque()
         self.__single_request_queue_size = 0
         # TODO: find a balanced value to the length of the parity targets list
-        self.__parity_targets = pgc.get_targets_list(int(servers_manager.get_server_count() / 2))
+        self.__parity_groups = pgc.get_targets_list(int(servers_manager.get_server_count() / 2))
         self.__parity_index = 0
+        self.__file_map = {}  # Dict[str, int]
 
         for i in range(servers_manager.get_server_count()):
-            self.request_queue[i] = deque()
+            self.__request_queue[i] = deque()
 
         seed(0)
         self.filename_gen = File.get_filename_generator(self.id)
@@ -48,8 +52,8 @@ class Client:
             self.tokens.put(tokens_missing)
 
         # trigger sending processes
-        for target_id in range(self.servers_manager.get_server_count()):
-            if len(self.request_queue[target_id]) > self.send_treshold:
+        for target_id in range(self.__servers_manager.get_server_count()):
+            if len(self.__request_queue[target_id]) > self.send_treshold:
                 self.env.process(self.check_request_queue(target_id))
 
         yield self.env.timeout(self.__token_refresh_delay)
@@ -60,7 +64,7 @@ class Client:
         self.data_received += chunk_received.get_size()
         if self.data_received >= self.data_sent:
             printmessage(self.id, "Finished all the transactions", self.env.now)
-            self.servers_manager.client_confirm_completed()
+            self.__servers_manager.client_confirm_completed()
 
     def send_request(self, requests: List[ClientRequest]):
         start = self.env.now
@@ -68,18 +72,18 @@ class Client:
         self.logger.add_task_time("token_wait", self.env.now - start)
 
         start = self.env.now
-        yield self.env.process(self.servers_manager.request_server(requests))
+        yield self.env.process(self.__servers_manager.request_server(requests))
         self.logger.add_task_time("send_request", self.env.now - start)
 
-    def check_request_queue(self, target_id, flush: bool=False):
-        while self.enough_requests(self.request_queue[target_id]) or\
-                (flush and self.request_queue[target_id]):
-            packed_requests = []
-            size = 0
-            while size <= NetworkBuffer.get_size() and self.request_queue[target_id]:
-                size += self.request_queue[target_id][0].get_chunk().get_size()
-                packed_requests.append(self.request_queue[target_id].popleft())
-            yield self.env.process(self.send_request(packed_requests))
+    def check_request_queue(self, target_id: int):
+        sent_something = True
+        while sent_something:
+            sent_something = False
+            for queue_index in range(self.__servers_manager.get_server_count()):
+                if self.__request_queue[queue_index]:
+                    sent_something = True
+                    self.env.process(self.__request_queue[queue_index].popleft())
+
 
     def add_write_request(self, req_size_kb, file_count=1) -> List[str]:
         """
@@ -88,14 +92,16 @@ class Client:
         :return: the filename so generated. It chooses on his own the filename to avoid name collisions
         """
         filenames = []
+        # add all the files to the single queue
         for i in range(file_count):
             filename = next(self.filename_gen)
-            file = File(filename, int(req_size_kb * sum(self.__geometry) / self.__geometry[0]))
+            file = File(filename, int(req_size_kb))
+            self.__file_map[filename] = 0
             filenames.append(filename)
             print("Added request for file of size " + str(file.get_size()))
-            # self.data_sent += file.get_size()
             self.__single_request_queue.append(FilePart(file, 0, file.get_size()))
-        self.__single_request_queue_size += int(req_size_kb * sum(self.__geometry) / self.__geometry[0]) * file_count
+        self.data_sent += req_size_kb * file_count
+        self.__single_request_queue_size += req_size_kb * file_count
         self.__scatter_files_in_queues()
         return filenames
 
@@ -103,24 +109,41 @@ class Client:
         """
         Divides the files in the queue in network buffers and append the in the correct queue
         """
-        send_treshold = sum(self.__geometry) * NetworkBuffer.get_size()
         print(self.__single_request_queue_size)
-        while self.__single_request_queue_size >= send_treshold:
-            self.__single_request_queue_size -= send_treshold
+        while self.__single_request_queue_size >= self.__send_treshold:
+            self.__single_request_queue_size -= self.__send_treshold
             # TODO write a class in which remember the targets and the current index
-            targets = ParityGroupCreator.int_to_positions(self.__parity_targets[self.__parity_index])
-            self.__parity_index = (self.__parity_index + 1) % len(self.__parity_targets)
-            for target_id in targets:
-                request = ClientRequest(self, target_id, False)
-                request.set_parts(self.pop_netbuffer_from_queue())
-                self.request_queue[target_id].append(request)
+            parity_group = self.__parity_groups[self.__parity_index]
+            targets = ParityGroupCreator.int_to_positions(parity_group)
+            parity_id = self.__parity_id_creator.get_id()
+
+            # The first target of the group stores parity
+            parity_request = ClientRequest(self.id, targets[0], parity_group, parity_id, False)
+            parity_request.set_parts([FilePart.get_parity_part(self.__network_buffer_size)])
+            self.__request_queue[targets[0]].append(parity_request)
+            print(parity_request)
+
+            for target_id in targets[1:]:
+                request = ClientRequest(self.id, target_id, parity_group, parity_id, False)
+                request.set_parts(self.pop_netbuffer_from_queue(target_id))
+                self.__request_queue[target_id].append(request)
                 print(request)
+            self.__parity_index = (self.__parity_index + 1) % len(self.__parity_groups)
             del targets
 
-    def pop_netbuffer_from_queue(self) -> List[FilePart]:
+    def pop_netbuffer_from_queue(self, target_id: int) -> List[FilePart]:
+        """
+        Pop a stream of <netbuffer size> from the queue if possible.
+        It truncates the file parts to match the <netbuffer size>
+        It returns a smaller amount of data if there is no data,
+        popping the empty file part from the queue
+        :return: the List of fileparts of total size <netbuffer size>
+        """
         result = []
         free_space = self.config[Contract.C_NETWORK_BUFFER_SIZE_KB]
         while free_space > 0 and len(self.__single_request_queue) > 0:
+            self.__file_map[self.__single_request_queue[0].get_filename()] |= target_id
+            # if file fits in buffer
             if self.__single_request_queue[0].get_size() <= free_space:
                 free_space -= self.__single_request_queue[0].get_size()
                 result.append(self.__single_request_queue.popleft())
@@ -133,17 +156,49 @@ class Client:
         return self.id
 
     def flush(self):
-        pass
-        # for target_id in range(self.servers_manager.get_server_count()):
-        #     self.env.process(self.check_request_queue(target_id, flush=True))
+        # terminate if there is nothing to send
+        if self.__single_request_queue_size == 0:
+            return
+
+        # if I need to flush, is because something is left behind because was lower than
+        # the send treshold
+        assert self.__single_request_queue_size < self.__send_treshold
+
+        parity_group = self.__parity_groups[self.__parity_index]
+        targets = ParityGroupCreator.int_to_positions(parity_group)
+
+        # Creating the requests. Before filling the next target request, I want to complete the current
+        #     * I don't have division problems, in case I have to write 2KB to 3 targets
+        #     * The size of the first request is always the greater or equal
+        #     * Based on the first request I create the parity request
+        #     * Since I could not send data to every target, the parity group could be different
+        new_parity_group = 0
+        parity_id = self.__parity_id_creator.get_id()
+        requests = []
+        for target_id in targets[1:]:
+            request = ClientRequest(self.id, target_id, 0, parity_id, False)
+            request.set_parts(self.pop_netbuffer_from_queue(target_id))
+            self.__single_request_queue_size -= request.get_size()
+            requests.append(request)
+            new_parity_group |= 1 << target_id
+            if self.__single_request_queue_size == 0:
+                break
+
+        # creating the parity request
+        parity_request = ClientRequest(self.id, targets[0], 0, parity_id, False)
+        parity_request.set_parts([FilePart.get_parity_part(requests[0].get_size())])
+        new_parity_group |= targets[0]
+        parity_request.set_parity_group(new_parity_group)
+        self.__request_queue[targets[0]].append(parity_request)
+        print(parity_request)
+
+        # appending the created requests with adjusted parity group
+        for request in requests:
+            request.set_parity_group(new_parity_group)
+            print(request)
+            self.__request_queue[request.get_target_id()].append(request)
+        self.__parity_index = (self.__parity_index + 1) % len(self.__parity_groups)
 
     def get_target_from_chunk(self, chunk: Chunk):
-        return simple_hash(chunk.get_filename(), self.servers_manager.get_server_count(), chunk.get_id())
+        return simple_hash(chunk.get_filename(), self.__servers_manager.get_server_count(), chunk.get_id())
 
-    def enough_requests(self, requests: List[ClientRequest]) -> bool:
-        size = 0
-        for req in requests:
-            size += req.get_chunk().get_size()
-            if size >= NetworkBuffer.get_size():
-                return True
-        return False

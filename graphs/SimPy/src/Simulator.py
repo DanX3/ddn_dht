@@ -20,7 +20,7 @@ class Simulator:
         self.requests = {}
         random.seed(args.seed)
         self.__clients = []
-        self.servers_manager = ServerManager(self.env, self.server_params,
+        self.servers_manager = ServerManager(self.env, self.server_params, self.client_params,
                                              self.misc_params, self.__clients)
         self.__parse_requests()
         client_logger = Logger(self.env)

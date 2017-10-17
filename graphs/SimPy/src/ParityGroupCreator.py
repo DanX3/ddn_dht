@@ -13,7 +13,7 @@ class ParityGroupCreator:
         self.__geometry_base = client_params[Contract.C_GEOMETRY_BASE]
         self.__geometry_plus = client_params[Contract.C_GEOMETRY_PLUS]
         self.__server_count = server_params[Contract.S_SERVER_COUNT]
-        seed(10)
+        seed(13)
 
     def __str__(self):
         return "ParityGroupCreator({}+{})".format(self.__geometry_base, self.__geometry_plus)
@@ -63,11 +63,32 @@ class ParityGroupCreator:
         return result
 
 
-if __name__ == "__main__":
-    client_params = {Contract.C_GEOMETRY_BASE: 3, Contract.C_GEOMETRY_PLUS: 1}
-    server_params = {Contract.S_SERVER_COUNT: 8}
-    creator = ParityGroupCreator(client_params, server_params)
-    targets_int = creator.get_targets()
-    print(targets_int)
-    print(ParityGroupCreator.int_to_positions(targets_int))
+class ParityId:
+    class __ParityId:
+        def __init__(self):
+            self.__id = 0
 
+        def get_id(self):
+            result = self.__id
+            self.__id += 1
+            return result
+
+    instance = None
+
+    def __init__(self):
+        if not ParityId.instance:
+            ParityId.instance = ParityId.__ParityId()
+
+    def __getattr__(self, item):
+        return getattr(self.instance, item)
+
+
+if __name__ == "__main__":
+    parity1 = ParityId()
+    parity2 = ParityId()
+    print(parity1.get_id())
+    print(parity2.get_id())
+    print(parity1.get_id())
+    print(parity2.get_id())
+    print(parity1.get_id())
+    print(parity2.get_id())
