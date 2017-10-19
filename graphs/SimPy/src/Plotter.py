@@ -52,7 +52,7 @@ class Plotter:
 
     @staticmethod
     def plot_bandwidth_model(latency_ns, bandwidth_GBps):
-        Plotter.plot_diag_limit(latency_ns, 1/bandwidth_GBps, range_max=1e6)
+        Plotter.plot_diag_limit(latency_ns, 1/bandwidth_GBps)
 
 
 if __name__ == "__main__":

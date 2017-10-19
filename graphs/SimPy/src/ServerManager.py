@@ -6,19 +6,20 @@ from FunctionDesigner import Function2D
 from Logger import Logger
 from HUB import HUB
 from DHT import DHT
+from Interfaces import IfForServer
 
 
-class ServerManager:
+class ServerManager(IfForServer):
     def __init__(self, env, server_params, client_params, misc_params, clients):
         self.env = env
         self.__client_completed = 0
         self.__clients = clients
-        self.__network_buffer_size = client_params[Contract.C_NETWORK_BUFFER_SIZE_KB]
+        self.__network_buffer_size = misc_params[Contract.M_NETWORK_BUFFER_SIZE_KB]
         self.__server_logger = Logger(self.env)
         self.servers = []
         for i in range(server_params[Contract.S_SERVER_COUNT]):
             self.servers.append(
-                    Server(self.env, i, self.__server_logger, server_params, misc_params, clients, self))
+                    Server(self.env, i, self.__server_logger, server_params, misc_params, self))
 
         # This will keep the queue for the client requests
         # self.__HUB = HUB(env, int(misc_params[Contract.M_HUB_BW_Gbps]) * 1e6 / 8)
@@ -33,7 +34,7 @@ class ServerManager:
             if ID == server.get_id():
                 return server
 
-    def request_server(self, requests: List[ClientRequest], test_net: bool=False):
+    def request_server(self, request: ClientRequest, test_net: bool=False):
         """
         Sends the request to the servers
         Every request is queued.
@@ -45,19 +46,19 @@ class ServerManager:
         """
         mutex_request = self.__HUB.request()
         yield mutex_request
-        size = get_requests_size(requests)
-        # 1 MB packets at full speed
-        time_required = int((size / 1024) * (1024 / self.__max_bandwidth * 1e9))
-        # smaller packages based on time function
-        if size % self.__network_buffer_size != 0:
-            time_required += int((size % 1024) * self.__time_function(size))
+        size = request.get_size()
+        if request.get_size() == self.__network_buffer_size:
+            # <networkbuffer size> packets at full speed
+            time_required = int(self.__network_buffer_size / self.__max_bandwidth * 1e9)
+        else:
+            # smaller packets with overhead introduced
+            time_required = self.__time_function(request.get_size())
         yield self.env.timeout(time_required)
         self.__HUB.release(mutex_request)
         if test_net:
-            for request in requests:
-                self.answer_client(request)
+            self.answer_client(request)
         else:
-            self.servers[requests[0].get_target_ID()].add_requests(requests)
+            self.servers[request.get_target_id()].add_request(request)
 
 
     def single_request_server(self, req):
@@ -77,4 +78,4 @@ class ServerManager:
             self.__server_logger.print_info_to_file("server.log")
 
     def answer_client(self, request: ClientRequest):
-        self.__clients[request.get_client()].answer_client(request)
+        self.__clients[request.get_client()].receive_answer(request)

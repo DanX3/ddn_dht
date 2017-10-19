@@ -215,6 +215,10 @@ class FilePart:
 
 
 class FileAggregator:
+    """
+    Class used by Client to collect parts or files received by servers
+    It does not track actual missing parts, counting only the valid amount received
+    """
     def __init__(self, filename: str, start: int, length: int):
         self.__filename = filename
         self.__start = start
@@ -240,6 +244,9 @@ class ClientRequest:
 
     def add_file_part(self, part: FilePart):
         self.__file_parts.append(part)
+
+    def get_parts(self) -> List[FilePart]:
+        return self.__file_parts
 
     def set_parts(self, parts: List[FilePart]):
         del self.__file_parts
@@ -314,16 +321,10 @@ def generate_lookup_table(length):
     return table
 
 
-def get_requests_size(requests: List[ClientRequest]) -> int:
-    size = 0
-    for req in requests:
-        size += req.get_chunk().get_size()
-    return size
-
-
 if __name__ == "__main__":
-    part = FilePart(File("a", 2048), 2048, 2048)
+    original = File('a', 2048)
+    part = FilePart(original, 1024, 2048)
     print(part)
-    aggregator = FileAggregator("a", 512, 1024)
-    while part.get_size() != 0:
-        print(aggregator.add_part(part.pop_part(2048)))
+    # while part.get_size() != 0:
+    #     print(aggregator.add_part(part.pop_part(2048)))
+

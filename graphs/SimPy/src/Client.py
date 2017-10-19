@@ -27,7 +27,7 @@ class Client:
         self.__token_refresh_delay = config[Contract.C_TOKEN_REFRESH_INTERVAL_ms] * int(1e6)
         self.__geometry = (config[Contract.C_GEOMETRY_BASE], config[Contract.C_GEOMETRY_PLUS])
         self.__parity_id_creator = ParityId()
-        self.__network_buffer_size = config[Contract.C_NETWORK_BUFFER_SIZE_KB]
+        self.__network_buffer_size = int(misc_params[Contract.M_NETWORK_BUFFER_SIZE_KB])
         self.__send_treshold = self.__geometry[0] * self.__network_buffer_size
         self.__request_queue = {}  # Dict[int, deque]
         self.__single_request_queue = deque()
@@ -52,9 +52,13 @@ class Client:
             self.tokens.put(tokens_missing)
 
         # trigger sending processes
-        for target_id in range(self.__servers_manager.get_server_count()):
-            if len(self.__request_queue[target_id]) > self.send_treshold:
-                self.env.process(self.check_request_queue(target_id))
+        sent_something = True
+        while sent_something:
+            sent_something = False
+            for queue_index in range(self.__servers_manager.get_server_count()):
+                if self.__request_queue[queue_index]:
+                    sent_something = True
+                    self.env.process(self.__send_request(self.__request_queue[queue_index].popleft()))
 
         yield self.env.timeout(self.__token_refresh_delay)
         if self.data_received < self.data_sent:
@@ -66,24 +70,14 @@ class Client:
             printmessage(self.id, "Finished all the transactions", self.env.now)
             self.__servers_manager.client_confirm_completed()
 
-    def send_request(self, requests: List[ClientRequest]):
+    def __send_request(self, request: ClientRequest):
         start = self.env.now
-        yield self.tokens.get(ceil(get_requests_size(requests) / NetworkBuffer.get_size()))
+        yield self.tokens.get(1)
         self.logger.add_task_time("token_wait", self.env.now - start)
 
         start = self.env.now
-        yield self.env.process(self.__servers_manager.request_server(requests))
+        yield self.env.process(self.__servers_manager.request_server(request))
         self.logger.add_task_time("send_request", self.env.now - start)
-
-    def check_request_queue(self, target_id: int):
-        sent_something = True
-        while sent_something:
-            sent_something = False
-            for queue_index in range(self.__servers_manager.get_server_count()):
-                if self.__request_queue[queue_index]:
-                    sent_something = True
-                    self.env.process(self.__request_queue[queue_index].popleft())
-
 
     def add_write_request(self, req_size_kb, file_count=1) -> List[str]:
         """
@@ -125,13 +119,13 @@ class Client:
 
             for target_id in targets[1:]:
                 request = ClientRequest(self.id, target_id, parity_group, parity_id, False)
-                request.set_parts(self.pop_netbuffer_from_queue(target_id))
+                request.set_parts(self.__pop_netbuffer_from_queue(target_id))
                 self.__request_queue[target_id].append(request)
                 print(request)
             self.__parity_index = (self.__parity_index + 1) % len(self.__parity_groups)
             del targets
 
-    def pop_netbuffer_from_queue(self, target_id: int) -> List[FilePart]:
+    def __pop_netbuffer_from_queue(self, target_id: int) -> List[FilePart]:
         """
         Pop a stream of <netbuffer size> from the queue if possible.
         It truncates the file parts to match the <netbuffer size>
@@ -140,7 +134,7 @@ class Client:
         :return: the List of fileparts of total size <netbuffer size>
         """
         result = []
-        free_space = self.config[Contract.C_NETWORK_BUFFER_SIZE_KB]
+        free_space = self.__network_buffer_size
         while free_space > 0 and len(self.__single_request_queue) > 0:
             self.__file_map[self.__single_request_queue[0].get_filename()] |= target_id
             # if file fits in buffer
@@ -177,7 +171,7 @@ class Client:
         requests = []
         for target_id in targets[1:]:
             request = ClientRequest(self.id, target_id, 0, parity_id, False)
-            request.set_parts(self.pop_netbuffer_from_queue(target_id))
+            request.set_parts(self.__pop_netbuffer_from_queue(target_id))
             self.__single_request_queue_size -= request.get_size()
             requests.append(request)
             new_parity_group |= 1 << target_id
@@ -198,7 +192,4 @@ class Client:
             print(request)
             self.__request_queue[request.get_target_id()].append(request)
         self.__parity_index = (self.__parity_index + 1) % len(self.__parity_groups)
-
-    def get_target_from_chunk(self, chunk: Chunk):
-        return simple_hash(chunk.get_filename(), self.__servers_manager.get_server_count(), chunk.get_id())
 

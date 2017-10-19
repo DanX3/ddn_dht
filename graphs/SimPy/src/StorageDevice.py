@@ -72,7 +72,7 @@ class StorageDevice:
         self.latency = latency_ms
         self.time_reading = Function2D.get_bandwidth_model(latency_ms, reading_kBps)
         self.time_writing = Function2D.get_bandwidth_model(latency_ms, writing_kBps)
-        self.writing_kBps = writing_kBps
+        self.__writing_kBps = writing_kBps
         # self.stored_files: Dict[str, File] = {}
         self.stored_cmloid = {}
         self.source_server = source_server
@@ -94,7 +94,7 @@ class StorageDevice:
 
         # printmessage(0, "Started writing {}".format(dummy_file), self.env.now)
         # yield self.env.timeout(self.time_reading(CML_oid.get_size()))
-        yield self.env.timeout(int(dummy_file.get_size() / self.writing_kBps * 1e9))
+        yield self.env.timeout(int(dummy_file.get_size() / self.__writing_kBps * 1e9))
 
         self.__mutex.release(req)
         # printmessage(0, "Finished writing {}".format(dummy_file), self.env.now)
@@ -116,7 +116,7 @@ class StorageDevice:
             raise MethodNotImplemented("StorageDevice")
 
         # yield self.env.timeout(self.time_reading(CML_oid.get_size()))
-        yield self.env.timeout(int(CML_oid.get_size() / self.writing_kBps * 1e9))
+        yield self.env.timeout(int(CML_oid.get_size() / self.__writing_kBps * 1e9))
         self.__container.put(CML_oid.get_size())
         self.stored_cmloid[cmloid.to_id()] = cmloid
 
@@ -125,6 +125,9 @@ class StorageDevice:
     def tracked_file(self, file):
         filename = file.get_name()
         return filename in self.stored_cmloid or filename in self.transfer_list
+
+    def get_writing_bandwidth(self) -> float:
+        return self.__writing_kBps
 
     def move_file_to(self, file, target_disk_id):
         """

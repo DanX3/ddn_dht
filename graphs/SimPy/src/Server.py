@@ -5,23 +5,24 @@ import StorageDevice
 from Contract import Contract
 from StorageDevice import StorageDevice, DiskIdNotation
 from collections import deque
-
+from Interfaces import IfForServer
 
 
 class Server:
-    def __init__(self, env, id, logger, config, misc_params, clients, server_manager):
+    def __init__(self, env, id: int, logger, config, misc_params, server_manager: IfForServer):
         self.env = env
         self.id = id
         self.logger = logger
         self.config = config
         self.__mutex = simpy.Resource(env, capacity=1)
-        self.clients = clients
         self.server_manager = server_manager
         self.requests = deque()
         self.HDDs_data = []
         self.HDDs_metadata = []
         self.receiving_files = {}  # Dict[str, Deque[CML_oid]]
+        self.__parts = {}  # Dict[str, List[FileParts]
 
+        self.__network_buffer_size = int(misc_params[Contract.M_NETWORK_BUFFER_SIZE_KB])
         self.lookup_table = generate_lookup_table(32)
         data_disk_gen = DiskIdNotation.get_disk_id_generator(self.id, True)
         self.__cmloids_stored = {}  # Dict[str, Cmloid_struct]
@@ -54,32 +55,22 @@ class Server:
         req.get_client().receive_answer(req)
         raise MethodNotImplemented("Server")
 
-    # def __write_file(self, file: File):
-    #     """
-    #     Writes files to the disks, exploiting the RAID configuration
-    #     For performance purposes, instead of creating and writing all the CML_oid,
-    #     it pre-computes the amount that each disk will write and request a single big file write
-    #     From outside the result is the same but is much more lightweight
-    #     :param file: The file to be written
-    #     :return: None
-    #     """
-    #     write_requests = []
-    #     load_per_disk = self.get_load_per_disk(file)
-    #     for i in range(len(self.HDDs_data)):
-    #         req = self.env.process(self.HDDs_data[i].simulate_write(File('', load_per_disk[i])))
-    #         write_requests.append(req)
-    #     yield simpy.events.AllOf(self.env, write_requests)
-
-    def __process_write_request(self, req: ClientRequest):
-        load = self.get_load_from_chunk(req.get_chunk())
-        write_requests = []
-        for i in range(len(self.HDDs_data)):
-            write_requests.append(self.env.process(self.HDDs_data[i].simulate_write(File('', load[i]))))
+    def __process_write_request(self, request: ClientRequest):
+        # max data a single disk has to write. The bottleneck of this process
+        max_load = ceil(request.get_size() / len(self.HDDs_data))
         start = self.env.now
-        yield simpy.events.AllOf(self.env, write_requests)
+        yield self.env.timeout(max_load * self.HDDs_data[0].get_writing_bandwidth())
         self.logger.add_task_time("disk_write", self.env.now - start)
-        req.get_client().receive_answer(req.get_chunk())
-        del req
+        self.__add_file_parts(request.get_parts())
+        self.server_manager.answer_client(request)
+
+    def __add_file_parts(self, parts: List[FilePart]):
+        for part in parts:
+            if part.get_filename() in self.__parts:
+                self.__parts[part.get_filename()].append(part)
+            else:
+                self.__parts[part.get_filename()] = [part]
+
 
     def process_requests(self):
         mutex_req = self.__mutex.request()
