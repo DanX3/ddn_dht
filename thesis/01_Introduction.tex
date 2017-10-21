@@ -1,0 +1,79 @@
+\section{Introduction}
+
+\subsection{Problem Explanation}
+\subsubsection*{Device presentation}
+If we want a program to run fast, we try to make use of memories that are fast,
+like caches. If our program can not fit in cache, we will access the main memory.
+\\
+At some point anyway we will need to store some data in the mass storage,
+and the bandwidth to these devices is still very low compared to the former
+components. 
+Data Direct Networks developed a device that act as a cache between main memory
+and mass storage, filling the gap that there is right now. \\
+As a cache, it operates in a transparent way, making every already
+developed program able to run on on this platform. \\
+The device can intercept IO calls in many ways, so its users can choose the
+method most appropriate method for themselves.
+
+\subsubsection*{The problem}
+The system as of now has some scaling issue when a large amount of servers are
+installed. To keep data consistency, the system has to perform some transactions
+from server to server. This traffic will decrease the performance of the
+clients traffic. This limits the amount of servers and with this also the amount
+of cache data available.
+
+\subsubsection*{The solution}
+The solution proposed by DDN is a simulator of the system, enabling the fast
+exploration of different solutions without the need to actually build many
+systems. Since a simulation is a work from scratch, will need also the
+implementation of some tools to monitor the load of the system over time to
+check the quality and the performance of the model. \\
+Moreover, will be simulated also systematic failures since these happens in real
+world and the system already is able to recover some fatal errors on its own.
+
+\subsection{Requirements Analysis}
+Simulators are not necessarily computationally intensive applications. Is based
+on the specific environment it has to simulate. In my case the simulation of
+network transactions will end up in waiting an amount of simulation time based
+on a formula. This allows me to choose a platform not focused on performance but
+on flexibility, since I will need to implement different systems. \\
+Following the principle of "Not reinventing the wheel" I started the project
+using a library for discrete simulation instead of building my own. This
+accelerated the project since at this point I need only to implement the logic
+of the system and testing its capabilities and test utilities to get some data
+from the simulation.
+To list the requirements, these are:
+\begin{itemize}
+    \item environment focused on flexibility
+    \item compatible simulation library
+    \item monitor tools to inspect the system performances
+    \item test-suite for the simulated system 
+\end{itemize}
+
+Every good practice about software design and development is implicit in this
+list.
+
+\subsubsection*{HPC Relevance}
+The simulator by itself is not the product relevant from the HPC point of view.
+What is relevant instead is the problem it is going to solve: there is already a
+problem of scalability of a product and the simulator should solve or help to
+solve it faster than traditional development would. This will accelerate
+architecture investigation instead of the software part of IME.
+
+\subsection{Development environment}
+To satisfy the stated requirements I've chosen to develop the project in Python
+since is flexible enough to create many models, focusing the attention on the
+system architecture instead of low level details. \\
+The simulation library I chose has been SimPy \cite{simpy}. Is well maintained
+and perfectly integrated with language. \\
+A drawback of a Python environment is its dynamic types: this is not a problem
+in general but one of the main features of python instead, that makes it one of
+the best scripting language. But for bigger projects the requirements from the
+changes and type checking protect us against implementation errors. From version
+3.5 the language allows \textit{Type annotations} that doesn't prevent the
+developer from using different data types but integrated with a modern IDE, it
+will suggest before running the program the potential issues.
+
+\subsubsection*{SimPy}
+
+
