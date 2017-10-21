@@ -33,7 +33,7 @@ class Client:
         self.__single_request_queue = deque()
         self.__single_request_queue_size = 0
         # TODO: find a balanced value to the length of the parity targets list
-        self.__parity_groups = pgc.get_targets_list(int(servers_manager.get_server_count() / 2))
+        self.__parity_groups = pgc.get_targets_list(int(servers_manager.get_server_count() * 2))
         self.__parity_index = 0
         self.__file_map = {}  # Dict[str, int]
 
@@ -43,7 +43,7 @@ class Client:
         seed(0)
         self.filename_gen = File.get_filename_generator(self.id)
         self.send_treshold = int(1024 / ClientRequest.get_cmloid_size())
-        self.data_sent = 0
+        self.__data_sent = 0
         self.data_received = 0
 
     def refresh_tokens(self):
@@ -56,18 +56,20 @@ class Client:
         while sent_something:
             sent_something = False
             for queue_index in range(self.__servers_manager.get_server_count()):
-                if self.__request_queue[queue_index]:
+                if self.__request_queue[queue_index] and self.tokens.level > 0:
                     sent_something = True
                     self.env.process(self.__send_request(self.__request_queue[queue_index].popleft()))
 
         yield self.env.timeout(self.__token_refresh_delay)
-        if self.data_received < self.data_sent:
+        if self.data_received < self.__data_sent:
             self.env.process(self.refresh_tokens())
 
-    def receive_answer(self, chunk_received: Chunk):
-        self.data_received += chunk_received.get_size()
-        if self.data_received >= self.data_sent:
-            printmessage(self.id, "Finished all the transactions", self.env.now)
+    def receive_answer(self, request: ClientRequest):
+        for part in request.get_parts():
+            if part.get_filename() != 'parity':
+                self.data_received += part.get_size()
+        if self.data_received >= self.__data_sent:
+            printmessage(self.id, "Finished all the transactions ({}/{})".format(self.data_received,self.__data_sent), self.env.now, )
             self.__servers_manager.client_confirm_completed()
 
     def __send_request(self, request: ClientRequest):
@@ -92,18 +94,18 @@ class Client:
             file = File(filename, int(req_size_kb))
             self.__file_map[filename] = 0
             filenames.append(filename)
-            print("Added request for file of size " + str(file.get_size()))
             self.__single_request_queue.append(FilePart(file, 0, file.get_size()))
-        self.data_sent += req_size_kb * file_count
+        self.__data_sent += req_size_kb * file_count
         self.__single_request_queue_size += req_size_kb * file_count
         self.__scatter_files_in_queues()
+        print(self.__file_map)
         return filenames
 
     def __scatter_files_in_queues(self):
         """
         Divides the files in the queue in network buffers and append the in the correct queue
         """
-        print(self.__single_request_queue_size)
+        # print(self.__single_request_queue_size)
         while self.__single_request_queue_size >= self.__send_treshold:
             self.__single_request_queue_size -= self.__send_treshold
             # TODO write a class in which remember the targets and the current index
@@ -115,13 +117,13 @@ class Client:
             parity_request = ClientRequest(self.id, targets[0], parity_group, parity_id, False)
             parity_request.set_parts([FilePart.get_parity_part(self.__network_buffer_size)])
             self.__request_queue[targets[0]].append(parity_request)
-            print(parity_request)
+            # print(parity_request)
 
             for target_id in targets[1:]:
                 request = ClientRequest(self.id, target_id, parity_group, parity_id, False)
                 request.set_parts(self.__pop_netbuffer_from_queue(target_id))
                 self.__request_queue[target_id].append(request)
-                print(request)
+                # print(request)
             self.__parity_index = (self.__parity_index + 1) % len(self.__parity_groups)
             del targets
 
@@ -184,12 +186,12 @@ class Client:
         new_parity_group |= targets[0]
         parity_request.set_parity_group(new_parity_group)
         self.__request_queue[targets[0]].append(parity_request)
-        print(parity_request)
+        # print(parity_request)
 
         # appending the created requests with adjusted parity group
         for request in requests:
             request.set_parity_group(new_parity_group)
-            print(request)
+            # print(request)
             self.__request_queue[request.get_target_id()].append(request)
         self.__parity_index = (self.__parity_index + 1) % len(self.__parity_groups)
 

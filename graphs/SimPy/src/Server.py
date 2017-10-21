@@ -9,14 +9,14 @@ from Interfaces import IfForServer
 
 
 class Server:
-    def __init__(self, env, id: int, logger, config, misc_params, server_manager: IfForServer):
+    def __init__(self, env, id: int, logger: Logger, config, misc_params, server_manager: IfForServer):
         self.env = env
         self.id = id
         self.logger = logger
         self.config = config
         self.__mutex = simpy.Resource(env, capacity=1)
         self.server_manager = server_manager
-        self.requests = deque()
+        self.__requests = deque()
         self.HDDs_data = []
         self.HDDs_metadata = []
         self.receiving_files = {}  # Dict[str, Deque[CML_oid]]
@@ -62,7 +62,17 @@ class Server:
         yield self.env.timeout(max_load * self.HDDs_data[0].get_writing_bandwidth())
         self.logger.add_task_time("disk_write", self.env.now - start)
         self.__add_file_parts(request.get_parts())
-        self.server_manager.answer_client(request)
+        self.env.process(self.server_manager.answer_client(request))
+
+    def __process_request(self, request: ClientRequest):
+        mutex_req = self.__mutex.request()
+        yield mutex_req
+        if request.is_read():
+            yield self.env.process(self.__process_read_request(request))
+        else:
+            yield self.env.process(self.__process_write_request(request))
+
+        self.__mutex.release(mutex_req)
 
     def __add_file_parts(self, parts: List[FilePart]):
         for part in parts:
@@ -71,40 +81,17 @@ class Server:
             else:
                 self.__parts[part.get_filename()] = [part]
 
-
-    def process_requests(self):
-        mutex_req = self.__mutex.request()
-        yield mutex_req
-        if len(self.requests) == 0:
-            yield self.env.timeout(0)
-            self.__mutex.release(mutex_req)
-            return
-
-        while len(self.requests) > 0:
-            req = self.requests.popleft()
-            if req.is_read():
-                yield self.env.process(self.__process_read_request(req))
-            else:
-                yield self.env.process(self.__process_write_request(req))
-
-        self.__mutex.release(mutex_req)
-
-    def is_request_local(self, clientRequest):
-        return True
-
-    def get_new_target(self, clientRequest):
-        return self
-
     def add_request(self, request: ClientRequest):
-        self.requests.append(request)
-        self.env.process(self.process_requests())
+        self.__requests.append(request)
+        self.env.process(self.__process_request(request))
 
     def add_requests(self, requests: List[ClientRequest]):
-        self.requests += requests
-        self.env.process(self.process_requests())
+        self.__requests += requests
+        for request in requests:
+            self.env.process(self.__process_request(request))
 
     def add_single_request(self, single_request):
-        self.requests.append(single_request)
+        self.__requests.append(single_request)
         self.env.process(self.process_requests())
 
     def get_data_disks(self):

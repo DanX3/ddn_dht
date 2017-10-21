@@ -28,6 +28,9 @@ class Simulator:
         for i in range(len(self.requests)):
             self.__clients.append(Client(self.env, i, client_logger, self.servers_manager,
                                   self.client_params, self.misc_params, parityGroupCreator))
+
+        self.print_session_summary()
+
         for key, req_list in self.requests.items():
             for count, filesize in req_list:
                 # if key not in clients:
@@ -39,6 +42,11 @@ class Simulator:
 
         for key, req_list in self.requests.items():
             self.__clients[key].flush()
+
+    def print_session_summary(self):
+        print("Server Count: {}".format(self.server_params[Contract.S_SERVER_COUNT]))
+        print("Geometry {}+{}".format(self.client_params[Contract.C_GEOMETRY_BASE], self.client_params[Contract.C_GEOMETRY_PLUS]))
+        print()
 
     def parseFile(self):
         configuration = open("../" + self.args.config, "r")

@@ -7,7 +7,7 @@ FLAMEIMG=profile.svg
 FLAMEOPTS= --title "IME Simulation" --colors blue
 
 all: $(SRCS)
-	$(CC) Simulator.py
+	time $(CC) Simulator.py
 
 print:
 	@echo $(SRCS)
@@ -34,4 +34,7 @@ graph: map.gv
 	dot -Tsvg $< > map.svg
 
 plot: client.log server.log
-	gnuplot plot.p
+	gnuplot ../plot.p
+
+plotclient: client.log
+	gnuplot ../plot.p

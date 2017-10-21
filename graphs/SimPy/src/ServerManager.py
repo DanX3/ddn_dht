@@ -15,12 +15,11 @@ class ServerManager(IfForServer):
         self.__client_completed = 0
         self.__clients = clients
         self.__network_buffer_size = misc_params[Contract.M_NETWORK_BUFFER_SIZE_KB]
-        self.__server_logger = Logger(self.env)
+        self.server_logger = Logger(self.env)
         self.servers = []
         for i in range(server_params[Contract.S_SERVER_COUNT]):
             self.servers.append(
-                    Server(self.env, i, self.__server_logger, server_params, misc_params, self))
-
+                    Server(self.env, i, self.server_logger, server_params, misc_params, self))
         # This will keep the queue for the client requests
         # self.__HUB = HUB(env, int(misc_params[Contract.M_HUB_BW_Gbps]) * 1e6 / 8)
         self.__HUB = simpy.Resource(env)
@@ -53,6 +52,7 @@ class ServerManager(IfForServer):
         else:
             # smaller packets with overhead introduced
             time_required = self.__time_function(request.get_size())
+        # print(time_required)
         yield self.env.timeout(time_required)
         self.__HUB.release(mutex_request)
         if test_net:
@@ -75,7 +75,16 @@ class ServerManager(IfForServer):
         self.__client_completed += 1
         if self.__client_completed == len(self.__clients):
             self.__clients[0].logger.print_info_to_file("client.log")
-            self.__server_logger.print_info_to_file("server.log")
+            self.server_logger.print_info_to_file("server.log")
 
     def answer_client(self, request: ClientRequest):
+        """
+        Send answer back to the client with only metadata. Not a big request
+        Let's say that these answers comes packed and don't take much bandwidth per answer
+        Assume also that I can fit 1024 answers in a single answer packet
+        :param request: a single client request
+        :return:
+        """
+        time_to_wait = int(1 / self.__max_bandwidth * 1e9)
+        yield self.env.timeout(time_to_wait)
         self.__clients[request.get_client()].receive_answer(request)
