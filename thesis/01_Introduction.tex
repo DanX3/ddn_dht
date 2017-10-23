@@ -20,7 +20,12 @@ The system as of now has some scaling issue when a large amount of servers are
 installed. To keep data consistency, the system has to perform some transactions
 from server to server. This traffic will decrease the performance of the
 clients traffic. This limits the amount of servers and with this also the amount
-of cache data available.
+of cache data available. \\
+Moreover inside the system are present a lot of free parameters, which will be
+discussed later, that can affect performances. At the current time we are
+unable to determine their optimal value. Multiple runs with different
+configurations will help the investigation to the optimal configuration given an
+architecture.
 
 \subsubsection*{The solution}
 The solution proposed by DDN is a simulator of the system, enabling the fast
@@ -72,8 +77,14 @@ the best scripting language. But for bigger projects the requirements from the
 changes and type checking protect us against implementation errors. From version
 3.5 the language allows \textit{Type annotations} that doesn't prevent the
 developer from using different data types but integrated with a modern IDE, it
-will suggest before running the program the potential issues.
+will suggest before running the program the potential issues, speeding up
+development.
 
-\subsubsection*{SimPy}
-
+\subsection{SimPy}
+The library is \textit{Events oriented}. An event can be processed and can be
+represented ad a function performing some general action, based on the
+situation. The caller event can wait for the completion of the task called or
+just trigger it and simulate an async call. This make a simulation of a
+multithreaded environment really simple and few lines of code are required for
+the simulation to work. \\
 

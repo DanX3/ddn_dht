@@ -11,6 +11,42 @@
 \end{itemize}
 
 \subsection{SimPy Components}
+\subsubsection*{Timeout}
+The library has some predefined events like a \textit{Timeout} event that just
+simulates time passing for the caller.\\
+This call blocks only the calling agent, allowing every other event already
+triggered to be processed correctly. \\
+Every real time consuming action is simulated through this function: the call
+with the correct amount of time will make the calling agent to wait until the
+task is virtually completed.
+
+\subsubsection*{Resources}
+In every simulation environment there are components that needs to be accessed
+by many agents and to process correctly this resource contention. This means
+keeping a queue of every agent and trigger one as a resource is freed. \\
+SimPy takes care of this queue management for us, providing many types of
+resources, fitting many needs.
+\begin{itemize}
+    \item \textbf{Resource} \cite{simpy-resource}: this will keep accounting the quantity
+        of agents are accessing this resource at once. It has a free parameter
+        \textit{Capacity}, letting the user to set the maximum number of agents
+        that can access this resource at once. Setting a capacity = 1 means this
+        resource will behave as a mutex, while other values can allow more
+        accesses at the same time, based on the real resource behaviour.
+    \item \textbf{Container} \cite{simpy-container}: whereas the "Resource" track the
+        number of accesses to a resource, the container is concerned about the
+        quantity of something stored. As a container cannot store bigger amount
+        of goods than its size and cannot give more than it has stored already.
+        \\
+        A practical example can be an HDD: in the case the disk has already
+        200/250 GB of data written, a writing request of 100GB must be blocked
+        until the disk has freed some space. \\
+        As a side note, the library still lack custom callback implementation to
+        handle blocked requests. This means that I don't have the possibility to
+        perform some actions if a disk is too full based on SimPy classes. This
+        forces me to not fully rely on SimPy classes and implement my own
+        custom solutions.
+\end{itemize}
 
 \subsection{Tools created}
 \begin{itemize}
