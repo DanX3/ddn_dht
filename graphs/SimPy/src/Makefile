@@ -8,6 +8,7 @@ FLAMEOPTS= --title "IME Simulation" --colors blue
 
 all: $(SRCS)
 	time $(CC) Simulator.py
+	gnuplot ../plot.p
 
 print:
 	@echo $(SRCS)
@@ -25,7 +26,7 @@ profile: $(SRCS)
 	vmprofshow $(PROFILEOUT) | head -30
 
 flame: $(SRCS)
-	python3.5 -m vmprof --lines -o $(PROFILEOUT) Simulator.py
+	python3.5 -m vmprof -o $(PROFILEOUT) Simulator.py
 	vmprof-flamegraph.py $(PROFILEOUT) > $(FLAME)
 	flamegraph.pl $(FLAMEOPTS) $(FLAME) > $(FLAMEIMG)
 	firefox $(FLAMEIMG)
@@ -38,3 +39,6 @@ plot: client.log server.log
 
 plotclient: client.log
 	gnuplot ../plot.p
+
+clean:
+	rm -f $(FLAME) $(FLAMEIMG) $(PROFILEOUT) $(PROFILELINES) *.log *.svg *.pyc

@@ -73,6 +73,7 @@ class StorageDevice:
         self.time_reading = Function2D.get_bandwidth_model(latency_ms, reading_kBps)
         self.time_writing = Function2D.get_bandwidth_model(latency_ms, writing_kBps)
         self.__writing_kBps = writing_kBps
+        self.__reading_kBps = reading_kBps
         # self.stored_files: Dict[str, File] = {}
         self.stored_cmloid = {}
         self.source_server = source_server
@@ -128,6 +129,9 @@ class StorageDevice:
 
     def get_writing_bandwidth(self) -> float:
         return self.__writing_kBps
+
+    def get_reading_bandwidth(self) -> float:
+        return self.__reading_kBps
 
     def move_file_to(self, file, target_disk_id):
         """

@@ -17,19 +17,23 @@ class Simulator:
         self.server_params = {}
         self.misc_params = {}
         self.parseFile()
-        self.requests = {}
+
+        self.check_settings()
+        self.print_session_summary()
+
         random.seed(args.seed)
         self.__clients = []
         self.servers_manager = ServerManager(self.env, self.server_params, self.client_params,
                                              self.misc_params, self.__clients)
+        self.requests = {}
         self.__parse_requests()
+
         client_logger = Logger(self.env)
         parityGroupCreator = ParityGroupCreator(self.client_params, self.server_params)
         for i in range(len(self.requests)):
             self.__clients.append(Client(self.env, i, client_logger, self.servers_manager,
                                   self.client_params, self.misc_params, parityGroupCreator))
 
-        self.print_session_summary()
 
         # Send a write request first
         for key, req_list in self.requests.items():
@@ -47,8 +51,16 @@ class Simulator:
 
     def print_session_summary(self):
         print("Server Count: {}".format(self.server_params[Contract.S_SERVER_COUNT]))
+        print("Devices per server: {}".format(self.server_params[Contract.S_HDD_DATA_COUNT]))
         print("Geometry {}+{}".format(self.client_params[Contract.C_GEOMETRY_BASE], self.client_params[Contract.C_GEOMETRY_PLUS]))
         print()
+
+    def check_settings(self):
+        # geometry must be less or equal than server number
+        assert (self.client_params[Contract.C_GEOMETRY_BASE]
+                + self.client_params[Contract.C_GEOMETRY_PLUS]) \
+               <= self.server_params[Contract.S_SERVER_COUNT]
+
 
     def parseFile(self):
         configuration = open("../" + self.args.config, "r")

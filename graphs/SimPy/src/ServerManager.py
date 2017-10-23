@@ -6,15 +6,15 @@ from FunctionDesigner import Function2D
 from Logger import Logger
 from HUB import HUB
 from DHT import DHT
-from Interfaces import IfForServer
+from Interfaces import IfForServer, IfForClient
 
 
-class ServerManager(IfForServer):
+class ServerManager(IfForServer, IfForClient):
     def __init__(self, env, server_params, client_params, misc_params, clients):
         self.env = env
         self.__client_completed = 0
         self.__clients = clients
-        self.__network_buffer_size = misc_params[Contract.M_NETWORK_BUFFER_SIZE_KB]
+        self.__network_buffer_size = int(misc_params[Contract.M_NETWORK_BUFFER_SIZE_KB])
         self.server_logger = Logger(self.env)
         self.servers = []
         for i in range(server_params[Contract.S_SERVER_COUNT]):
@@ -27,15 +27,16 @@ class ServerManager(IfForServer):
         self.__max_bandwidth = int(misc_params[Contract.M_HUB_BW_Gbps]) * 1e6 / 8
         self.__time_function = Function2D.get_bandwidth_model(self.__overhead, self.__max_bandwidth / 1e6)
         self.__dht = DHT(len(self.servers), server_params[Contract.S_HDD_DATA_COUNT])
+        self.__full_speed_packet_time = int(self.__network_buffer_size / self.__max_bandwidth * 1e9)
 
     def get_server_by_id(self, ID):
         for server in self.servers:
             if ID == server.get_id():
                 return server
 
-    def request_server(self, request: WriteRequest, test_net: bool=False):
+    def perform_network_transaction(self, size: int):
         """
-        Sends the request to the servers
+        Simulates a network transaction
         Every request is queued.
         Every request of <networkbuffer size> is sent at max bandwidth
         A request smaller takes more time, based on Diagonal Limit configuration
@@ -45,47 +46,36 @@ class ServerManager(IfForServer):
         """
         mutex_request = self.__HUB.request()
         yield mutex_request
-        size = request.get_size()
-        if request.get_size() == self.__network_buffer_size:
-            # <networkbuffer size> packets at full speed
-            time_required = int(self.__network_buffer_size / self.__max_bandwidth * 1e9)
-        else:
-            # smaller packets with overhead introduced
-            time_required = self.__time_function(request.get_size())
-        # print(time_required)
+
+        time_required = int(size / self.__network_buffer_size) * self.__full_speed_packet_time
+        if size % self.__network_buffer_size != 0:
+                time_required += self.__time_function(size % self.__network_buffer_size)
         yield self.env.timeout(time_required)
+
         self.__HUB.release(mutex_request)
-        if test_net:
-            self.answer_client(request)
-        else:
-            self.servers[request.get_target_id()].add_request(request)
 
-    def read_from_server(self, request: ReadRequest, target: int):
-        start = self.env.now
-        yield self.env.process(self.servers[target].add_read_request(request))
-
-
-    def single_request_server(self, req):
-        # sendgroup = SendGroup()
-        # paritygroup = ParityGroup()
-        # paritygroup.add_request(req)
-        # sendgroup.add_request(paritygroup)
-        self.env.process(self.request_server(req))
+    def read_from_server(self, request: ReadRequest, target: int) -> int:
+        cmloid_count = yield self.env.process(self.servers[target].process_read_request(request))
+        return cmloid_count
 
     def get_server_count(self):
         return len(self.servers)
 
-    def client_confirm_completed(self):
+    def write_completed(self):
+        # Request to read every file sent
+        self.__client_completed += 1
+        if self.__client_completed == len(self.__clients):
+            self.__client_completed = 0
+            self.env.process(self.__clients[0].read_all_files())
+
+    def read_completed(self):
         self.__client_completed += 1
         if self.__client_completed == len(self.__clients):
             self.__clients[0].logger.print_info_to_file("client.log")
             self.server_logger.print_info_to_file("server.log")
 
-    def client_confirmed_write_completed(self):
-        # Request to read every file sent
-        for client in self.__clients:
-            printmessage(0, "Asked client %d to read every file" % client.get_id(), self.env.now)
-            client.read_all_files()
+    def write_to_server(self, request: WriteRequest):
+            yield self.env.process(self.servers[request.get_target_id()].add_request(request))
 
     def answer_client(self, request: WriteRequest):
         """

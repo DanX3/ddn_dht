@@ -7,6 +7,7 @@ from StorageDevice import StorageDevice, DiskIdNotation
 from collections import deque
 from Interfaces import IfForServer
 from array import array
+from copy import deepcopy
 
 
 class Server:
@@ -17,7 +18,6 @@ class Server:
         self.config = config
         self.__mutex = simpy.Resource(env, capacity=1)
         self.server_manager = server_manager
-        self.__requests = deque()
         self.HDDs_data = []
         self.HDDs_metadata = []
         self.receiving_files = {}  # Dict[str, Deque[CML_oid]]
@@ -55,18 +55,14 @@ class Server:
     def get_id(self):
         return self.id
 
-    def __process_read_request(self, req):
-        req.get_client().receive_answer(req)
-        raise MethodNotImplemented("Server")
-
-    def __track_cmloids(self, parts: List[FilePart]):
+    def __track_cmloids(self, parts_original: List[FilePart]):
+        parts = deepcopy(parts_original)
         sliceable_list = SliceablePartList()
         for part in parts:
             sliceable_list.add_part(part)
 
         current_disk = 0
         while sliceable_list.has_parts():
-
             parts_in_cmloid = sliceable_list.pop_buffer(CML_oid.get_size())
             for part in parts_in_cmloid:
                 if part.get_filename() not in self.__cmloids_per_disk:
@@ -78,13 +74,16 @@ class Server:
         # max data a single disk has to write. The bottleneck of this process
         mutex_req = self.__mutex.request()
         yield mutex_req
+
         self.__track_cmloids(request.get_parts())
         max_load = ceil(request.get_size() / len(self.HDDs_data))
         start = self.env.now
-        yield self.env.timeout(max_load * self.HDDs_data[0].get_writing_bandwidth())
-        self.logger.add_task_time("disk_write", self.env.now - start)
+        # print(self.id, "writing {} cmloids per device".format(max_load))
+        yield self.env.timeout(int(max_load / self.HDDs_data[0].get_writing_bandwidth() * 1e9))
+        self.logger.add_task_time("disk-write", self.env.now - start, True)
         self.__add_file_parts(request.get_parts())
         self.env.process(self.server_manager.answer_client(request))
+
         self.__mutex.release(mutex_req)
 
     def __add_file_parts(self, parts: List[FilePart]):
@@ -95,17 +94,11 @@ class Server:
                 self.__parts[part.get_filename()] = [part]
 
     def add_request(self, request: WriteRequest):
-        self.__requests.append(request)
-        self.env.process(self.__process_write_request(request))
+        yield self.env.process(self.__process_write_request(request))
 
     def add_requests(self, requests: List[WriteRequest]):
-        self.__requests += requests
         for request in requests:
             self.env.process(self.__process_write_request(request))
-
-    def add_single_request(self, single_request):
-        self.__requests.append(single_request)
-        self.env.process(self.process_requests())
 
     def get_data_disks(self):
         return self.HDDs_data
@@ -151,6 +144,32 @@ class Server:
             load[i] += cmloid_size
         return load
 
-    def add_read_request(self, request: ReadRequest):
-        print(self.__cmloids_per_disk[request.get_filename()])
-        yield self.env.timeout(0)
+    def print_file_map(self, filename: str):
+        # Clients knows the server that has their data but
+        # the server can have received a parity instead of the actual file
+        if filename in self.__cmloids_per_disk:
+            print(self.__cmloids_per_disk[filename])
+
+    def process_read_request(self, request: ReadRequest) -> int:
+        """
+        Process a read request
+        :param request: the read request
+        :return: the number of cmloids the server owns at the current time
+        """
+        if request.get_filename() not in self.__cmloids_per_disk:
+            yield self.env.timeout(0)
+            return 0
+
+        mutex_req = self.__mutex.request()
+        yield mutex_req
+
+        max_load = max(self.__cmloids_per_disk[request.get_filename()]) * CML_oid.get_size()
+        read_time = int(max_load / self.HDDs_data[0].get_reading_bandwidth() * 1e9)
+        yield self.env.timeout(read_time)
+        # print("reading {} cmloids per device".format(max_load))
+        self.logger.add_task_time("disk-read", read_time, True)
+
+        self.__mutex.release(mutex_req)
+
+        return sum(self.__cmloids_per_disk[request.get_filename()])
+

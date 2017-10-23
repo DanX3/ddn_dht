@@ -286,6 +286,7 @@ class WriteRequest:
     def add_file_part(self, part: FilePart):
         self.__file_parts.append(part)
 
+        print("Asking server", target)
     def get_parts(self) -> List[FilePart]:
         return self.__file_parts
 

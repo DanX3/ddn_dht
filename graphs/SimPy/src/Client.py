@@ -8,15 +8,15 @@ from collections import deque
 from ServerManager import  ServerManager
 from simpy.util import start_delayed
 from ParityGroupCreator import ParityGroupCreator, ParityId
-
+from Interfaces import IfForClient
 
 class Client:
     def __init__(self, env: simpy.Environment, id: int, logger: Logger,
-                 servers_manager: ServerManager, config, misc_params,
+                 servers_manager: IfForClient, config, misc_params,
                  pgc: ParityGroupCreator):
         self.env = env
         self.id = id
-        self.__servers_manager = servers_manager
+        self.__manager = servers_manager
         self.config = config
         self.misc_params = misc_params
         self.logger = logger
@@ -36,7 +36,7 @@ class Client:
         self.__parity_groups = pgc.get_targets_list(int(servers_manager.get_server_count() * 2))
         self.__parity_index = 0
         self.__file_map = {}  # Dict[str, int]
-        self.__files_created = []  # List[File]
+        self.__files_created = {}  # Dict[File]
 
         for i in range(servers_manager.get_server_count()):
             self.__request_queue[i] = deque()
@@ -56,7 +56,7 @@ class Client:
         sent_something = True
         while sent_something:
             sent_something = False
-            for queue_index in range(self.__servers_manager.get_server_count()):
+            for queue_index in range(self.__manager.get_server_count()):
                 if self.__request_queue[queue_index] and self.tokens.level > 0:
                     sent_something = True
                     self.env.process(self.__send_request(self.__request_queue[queue_index].popleft()))
@@ -66,22 +66,27 @@ class Client:
             self.env.process(self.refresh_tokens())
 
     def receive_answer(self, request: WriteRequest):
+        # print("Received {}".format(request))
         for part in request.get_parts():
             if part.get_filename() != 'parity':
                 self.data_received += part.get_size()
         if self.data_received >= self.__data_sent:
             printmessage(self.id, "Finished all the transactions ({}/{})"
                          .format(self.data_received,self.__data_sent), self.env.now)
-            self.__servers_manager.client_confirmed_write_completed()
+            self.__manager.write_completed()
 
     def __send_request(self, request: WriteRequest):
         start = self.env.now
         yield self.tokens.get(1)
-        self.logger.add_task_time("token_wait", self.env.now - start)
+        self.logger.add_task_time("token-wait", self.env.now - start, False)
 
         start = self.env.now
-        yield self.env.process(self.__servers_manager.request_server(request))
-        self.logger.add_task_time("send_request", self.env.now - start)
+        yield self.env.process(self.__manager.perform_network_transaction(request.get_size()))
+        self.logger.add_task_time("send-request", self.env.now - start, False)
+
+        start = self.env.now
+        yield self.env.process(self.__manager.write_to_server(request))
+        self.logger.add_task_time("wait-for-server-write", self.env.now - start, False)
 
     def add_write_request(self, req_size_kb, file_count=1) -> List[str]:
         """
@@ -96,12 +101,12 @@ class Client:
             file = File(filename, int(req_size_kb))
             self.__file_map[filename] = 0
             filenames.append(filename)
-            self.__files_created.append(file)
+            self.__files_created[filename] = file
             self.__single_request_queue.append(FilePart(file, 0, file.get_size()))
         self.__data_sent += req_size_kb * file_count
         self.__single_request_queue_size += req_size_kb * file_count
         self.__scatter_files_in_queues()
-        print(self.__file_map)
+        # print(self.__file_map)
         return filenames
 
     def __scatter_files_in_queues(self):
@@ -141,7 +146,7 @@ class Client:
         result = []
         free_space = self.__network_buffer_size
         while free_space > 0 and len(self.__single_request_queue) > 0:
-            self.__file_map[self.__single_request_queue[0].get_filename()] |= target_id
+            self.__file_map[self.__single_request_queue[0].get_filename()] |= 1 << target_id
             # if file fits in buffer
             if self.__single_request_queue[0].get_size() <= free_space:
                 free_space -= self.__single_request_queue[0].get_size()
@@ -202,9 +207,26 @@ class Client:
         for file in self.__files_created:
             print(file)
 
+    def __perform_read_request(self, request: ReadRequest, target_id: int):
+        start = self.env.now
+        cmloid_count = yield self.env.process(self.__manager.read_from_server(request, target_id))
+        self.logger.add_task_time("wait-server-read", self.env.now - start, False)
+
+        start = self.env.now
+        yield self.env.process(self.__manager.perform_network_transaction(cmloid_count * CML_oid.get_size()))
+        self.logger.add_task_time("receive-request", self.env.now - start, True)
+
+        # TODO: implement local storage
+
+
+
     def read_all_files(self):
         printmessage(0, "Asked to read every file", self.env.now)
+        requests = []
         for filename, targets in self.__file_map.items():
             request = ReadRequest(filename, 0, self.__files_created[filename].get_size())
             for target in ParityGroupCreator.int_to_positions(targets):
-                self.env.process(self.__servers_manager.read_from_server(request, target))
+                requests.append(self.env.process(self.__perform_read_request(request, target)))
+        yield simpy.events.AllOf(self.env, requests)
+        printmessage(self.id, "Read every file", self.env.now)
+        self.__manager.read_completed()
