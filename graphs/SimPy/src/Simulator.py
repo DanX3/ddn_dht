@@ -31,6 +31,7 @@ class Simulator:
 
         self.print_session_summary()
 
+        # Send a write request first
         for key, req_list in self.requests.items():
             for count, filesize in req_list:
                 # if key not in clients:
@@ -42,6 +43,7 @@ class Simulator:
 
         for key, req_list in self.requests.items():
             self.__clients[key].flush()
+
 
     def print_session_summary(self):
         print("Server Count: {}".format(self.server_params[Contract.S_SERVER_COUNT]))

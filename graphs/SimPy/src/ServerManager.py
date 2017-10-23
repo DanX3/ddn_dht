@@ -33,7 +33,7 @@ class ServerManager(IfForServer):
             if ID == server.get_id():
                 return server
 
-    def request_server(self, request: ClientRequest, test_net: bool=False):
+    def request_server(self, request: WriteRequest, test_net: bool=False):
         """
         Sends the request to the servers
         Every request is queued.
@@ -60,6 +60,10 @@ class ServerManager(IfForServer):
         else:
             self.servers[request.get_target_id()].add_request(request)
 
+    def read_from_server(self, request: ReadRequest, target: int):
+        start = self.env.now
+        yield self.env.process(self.servers[target].add_read_request(request))
+
 
     def single_request_server(self, req):
         # sendgroup = SendGroup()
@@ -77,7 +81,13 @@ class ServerManager(IfForServer):
             self.__clients[0].logger.print_info_to_file("client.log")
             self.server_logger.print_info_to_file("server.log")
 
-    def answer_client(self, request: ClientRequest):
+    def client_confirmed_write_completed(self):
+        # Request to read every file sent
+        for client in self.__clients:
+            printmessage(0, "Asked client %d to read every file" % client.get_id(), self.env.now)
+            client.read_all_files()
+
+    def answer_client(self, request: WriteRequest):
         """
         Send answer back to the client with only metadata. Not a big request
         Let's say that these answers comes packed and don't take much bandwidth per answer

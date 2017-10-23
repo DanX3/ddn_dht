@@ -213,6 +213,36 @@ class FilePart:
     def __str__(self):
         return "FilePart('{}' ({}, {}) {} kB)".format(self.__file.get_name(), self.__start, self.__end, self.get_size())
 
+class SliceablePartList:
+    def __init__(self):
+        self.__parts_list = []
+
+    def add_part(self, part: FilePart):
+        self.__parts_list.append(part)
+
+    def pop_buffer(self, buffer_size: int) -> List[FilePart]:
+        result = []
+        while buffer_size > 0 and self.__parts_list:
+            if self.__parts_list[0].get_size() == 0:
+                self.__parts_list.pop(0)
+                continue
+            if self.__parts_list[0].get_size() >= buffer_size:
+                result.append(self.__parts_list[0].pop_part(buffer_size))
+                buffer_size = 0
+            else:
+                buffer_size -= self.__parts_list[0].get_size()
+                result.append(self.__parts_list.pop(0))
+        return result
+
+    def has_parts(self) -> bool:
+        return True if self.__parts_list else False
+
+    def __str__(self):
+        result = "SliceablePartList({} parts)\n".format(len(self.__parts_list))
+        for part in self.__parts_list:
+            result += "\t{}\n".format(part)
+        return  result
+
 
 class FileAggregator:
     """
@@ -232,12 +262,23 @@ class FileAggregator:
         self.__amount_received += amount_valid
         return self.__amount_received == self.__len
 
-class ClientRequest:
+class ReadRequest:
+    def __init__(self, filename: str, start: int, end: int):
+        self.__filename = filename
+        self.__start = start
+        self.__end = end
+
+    def get_filename(self) -> str:
+        return self.__filename
+
+    def get_interval(self) -> (int, int):
+        return self.__start, self.__end
+
+class WriteRequest:
     def __init__(self, client_id: int, target_server_id: int, parity_group: int,
-                 parity_id: int, read: bool=True):
+                 parity_id: int):
         self.__client_id = client_id
         self.__target_server_id = target_server_id
-        self.__read = read
         self.__file_parts = []
         self.__parity_id = parity_id
         self.__parity_group = parity_group
@@ -258,9 +299,6 @@ class ClientRequest:
     def get_target_id(self) -> int:
         return self.__target_server_id
 
-    def is_read(self) -> bool:
-        return self.__read
-
     def get_size(self):
         result = 0
         for part in self.__file_parts:
@@ -274,9 +312,8 @@ class ClientRequest:
         self.__parity_group = parity_group
 
     def __str__(self):
-        rw = "<-" if self.__read else "->"
-        result = "ClientRequest(id {}, parity map {}, {} {} {}):\n"\
-            .format(self.__parity_id, self.__parity_group, self.__client_id, rw, self.__target_server_id)
+        result = "ClientRequest(id {}, parity map {}, {} -> {}):\n"\
+            .format(self.__parity_id, self.__parity_group, self.__client_id, self.__target_server_id)
         if self.__file_parts:
             for part in self.__file_parts:
                 result += "\t{}\n".format(part)
@@ -299,8 +336,8 @@ def get_requests_from_file(client, target, file, read=True):
     :param read: bool=True
     :return:deque[ClientRequest]
     """
-    parts_num = int(ceil(file.get_size() / ClientRequest.get_cmloid_size()))
-    return [ClientRequest(client, target, CML_oid(file, id), read) for id in range(parts_num)]
+    parts_num = int(ceil(file.get_size() / WriteRequest.get_cmloid_size()))
+    return [WriteRequest(client, target, CML_oid(file, id), read) for id in range(parts_num)]
 
 
 def simple_hash(filename: str, mod: int, offset: int=0) -> int:
@@ -322,9 +359,25 @@ def generate_lookup_table(length):
 
 
 if __name__ == "__main__":
-    original = File('a', 2048)
-    part = FilePart(original, 1024, 2048)
-    print(part)
-    # while part.get_size() != 0:
-    #     print(aggregator.add_part(part.pop_part(2048)))
+    file = File('a', 4000)
+    sliceable = SliceablePartList()
+    filepart = FilePart(file, 0, file.get_size())
+    while True:
+        part_extracted = filepart.pop_part(1024)
+        if part_extracted.get_size() != 0:
+            sliceable.add_part(part_extracted)
+        else:
+            break
+    print(sliceable)
+    for part in sliceable.pop_buffer(1000):
+        print(part)
+    print()
+    for part in sliceable.pop_buffer(1000):
+        print(part)
+    print()
+    for part in sliceable.pop_buffer(1000):
+        print(part)
+    print()
+    for part in sliceable.pop_buffer(1000):
+        print(part)
 

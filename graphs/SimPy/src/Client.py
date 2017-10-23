@@ -36,13 +36,14 @@ class Client:
         self.__parity_groups = pgc.get_targets_list(int(servers_manager.get_server_count() * 2))
         self.__parity_index = 0
         self.__file_map = {}  # Dict[str, int]
+        self.__files_created = []  # List[File]
 
         for i in range(servers_manager.get_server_count()):
             self.__request_queue[i] = deque()
 
         seed(0)
         self.filename_gen = File.get_filename_generator(self.id)
-        self.send_treshold = int(1024 / ClientRequest.get_cmloid_size())
+        self.send_treshold = int(1024 / WriteRequest.get_cmloid_size())
         self.__data_sent = 0
         self.data_received = 0
 
@@ -64,15 +65,16 @@ class Client:
         if self.data_received < self.__data_sent:
             self.env.process(self.refresh_tokens())
 
-    def receive_answer(self, request: ClientRequest):
+    def receive_answer(self, request: WriteRequest):
         for part in request.get_parts():
             if part.get_filename() != 'parity':
                 self.data_received += part.get_size()
         if self.data_received >= self.__data_sent:
-            printmessage(self.id, "Finished all the transactions ({}/{})".format(self.data_received,self.__data_sent), self.env.now, )
-            self.__servers_manager.client_confirm_completed()
+            printmessage(self.id, "Finished all the transactions ({}/{})"
+                         .format(self.data_received,self.__data_sent), self.env.now)
+            self.__servers_manager.client_confirmed_write_completed()
 
-    def __send_request(self, request: ClientRequest):
+    def __send_request(self, request: WriteRequest):
         start = self.env.now
         yield self.tokens.get(1)
         self.logger.add_task_time("token_wait", self.env.now - start)
@@ -94,6 +96,7 @@ class Client:
             file = File(filename, int(req_size_kb))
             self.__file_map[filename] = 0
             filenames.append(filename)
+            self.__files_created.append(file)
             self.__single_request_queue.append(FilePart(file, 0, file.get_size()))
         self.__data_sent += req_size_kb * file_count
         self.__single_request_queue_size += req_size_kb * file_count
@@ -114,13 +117,13 @@ class Client:
             parity_id = self.__parity_id_creator.get_id()
 
             # The first target of the group stores parity
-            parity_request = ClientRequest(self.id, targets[0], parity_group, parity_id, False)
+            parity_request = WriteRequest(self.id, targets[0], parity_group, parity_id)
             parity_request.set_parts([FilePart.get_parity_part(self.__network_buffer_size)])
             self.__request_queue[targets[0]].append(parity_request)
             # print(parity_request)
 
             for target_id in targets[1:]:
-                request = ClientRequest(self.id, target_id, parity_group, parity_id, False)
+                request = WriteRequest(self.id, target_id, parity_group, parity_id)
                 request.set_parts(self.__pop_netbuffer_from_queue(target_id))
                 self.__request_queue[target_id].append(request)
                 # print(request)
@@ -172,7 +175,7 @@ class Client:
         parity_id = self.__parity_id_creator.get_id()
         requests = []
         for target_id in targets[1:]:
-            request = ClientRequest(self.id, target_id, 0, parity_id, False)
+            request = WriteRequest(self.id, target_id, 0, parity_id)
             request.set_parts(self.__pop_netbuffer_from_queue(target_id))
             self.__single_request_queue_size -= request.get_size()
             requests.append(request)
@@ -181,7 +184,7 @@ class Client:
                 break
 
         # creating the parity request
-        parity_request = ClientRequest(self.id, targets[0], 0, parity_id, False)
+        parity_request = WriteRequest(self.id, targets[0], 0, parity_id)
         parity_request.set_parts([FilePart.get_parity_part(requests[0].get_size())])
         new_parity_group |= targets[0]
         parity_request.set_parity_group(new_parity_group)
@@ -195,3 +198,13 @@ class Client:
             self.__request_queue[request.get_target_id()].append(request)
         self.__parity_index = (self.__parity_index + 1) % len(self.__parity_groups)
 
+    def __print_files_created(self):
+        for file in self.__files_created:
+            print(file)
+
+    def read_all_files(self):
+        printmessage(0, "Asked to read every file", self.env.now)
+        for filename, targets in self.__file_map.items():
+            request = ReadRequest(filename, 0, self.__files_created[filename].get_size())
+            for target in ParityGroupCreator.int_to_positions(targets):
+                self.env.process(self.__servers_manager.read_from_server(request, target))

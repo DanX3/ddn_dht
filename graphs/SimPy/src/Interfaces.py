@@ -1,4 +1,4 @@
-from Utils import ClientRequest
+from Utils import WriteRequest
 class IfForServer:
-    def answer_client(self, request: ClientRequest):
+    def answer_client(self, request: WriteRequest):
         pass
