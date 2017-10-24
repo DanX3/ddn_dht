@@ -55,19 +55,19 @@ class Server:
     def get_id(self):
         return self.id
 
-    def __track_cmloids(self, parts_original: List[FilePart]):
-        parts = deepcopy(parts_original)
+    def __track_cmloids(self, parts: List[FilePart]):
+        # parts = deepcopy(parts_original)
         sliceable_list = SliceablePartList()
         for part in parts:
             sliceable_list.add_part(part)
 
         current_disk = 0
         while sliceable_list.has_parts():
-            parts_in_cmloid = sliceable_list.pop_buffer(CML_oid.get_size())
-            for part in parts_in_cmloid:
-                if part.get_filename() not in self.__cmloids_per_disk:
-                    self.__cmloids_per_disk[part.get_filename()] = array('H', [0] * self.config[Contract.S_HDD_DATA_COUNT])
-                self.__cmloids_per_disk[part.get_filename()][current_disk] += 1
+            filenames_in_cmloid = sliceable_list.pop_buffer(CML_oid.get_size())
+            for filename in filenames_in_cmloid:
+                if filename not in self.__cmloids_per_disk:
+                    self.__cmloids_per_disk[filename] = array('H', [0] * self.config[Contract.S_HDD_DATA_COUNT])
+                self.__cmloids_per_disk[filename][current_disk] += 1
             current_disk = (current_disk + 1) % len(self.HDDs_data)
 
     def __process_write_request(self, request: WriteRequest):

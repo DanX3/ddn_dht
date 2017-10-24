@@ -181,21 +181,27 @@ class NetworkBuffer:
     def get_payload(self) -> List[CML_oid]:
         return self.__payload
 
+
 class FilePart:
     def __init__(self, file: File, start: int, end: int):
         self.__file = file
-        if start > file.get_size():
-            raise Exception("FilePart: requested start of part from %d with filesize %d"
-                            .format(start, file.get_size()))
+        # if start > file.get_size():
+        #     raise Exception("FilePart: requested start of part from %d with filesize %d"
+        #                     .format(start, file.get_size()))
         self.__start = start
         self.__end = min(file.get_size(), end)
-        if self.__end != end:
-            print("WARNING Filepart: end of file has been corrected from {} to {}".format(end, self.__end))
+        # if self.__end != end:
+        #     print("WARNING Filepart: end of file has been corrected from {} to {}".format(end, self.__end))
 
     def pop_part(self, amount: int):
         amount_given = min(amount, self.__end - self.__start)
         self.__start += amount_given
         return FilePart(self.__file, self.__start - amount_given, self.__start)
+
+    def pop_filename(self, amount: int) -> str:
+        amount_given = min(amount, self.__end - self.__start)
+        self.__start += amount_given
+        return self.get_filename()
 
     def get_size(self) -> int:
         return self.__end - self.__start
@@ -210,28 +216,33 @@ class FilePart:
     def get_parity_part(size: int):
         return FilePart(File('parity', size), 0, size)
 
+    def get_file(self) -> File:
+        return self.__file
+
     def __str__(self):
         return "FilePart('{}' ({}, {}) {} kB)".format(self.__file.get_name(), self.__start, self.__end, self.get_size())
+
 
 class SliceablePartList:
     def __init__(self):
         self.__parts_list = []
 
     def add_part(self, part: FilePart):
-        self.__parts_list.append(part)
+        bound = part.get_bound()
+        self.__parts_list.append(FilePart(part.get_file(), bound[0], bound[1]))
 
-    def pop_buffer(self, buffer_size: int) -> List[FilePart]:
+    def pop_buffer(self, buffer_size: int) -> List[str]:
         result = []
         while buffer_size > 0 and self.__parts_list:
             if self.__parts_list[0].get_size() == 0:
                 self.__parts_list.pop(0)
                 continue
             if self.__parts_list[0].get_size() >= buffer_size:
-                result.append(self.__parts_list[0].pop_part(buffer_size))
+                result.append(self.__parts_list[0].pop_filename(buffer_size))
                 buffer_size = 0
             else:
                 buffer_size -= self.__parts_list[0].get_size()
-                result.append(self.__parts_list.pop(0))
+                result.append(self.__parts_list.pop(0).get_filename())
         return result
 
     def has_parts(self) -> bool:
@@ -262,6 +273,7 @@ class FileAggregator:
         self.__amount_received += amount_valid
         return self.__amount_received == self.__len
 
+
 class ReadRequest:
     def __init__(self, filename: str, start: int, end: int):
         self.__filename = filename
@@ -273,6 +285,7 @@ class ReadRequest:
 
     def get_interval(self) -> (int, int):
         return self.__start, self.__end
+
 
 class WriteRequest:
     def __init__(self, client_id: int, target_server_id: int, parity_group: int,
@@ -361,24 +374,6 @@ def generate_lookup_table(length):
 
 if __name__ == "__main__":
     file = File('a', 4000)
-    sliceable = SliceablePartList()
-    filepart = FilePart(file, 0, file.get_size())
-    while True:
-        part_extracted = filepart.pop_part(1024)
-        if part_extracted.get_size() != 0:
-            sliceable.add_part(part_extracted)
-        else:
-            break
-    print(sliceable)
-    for part in sliceable.pop_buffer(1000):
-        print(part)
-    print()
-    for part in sliceable.pop_buffer(1000):
-        print(part)
-    print()
-    for part in sliceable.pop_buffer(1000):
-        print(part)
-    print()
-    for part in sliceable.pop_buffer(1000):
-        print(part)
+    cmloid_set = CMLoidSet(3, 120, 6)
+    print(cmloid_set)
 
