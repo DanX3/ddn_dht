@@ -34,19 +34,8 @@ class Simulator:
             self.__clients.append(Client(self.env, i, client_logger, self.servers_manager,
                                   self.client_params, self.misc_params, parityGroupCreator))
 
+        self.servers_manager.add_requests_to_clients(self.requests)
 
-        # Send a write request first
-        for key, req_list in self.requests.items():
-            for count, filesize in req_list:
-                # if key not in clients:
-                #     raise Exception(str(key) + " not in clients")
-                try:
-                    self.__clients[key].add_write_request(filesize, file_count=count)
-                except IndexError:
-                    raise Exception("Inconsistent number of clients across config and request")
-
-        for key, req_list in self.requests.items():
-            self.__clients[key].flush()
 
 
     def print_session_summary(self):

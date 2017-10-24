@@ -25,7 +25,7 @@ def printmessage(id: int, message: str, time, done: bool=True):
 
 def getmessage(id, message, time, done=True):
     doneChar = u"\u2713" if done else u"\u279C"
-    return "{:3s} {:15s} us <{}> {}".format(doneChar, get_formatted_time(time).rjust(15), id, message)
+    return "{:15s} us <{}> {}".format(get_formatted_time(time).rjust(15), id, message)
 
 
 class CML_oid:

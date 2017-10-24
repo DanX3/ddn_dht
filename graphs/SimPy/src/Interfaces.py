@@ -14,7 +14,7 @@ class IfForServer(GeneralManagerIf):
 
 class IfForClient(GeneralManagerIf):
     @abstractmethod
-    def write_to_server(self, request: WriteRequest): raise NotImplementedError
+    def write_to_server(self, request: WriteRequest) -> int: raise NotImplementedError
 
     @abstractmethod
     def read_from_server(self, request: ReadRequest, target_id: int): raise NotImplementedError

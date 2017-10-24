@@ -78,15 +78,16 @@ class Client:
     def __send_request(self, request: WriteRequest):
         start = self.env.now
         yield self.tokens.get(1)
-        self.logger.add_task_time("token-wait", self.env.now - start, False)
+        self.logger.add_task_time("token-wait", self.env.now - start)
 
         start = self.env.now
         yield self.env.process(self.__manager.perform_network_transaction(request.get_size()))
-        self.logger.add_task_time("send-request", self.env.now - start, False)
+        self.logger.add_task_time("send-request", self.env.now - start)
 
         start = self.env.now
-        yield self.env.process(self.__manager.write_to_server(request))
-        self.logger.add_task_time("wait-for-server-write", self.env.now - start, False)
+        write_time = yield self.env.process(self.__manager.write_to_server(request))
+        self.logger.add_task_time("wait-for-server-write", self.env.now - start)
+        self.logger.add_task_time("minimum-wait-write", write_time)
 
     def add_write_request(self, req_size_kb, file_count=1) -> List[str]:
         """
@@ -209,12 +210,12 @@ class Client:
 
     def __perform_read_request(self, request: ReadRequest, target_id: int):
         start = self.env.now
-        cmloid_count = yield self.env.process(self.__manager.read_from_server(request, target_id))
-        self.logger.add_task_time("wait-server-read", self.env.now - start, False)
+        cmloid_count, read_time = yield self.env.process(self.__manager.read_from_server(request, target_id))
+        self.logger.add_task_time("wait-server-read", self.env.now - start)
 
-        start = self.env.now
-        yield self.env.process(self.__manager.perform_network_transaction(cmloid_count * CML_oid.get_size()))
-        self.logger.add_task_time("receive-request", self.env.now - start, True)
+        transfer_time = yield self.env.process(self.__manager.perform_network_transaction(cmloid_count * CML_oid.get_size()))
+        self.logger.add_task_time("receive-request", transfer_time)
+        self.logger.add_task_time("minimum-wait-read", read_time)
 
         # TODO: implement local storage
 
@@ -228,5 +229,5 @@ class Client:
             for target in ParityGroupCreator.int_to_positions(targets):
                 requests.append(self.env.process(self.__perform_read_request(request, target)))
         yield simpy.events.AllOf(self.env, requests)
-        printmessage(self.id, "Read every file", self.env.now)
+        printmessage(self.id, "Read every file ({})".format(len(self.__file_map)), self.env.now)
         self.__manager.read_completed()

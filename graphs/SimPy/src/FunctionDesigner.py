@@ -51,6 +51,10 @@ class Function2D:
         return Function2D.get_diag_limit(latency_ns, 1/bandwidth_GBps)
 
     @staticmethod
+    def disk_interaction(filesize: int, bandwidth_KBps: int):
+        return int(filesize * 1000000000 / bandwidth_KBps)  # 1e9, avoing int casting, to ns conversion
+
+    @staticmethod
     def get_diag_limit(overhead, angular_coeff):
         #following the formula of hyperbola
         #   - it has diagonal limit for +infty
@@ -67,9 +71,5 @@ class Function2D:
         return lambda x: round(sqrt(a*a * (1e-5 + (x*x)/(b*b))))
 
 
-# if __name__ == "__main__":
-#     f = lambda x: 3 * exp(-(x-2)**2 / (2*(4**2)))
-#     f = Function2D("DiskAccessTime", f, -10, 14)
-#     f.plot_function()
-#     for i in range(-10, 10):
-#         print("[%3d] %4.2f" % (i, f.evaluate(i)))
+if __name__ == "__main__":
+    print(Function2D.disk_interaction(400000, 200000))

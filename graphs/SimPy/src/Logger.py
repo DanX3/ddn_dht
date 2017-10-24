@@ -13,23 +13,19 @@ class Logger:
     """
     def __init__(self, env: simpy.Environment):
         self.__tasks_time = OrderedDict()   # OrderedDict[str:int]
-        self.__exactness = {}
         self.env = env
 
-    def add_task_time(self, task: str, time: int, exact: bool):
+    def add_task_time(self, task: str, time: int):
         if task in self.__tasks_time:
             self.__tasks_time[task] += time
         else:
             self.__tasks_time[task] = time
-            self.__exactness[task] = exact
 
     def print_info_to_file(self, filename):
         # total_time = float(self.idle_time + self.work_time)
         log = open(filename, 'w')
         for key, value in self.__tasks_time.items():
-            log.write("{} {} {}\n".format(str(value)[:-3],
-                                          1 if self.__exactness[key] else 0,
-                                          key))
+            log.write("{} {}\n".format(str(value)[:-3], key))
         log.close()
 
     def get_fields_count(self):

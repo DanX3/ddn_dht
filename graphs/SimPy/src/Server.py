@@ -7,7 +7,7 @@ from StorageDevice import StorageDevice, DiskIdNotation
 from collections import deque
 from Interfaces import IfForServer
 from array import array
-from copy import deepcopy
+from FunctionDesigner import Function2D
 
 
 class Server:
@@ -70,21 +70,28 @@ class Server:
                 self.__cmloids_per_disk[filename][current_disk] += 1
             current_disk = (current_disk + 1) % len(self.HDDs_data)
 
-    def __process_write_request(self, request: WriteRequest):
+    def process_write_request(self, request: WriteRequest) -> int:
+        """
+        Simulate the file writing
+        :param request: the write request
+        :return: the effective time of the writing
+        """
         # max data a single disk has to write. The bottleneck of this process
         mutex_req = self.__mutex.request()
+        start = self.env.now
         yield mutex_req
+        self.logger.add_task_time("wait-to-write", self.env.now - start)
 
         self.__track_cmloids(request.get_parts())
-        max_load = ceil(request.get_size() / len(self.HDDs_data))
-        start = self.env.now
-        # print(self.id, "writing {} cmloids per device".format(max_load))
-        yield self.env.timeout(int(max_load / self.HDDs_data[0].get_writing_bandwidth() * 1e9))
-        self.logger.add_task_time("disk-write", self.env.now - start, True)
+        max_load = int(ceil(request.get_size() / len(self.HDDs_data)))
+        write_time = Function2D.disk_interaction(max_load, self.HDDs_data[0].get_writing_bandwidth())
+        yield self.env.timeout(write_time)
+        self.logger.add_task_time("disk-write", write_time)
         self.__add_file_parts(request.get_parts())
         self.env.process(self.server_manager.answer_client(request))
 
         self.__mutex.release(mutex_req)
+        return write_time
 
     def __add_file_parts(self, parts: List[FilePart]):
         for part in parts:
@@ -92,9 +99,6 @@ class Server:
                 self.__parts[part.get_filename()].append(part)
             else:
                 self.__parts[part.get_filename()] = [part]
-
-    def add_request(self, request: WriteRequest):
-        yield self.env.process(self.__process_write_request(request))
 
     def add_requests(self, requests: List[WriteRequest]):
         for request in requests:
@@ -150,7 +154,7 @@ class Server:
         if filename in self.__cmloids_per_disk:
             print(self.__cmloids_per_disk[filename])
 
-    def process_read_request(self, request: ReadRequest) -> int:
+    def process_read_request(self, request: ReadRequest) -> (int, int):
         """
         Process a read request
         :param request: the read request
@@ -161,15 +165,17 @@ class Server:
             return 0
 
         mutex_req = self.__mutex.request()
+        start = self.env.now
         yield mutex_req
+        self.logger.add_task_time("wait-to-read", self.env.now - start)
 
         max_load = max(self.__cmloids_per_disk[request.get_filename()]) * CML_oid.get_size()
-        read_time = int(max_load / self.HDDs_data[0].get_reading_bandwidth() * 1e9)
+        read_time = Function2D.disk_interaction(max_load, self.HDDs_data[0].get_reading_bandwidth())
         yield self.env.timeout(read_time)
         # print("reading {} cmloids per device".format(max_load))
-        self.logger.add_task_time("disk-read", read_time, True)
+        self.logger.add_task_time("disk-read", read_time)
 
         self.__mutex.release(mutex_req)
 
-        return sum(self.__cmloids_per_disk[request.get_filename()])
+        return sum(self.__cmloids_per_disk[request.get_filename()]), read_time
 

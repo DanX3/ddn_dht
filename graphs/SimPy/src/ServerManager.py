@@ -6,6 +6,7 @@ from FunctionDesigner import Function2D
 from Logger import Logger
 from HUB import HUB
 from DHT import DHT
+from typing import Dict, List
 from Interfaces import IfForServer, IfForClient
 
 
@@ -28,13 +29,30 @@ class ServerManager(IfForServer, IfForClient):
         self.__time_function = Function2D.get_bandwidth_model(self.__overhead, self.__max_bandwidth / 1e6)
         self.__dht = DHT(len(self.servers), server_params[Contract.S_HDD_DATA_COUNT])
         self.__full_speed_packet_time = int(self.__network_buffer_size / self.__max_bandwidth * 1e9)
+        self.__manager_logger = Logger(self.env)
+        self.__start = None
 
     def get_server_by_id(self, ID):
         for server in self.servers:
             if ID == server.get_id():
                 return server
 
-    def perform_network_transaction(self, size: int):
+    def add_requests_to_clients(self, requests: Dict[int, List[WriteRequest]]):
+        self.__start = self.env.now
+        # Send a write request first
+        for key, req_list in requests.items():
+            for count, filesize in req_list:
+                # if key not in clients:
+                #     raise Exception(str(key) + " not in clients")
+                try:
+                    self.__clients[key].add_write_request(filesize, file_count=count)
+                except IndexError:
+                    raise Exception("Inconsistent number of clients across config and request")
+
+        for key, req_list in requests.items():
+            self.__clients[key].flush()
+
+    def perform_network_transaction(self, size: int) -> int:
         """
         Simulates a network transaction
         Every request is queued.
@@ -53,10 +71,11 @@ class ServerManager(IfForServer, IfForClient):
         yield self.env.timeout(time_required)
 
         self.__HUB.release(mutex_request)
+        return time_required
 
     def read_from_server(self, request: ReadRequest, target: int) -> int:
-        cmloid_count = yield self.env.process(self.servers[target].process_read_request(request))
-        return cmloid_count
+        cmloid_count, read_time = yield self.env.process(self.servers[target].process_read_request(request))
+        return cmloid_count, read_time
 
     def get_server_count(self):
         return len(self.servers)
@@ -65,17 +84,23 @@ class ServerManager(IfForServer, IfForClient):
         # Request to read every file sent
         self.__client_completed += 1
         if self.__client_completed == len(self.__clients):
+            self.__manager_logger.add_task_time("write-operation", self.env.now - self.__start)
+            self.__start = self.env.now
             self.__client_completed = 0
-            self.env.process(self.__clients[0].read_all_files())
+            for client in self.__clients:
+                self.env.process(client.read_all_files())
 
     def read_completed(self):
         self.__client_completed += 1
         if self.__client_completed == len(self.__clients):
+            self.__manager_logger.add_task_time("read-operation", self.env.now - self.__start)
             self.__clients[0].logger.print_info_to_file("client.log")
             self.server_logger.print_info_to_file("server.log")
+            self.__manager_logger.print_info_to_file("manager.log")
 
-    def write_to_server(self, request: WriteRequest):
-            yield self.env.process(self.servers[request.get_target_id()].add_request(request))
+    def write_to_server(self, request: WriteRequest) -> int:
+        write_time = yield self.env.process(self.servers[request.get_target_id()].process_write_request(request))
+        return write_time
 
     def answer_client(self, request: WriteRequest):
         """
