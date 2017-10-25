@@ -35,10 +35,10 @@ graph: map.gv
 	dot -Tsvg $< > map.svg
 
 plot: client.log server.log
-	gnuplot ../plot.p
+	gnuplot ../plot.plt
 
 plotclient: client.log
-	gnuplot ../plot.p
+	gnuplot ../plot.plt
 
 clean:
 	rm -f $(FLAME) $(FLAMEIMG) $(PROFILEOUT) $(PROFILELINES) *.log *.svg *.pyc 

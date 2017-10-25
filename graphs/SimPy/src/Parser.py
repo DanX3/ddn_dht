@@ -6,7 +6,7 @@ def createparser():
     parser.add_argument("-c", "--config", default='config', 
                         help='Set another configuration file ')
 
-    parser.add_argument("-r", "--request", default="request",
+    parser.add_argument("-r", "--request", default="../request",
                         help="Set another requests file")
 
     parser.add_argument("-v", "--verbose", action="store_true",

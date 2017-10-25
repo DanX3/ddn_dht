@@ -81,7 +81,7 @@ class Simulator:
         return int(r)
 
     def __parse_requests(self):
-        requests = open("../" + self.args.request, 'r')
+        requests = open(self.args.request, 'r')
 
         # parses the file once to create an empty container of requests
         clients_count = 0
