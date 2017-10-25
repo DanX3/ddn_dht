@@ -41,4 +41,4 @@ plotclient: client.log
 	gnuplot ../plot.p
 
 clean:
-	rm -f $(FLAME) $(FLAMEIMG) $(PROFILEOUT) $(PROFILELINES) *.log *.svg *.pyc
+	rm -f $(FLAME) $(FLAMEIMG) $(PROFILEOUT) $(PROFILELINES) *.log *.svg *.pyc 
