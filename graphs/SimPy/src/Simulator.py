@@ -1,13 +1,12 @@
 import simpy
 from Client import Client
-from Server import Server
 from ServerManager import ServerManager
 import random
 import Parser
-from Utils import printmessage
 from Contract import Contract
 from Logger import Logger
 from ParityGroupCreator import ParityGroupCreator
+
 
 class Simulator:
     def __init__(self, args):
@@ -16,7 +15,7 @@ class Simulator:
         self.client_params = {}
         self.server_params = {}
         self.misc_params = {}
-        self.parseFile()
+        self.parse_file()
 
         self.check_settings()
         self.print_session_summary()
@@ -29,19 +28,20 @@ class Simulator:
         self.__parse_requests()
 
         client_logger = Logger(self.env)
-        parityGroupCreator = ParityGroupCreator(self.client_params, self.server_params)
+        parity_group_creator = ParityGroupCreator(self.client_params, self.server_params)
         for i in range(len(self.requests)):
             self.__clients.append(Client(self.env, i, client_logger, self.servers_manager,
-                                  self.client_params, self.misc_params, parityGroupCreator))
+                                  self.client_params, self.misc_params, parity_group_creator))
 
         self.servers_manager.add_requests_to_clients(self.requests)
 
-
-
     def print_session_summary(self):
         print("Server Count: {}".format(self.server_params[Contract.S_SERVER_COUNT]))
-        print("Devices per server: {}".format(self.server_params[Contract.S_HDD_DATA_COUNT]))
+        print("Devices per server: {} ({} MBps Reading, {} MBps Writing)" .format(self.server_params[Contract.S_HDD_DATA_COUNT],
+              self.server_params[Contract.S_HDD_DATA_READ_MBPS],
+              self.server_params[Contract.S_HDD_DATA_WRITE_MBPS]))
         print("Geometry {}+{}".format(self.client_params[Contract.C_GEOMETRY_BASE], self.client_params[Contract.C_GEOMETRY_PLUS]))
+        print("Request file: {}".format(self.args.request))
         print()
 
     def check_settings(self):
@@ -50,8 +50,7 @@ class Simulator:
                 + self.client_params[Contract.C_GEOMETRY_PLUS]) \
                <= self.server_params[Contract.S_SERVER_COUNT]
 
-
-    def parseFile(self):
+    def parse_file(self):
         configuration = open("../" + self.args.config, "r")
         for line in configuration:
             couple = line.strip().split('=')
@@ -119,7 +118,7 @@ class Simulator:
                 if line[0] == '#':
                     continue
 
-    def printParams(self, verbose=False):
+    def print_params(self, verbose=False):
         if args.verbose or verbose:
             for key, value in self.client_params.iteritems():
                 print('{:>30} : {:d}'.format(key, value))
@@ -131,8 +130,6 @@ class Simulator:
             for key, value in self.server_params.iteritems():
                 print('{:>30} : {:d}'.format(key, value))
 
-
-
     def run(self):
         self.env.run()
 
@@ -143,7 +140,7 @@ if __name__ == "__main__":
 
     simulator = Simulator(args)
     if args.params:
-        simulator.printParams(verbose=True)
+        simulator.print_params(verbose=True)
     else:
         simulator.run()
 

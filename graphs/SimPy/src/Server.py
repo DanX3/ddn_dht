@@ -13,7 +13,7 @@ from FunctionDesigner import Function2D
 class Server:
     def __init__(self, env, id: int, logger: Logger, config, misc_params, server_manager: IfForServer):
         self.env = env
-        self.id = id
+        self.__id = id
         self.logger = logger
         self.config = config
         self.__mutex = simpy.Resource(env, capacity=1)
@@ -24,8 +24,9 @@ class Server:
         self.__parts = {}  # Dict[str, List[FileParts]
 
         self.__network_buffer_size = int(misc_params[Contract.M_NETWORK_BUFFER_SIZE_KB])
+        self.__show_requests = bool(config[Contract.S_SHOW_REQUESTS])
         self.lookup_table = generate_lookup_table(32)
-        data_disk_gen = DiskIdNotation.get_disk_id_generator(self.id, True)
+        data_disk_gen = DiskIdNotation.get_disk_id_generator(self.__id, True)
         for i in range(config[Contract.S_HDD_DATA_COUNT]):
             self.HDDs_data.append(StorageDevice(
                 env, next(data_disk_gen),
@@ -53,7 +54,7 @@ class Server:
             return len(self.resource.queue)
 
     def get_id(self):
-        return self.id
+        return self.__id
 
     def __track_cmloids(self, parts: List[FilePart]):
         # parts = deepcopy(parts_original)
@@ -100,29 +101,11 @@ class Server:
             else:
                 self.__parts[part.get_filename()] = [part]
 
-    def add_requests(self, requests: List[WriteRequest]):
-        for request in requests:
-            self.env.process(self.__process_write_request(request))
-
     def get_data_disks(self):
         return self.HDDs_data
 
     def get_metadata_disks(self):
         return self.HDDs_metadata
-
-    def get_disk_from_cmloid(self, cmloid):
-        """
-        Hash function to assign a determined disk to a cmloid, based on its number id and its filename
-        :param cmloid: the cmloid to interact with
-        :type cmloid: CML_oid
-        :return: the disk id valid in the current server
-        :rtype: int
-        """
-        result = 0
-        for letter in cmloid.get_file().get_name():
-            result += self.lookup_table[ord(letter) % 32]
-        result += self.lookup_table[cmloid.get_id_tuple()[0] % 32]
-        return result % len(self.HDDs_data)
 
     def get_load_per_disk(self, file: File) -> List[int]:
         """
@@ -154,13 +137,14 @@ class Server:
         if filename in self.__cmloids_per_disk:
             print(self.__cmloids_per_disk[filename])
 
-    def process_read_request(self, request: ReadRequest) -> (int, int):
+    def process_read_request(self, request: ReadRequest) -> int:
         """
         Process a read request
         :param request: the read request
-        :return: the number of cmloids the server owns at the current time
+        :return: the number of cmloids the server owns at the current time and the read time
         """
-        if request.get_filename() not in self.__cmloids_per_disk:
+        requested_filename = request.get_filename()
+        if requested_filename not in self.__cmloids_per_disk:
             yield self.env.timeout(0)
             return 0
 
@@ -169,13 +153,15 @@ class Server:
         yield mutex_req
         self.logger.add_task_time("wait-to-read", self.env.now - start)
 
-        max_load = max(self.__cmloids_per_disk[request.get_filename()]) * CML_oid.get_size()
+        max_load = max(self.__cmloids_per_disk[requested_filename]) * CML_oid.get_size()
         read_time = Function2D.disk_interaction(max_load, self.HDDs_data[0].get_reading_bandwidth())
         yield self.env.timeout(read_time)
-        # print("reading {} cmloids per device".format(max_load))
         self.logger.add_task_time("disk-read", read_time)
 
         self.__mutex.release(mutex_req)
+        total_cmloids = sum(self.__cmloids_per_disk[requested_filename])
 
-        return sum(self.__cmloids_per_disk[request.get_filename()]), read_time
+        if self.__show_requests:
+            print("<{:3d}> {}, read {} cmloids ({} KB)".format(self.__id, request, total_cmloids, total_cmloids * CML_oid.get_size()))
+        return total_cmloids
 

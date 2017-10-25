@@ -37,6 +37,7 @@ class Client:
         self.__parity_index = 0
         self.__file_map = {}  # Dict[str, int]
         self.__files_created = {}  # Dict[File]
+        self.__show_requests = bool(config[Contract.C_SHOW_REQUESTS])
 
         for i in range(servers_manager.get_server_count()):
             self.__request_queue[i] = deque()
@@ -71,7 +72,7 @@ class Client:
             if part.get_filename() != 'parity':
                 self.data_received += part.get_size()
         if self.data_received >= self.__data_sent:
-            printmessage(self.id, "Finished all the transactions ({}/{})"
+            printmessage(self.id, "Finished writing every file ({}/{})"
                          .format(self.data_received,self.__data_sent), self.env.now)
             self.__manager.write_completed()
 
@@ -123,16 +124,23 @@ class Client:
             parity_id = self.__parity_id_creator.get_id()
 
             # The first target of the group stores parity
-            parity_request = WriteRequest(self.id, targets[0], parity_group, parity_id)
+            parity_target = targets[randint(0, len(targets) - 1)]
+            parity_request = WriteRequest(self.id, parity_target, parity_group, parity_id)
             parity_request.set_parts([FilePart.get_parity_part(self.__network_buffer_size)])
             self.__request_queue[targets[0]].append(parity_request)
+            if self.__show_requests:
+                print(parity_request)
             # print(parity_request)
 
-            for target_id in targets[1:]:
+            for target_id in targets:
+                if target_id == parity_target:
+                    continue
+
                 request = WriteRequest(self.id, target_id, parity_group, parity_id)
                 request.set_parts(self.__pop_netbuffer_from_queue(target_id))
                 self.__request_queue[target_id].append(request)
-                # print(request)
+                if self.__show_requests:
+                    print(request)
             self.__parity_index = (self.__parity_index + 1) % len(self.__parity_groups)
             del targets
 
@@ -195,12 +203,15 @@ class Client:
         new_parity_group |= targets[0]
         parity_request.set_parity_group(new_parity_group)
         self.__request_queue[targets[0]].append(parity_request)
+        if self.__show_requests:
+            print(parity_request)
         # print(parity_request)
 
         # appending the created requests with adjusted parity group
         for request in requests:
             request.set_parity_group(new_parity_group)
-            # print(request)
+            if self.__show_requests:
+                print(request)
             self.__request_queue[request.get_target_id()].append(request)
         self.__parity_index = (self.__parity_index + 1) % len(self.__parity_groups)
 
@@ -210,12 +221,12 @@ class Client:
 
     def __perform_read_request(self, request: ReadRequest, target_id: int):
         start = self.env.now
-        cmloid_count, read_time = yield self.env.process(self.__manager.read_from_server(request, target_id))
+        cmloid_count = yield self.env.process(self.__manager.read_from_server(request, target_id))
         self.logger.add_task_time("wait-server-read", self.env.now - start)
 
         transfer_time = yield self.env.process(self.__manager.perform_network_transaction(cmloid_count * CML_oid.get_size()))
         self.logger.add_task_time("receive-request", transfer_time)
-        self.logger.add_task_time("minimum-wait-read", read_time)
+        # self.logger.add_task_time("minimum-wait-read", read_time)
 
         # TODO: implement local storage
 
@@ -229,5 +240,5 @@ class Client:
             for target in ParityGroupCreator.int_to_positions(targets):
                 requests.append(self.env.process(self.__perform_read_request(request, target)))
         yield simpy.events.AllOf(self.env, requests)
-        printmessage(self.id, "Read every file ({})".format(len(self.__file_map)), self.env.now)
+        printmessage(self.id, "Finished reading every file ({})".format(len(self.__file_map)), self.env.now)
         self.__manager.read_completed()

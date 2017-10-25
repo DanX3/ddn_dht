@@ -286,6 +286,9 @@ class ReadRequest:
     def get_interval(self) -> (int, int):
         return self.__start, self.__end
 
+    def __str__(self):
+        return "ReadRequest({}, [{}, {}])".format(self.__filename, self.__start, self.__end)
+
 
 class WriteRequest:
     def __init__(self, client_id: int, target_server_id: int, parity_group: int,

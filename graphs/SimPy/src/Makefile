@@ -8,7 +8,7 @@ FLAMEOPTS= --title "IME Simulation" --colors yellow --width 1500
 
 all: $(SRCS)
 	time $(CC) Simulator.py
-	gnuplot ../plot.p
+	cd ../ && gnuplot plot.plt
 
 print:
 	@echo $(SRCS)
@@ -35,10 +35,10 @@ graph: map.gv
 	dot -Tsvg $< > map.svg
 
 plot: client.log server.log
-	gnuplot ../plot.plt
+	cd ../ && gnuplot plot.plt
 
 plotclient: client.log
-	gnuplot ../plot.plt
+	cd ../ && gnuplot plot.plt
 
 clean:
 	rm -f $(FLAME) $(FLAMEIMG) $(PROFILEOUT) $(PROFILELINES) *.log *.svg *.pyc 

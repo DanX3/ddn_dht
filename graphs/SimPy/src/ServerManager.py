@@ -32,22 +32,12 @@ class ServerManager(IfForServer, IfForClient):
         self.__manager_logger = Logger(self.env)
         self.__start = None
 
-    def get_server_by_id(self, ID):
-        for server in self.servers:
-            if ID == server.get_id():
-                return server
-
     def add_requests_to_clients(self, requests: Dict[int, List[WriteRequest]]):
         self.__start = self.env.now
         # Send a write request first
         for key, req_list in requests.items():
             for count, filesize in req_list:
-                # if key not in clients:
-                #     raise Exception(str(key) + " not in clients")
-                try:
-                    self.__clients[key].add_write_request(filesize, file_count=count)
-                except IndexError:
-                    raise Exception("Inconsistent number of clients across config and request")
+                self.__clients[int(key)].add_write_request(filesize, file_count=count)
 
         for key, req_list in requests.items():
             self.__clients[key].flush()
@@ -73,9 +63,9 @@ class ServerManager(IfForServer, IfForClient):
         self.__HUB.release(mutex_request)
         return time_required
 
-    def read_from_server(self, request: ReadRequest, target: int) -> int:
-        cmloid_count, read_time = yield self.env.process(self.servers[target].process_read_request(request))
-        return cmloid_count, read_time
+    def read_from_server(self, request: ReadRequest, target: int) -> (int, int):
+        cmloid_count = yield self.env.process(self.servers[target].process_read_request(request))
+        return cmloid_count
 
     def get_server_count(self):
         return len(self.servers)
@@ -97,6 +87,7 @@ class ServerManager(IfForServer, IfForClient):
             self.__clients[0].logger.print_info_to_file("client.log")
             self.server_logger.print_info_to_file("server.log")
             self.__manager_logger.print_info_to_file("manager.log")
+            printmessage(0, "Finished Simulation", self.env.now)
 
     def write_to_server(self, request: WriteRequest) -> int:
         write_time = yield self.env.process(self.servers[request.get_target_id()].process_write_request(request))

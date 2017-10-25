@@ -4,7 +4,6 @@
 set autoscale
 
 # axis settings
-set title 'Client profile'
 set ylabel 'Time (us)'
 set log y
 # set log x
@@ -19,17 +18,34 @@ unset colorbox
 # set style fill solid 0.5 border lt -1
 # set style data histograms
 # set style histogram clustered
-set style line 1 linecolor rgb '#0060ad' linetype 7 linewidth 10
+set style line 1 linecolor rgb '#2196f3' linetype 7 linewidth 10
+set style line 2 linecolor rgb '#f44336' linetype 7 linewidth 10
+set style line 3 linecolor rgb '#4caf50' linetype 7 linewidth 10
 # set style line 2 linecolor rgb '# 2196F3' pointtype 7 pointsize 2
 set terminal svg size 800,600 fname 'Sans' fsize 16
 set grid
 
-clients_logs = system("ls logs/*client.log")
+#clients_logs = system("ls logs/*client.log")
+#plot for [client_log in clients_logs] client_log using 1:xtic(2) ls 1  title 'client profile'
+set title 'Client profile'
 set output "client.svg"
-plot for [client_log in clients_logs] client_log using 1:xtic(2) ls 1  title 'client profile'
+#plot 'logs/10_1_100M-client.log' using 1:xtic(2) ls 1  title '10\_1\_100M', \
+     #'logs/1_1_1G-client.log' using 1:xtic(2) ls 2  title '1\_1\_1G'
+plot 'logs/many_small-client.log' using 1:xtic(2) ls 1  title 'small', \
+     'logs/many_smaller-client.log' using 1:xtic(2) ls 2  title 'smaller'
+   
 
-# set output "server.svg"
-# plot 'logs/server*.log' using 1:xtic(2) title 'server profile'
+set title 'Server profile'
+set output "server.svg"
+#plot 'logs/10_1_100M-server.log' using 1:xtic(2) ls 1 title '10\_1\_100M', \
+     #'logs/1_1_1G-server.log' using 1:xtic(2) ls 2 title '1\_1\_1G'
+plot 'logs/many_small-server.log' using 1:xtic(2) ls 1  title 'small', \
+     'logs/many_smaller-server.log' using 1:xtic(2) ls 2  title 'smaller'
 
-# set output "manager.svg"
-# plot 'logs/manager*.log' using 1:xtic(2) title 'manager profile'
+set title 'Manager profile'
+set output "manager.svg"
+#plot 'logs/10_1_100M-manager.log' using 1:xtic(2) ls 1 title '10\_1\_100M', \
+     #'logs/1_1_1G-manager.log' using 1:xtic(2) ls 2 title '1\_1\_1G'
+
+plot 'logs/many_small-manager.log' using 1:xtic(2) ls 1 title 'small', \
+     'logs/many_smaller-manager.log' using 1:xtic(2) ls 2 title 'smaller' 
