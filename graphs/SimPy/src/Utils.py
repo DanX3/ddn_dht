@@ -302,7 +302,6 @@ class WriteRequest:
     def add_file_part(self, part: FilePart):
         self.__file_parts.append(part)
 
-        print("Asking server", target)
     def get_parts(self) -> List[FilePart]:
         return self.__file_parts
 
@@ -321,6 +320,9 @@ class WriteRequest:
         for part in self.__file_parts:
             result += part.get_size()
         return result
+
+    def get_parity_id(self):
+        return self.__parity_id
 
     def get_parity_group(self):
         return self.__parity_group

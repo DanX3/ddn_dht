@@ -39,3 +39,10 @@ plot:
 
 plotclient: client.log
 	gnuplot plot.plt
+
+clean:
+	rm -f $(FLAME) $(FLAMEIMG) $(PROFILEOUT) $(PROFILELINES) *.log *.svg *.pyc 
+	rm -f logs/*
+
+show:
+	firefox *.svg & 

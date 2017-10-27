@@ -11,6 +11,15 @@ class IfForServer(GeneralManagerIf):
     @abstractmethod
     def answer_client(self, request: WriteRequest): raise NotImplementedError
 
+    @abstractmethod
+    def server_finished_restoring(self): raise NotImplementedError
+
+    @abstractmethod
+    def receive_recovery_request(self, from_id: int): raise NotImplementedError
+
+    @abstractmethod
+    def send_recovery_request(self, ids: set, targets: int): raise NotImplementedError
+
 
 class IfForClient(GeneralManagerIf):
     @abstractmethod

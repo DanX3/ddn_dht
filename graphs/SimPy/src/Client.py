@@ -47,6 +47,7 @@ class Client:
         self.send_treshold = int(1024 / WriteRequest.get_cmloid_size())
         self.__data_sent = 0
         self.data_received = 0
+        self.__ok_writing = False
 
     def refresh_tokens(self):
         tokens_missing = self.tokens.capacity - self.tokens.level
@@ -60,35 +61,25 @@ class Client:
             for queue_index in range(self.__manager.get_server_count()):
                 if self.__request_queue[queue_index] and self.tokens.level > 0:
                     sent_something = True
-                    self.env.process(self.__send_request(self.__request_queue[queue_index].popleft()))
+                    self.env.process(self.__perform_send_request(self.__request_queue[queue_index].popleft()))
 
         yield self.env.timeout(self.__token_refresh_delay)
         if self.data_received < self.__data_sent:
             self.env.process(self.refresh_tokens())
 
-    def receive_answer(self, request: WriteRequest):
-        # print("Received {}".format(request))
+    def __receive_answer(self, request: WriteRequest):
+        if self.__ok_writing:
+            return
+
         for part in request.get_parts():
             if part.get_filename() != 'parity':
                 self.data_received += part.get_size()
         if self.data_received >= self.__data_sent:
-            printmessage(self.id, "Finished writing every file ({}/{})"
-                         .format(self.data_received,self.__data_sent), self.env.now)
+            self.__ok_writing = True
+            printmessage(self.id, "Finished writing every file ({}/{} KB)"
+                         .format(self.data_received, self.__data_sent), self.env.now)
             self.__manager.write_completed()
 
-    def __send_request(self, request: WriteRequest):
-        start = self.env.now
-        yield self.tokens.get(1)
-        self.logger.add_task_time("token-wait", self.env.now - start)
-
-        start = self.env.now
-        yield self.env.process(self.__manager.perform_network_transaction(request.get_size()))
-        self.logger.add_task_time("send-request", self.env.now - start)
-
-        start = self.env.now
-        write_time = yield self.env.process(self.__manager.write_to_server(request))
-        self.logger.add_task_time("wait-for-server-write", self.env.now - start)
-        self.logger.add_task_time("minimum-wait-write", write_time)
 
     def add_write_request(self, req_size_kb, file_count=1) -> List[str]:
         """
@@ -219,26 +210,46 @@ class Client:
         for file in self.__files_created:
             print(file)
 
+    def __perform_send_request(self, request: WriteRequest):
+        start = self.env.now
+        yield self.tokens.get(1)
+        self.logger.add_task_time("token-wait", self.env.now - start)
+
+        transfer_time = yield self.env.process(self.__manager.perform_network_transaction(request.get_size()))
+        self.logger.add_task_time("send-request", transfer_time)
+        # print("Sending {} cmloids ({} KB)".format(int(request.get_size()/CML_oid.get_size()), request.get_size()))
+
+        start = self.env.now
+        write_time = yield self.env.process(self.__manager.write_to_server(request))
+        self.logger.add_task_time("wait-for-server-write", self.env.now - start)
+        self.logger.add_task_time("minimum-wait-write", write_time)
+
+        self.__receive_answer(request)
+
     def __perform_read_request(self, request: ReadRequest, target_id: int):
         start = self.env.now
         cmloid_count = yield self.env.process(self.__manager.read_from_server(request, target_id))
         self.logger.add_task_time("wait-server-read", self.env.now - start)
 
+        # print("Receiving {} cmloids ({} KB)".format(cmloid_count, cmloid_count * CML_oid.get_size()))
         transfer_time = yield self.env.process(self.__manager.perform_network_transaction(cmloid_count * CML_oid.get_size()))
+        self.data_received += (cmloid_count * CML_oid.get_size())
+        # print('read', cmloid_count, 'from', target_id)
         self.logger.add_task_time("receive-request", transfer_time)
         # self.logger.add_task_time("minimum-wait-read", read_time)
 
         # TODO: implement local storage
 
-
-
     def read_all_files(self):
         printmessage(0, "Asked to read every file", self.env.now)
         requests = []
+        # print(self.__file_map)
         for filename, targets in self.__file_map.items():
+            # print("Reading {} from {}".format(filename, ParityGroupCreator.int_to_positions(targets)))
             request = ReadRequest(filename, 0, self.__files_created[filename].get_size())
             for target in ParityGroupCreator.int_to_positions(targets):
                 requests.append(self.env.process(self.__perform_read_request(request, target)))
         yield simpy.events.AllOf(self.env, requests)
+        printmessage(self.id, "Received {} KB".format(self.data_received), self.env.now)
         printmessage(self.id, "Finished reading every file ({})".format(len(self.__file_map)), self.env.now)
         self.__manager.read_completed()

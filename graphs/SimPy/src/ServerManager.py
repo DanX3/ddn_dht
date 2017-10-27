@@ -8,6 +8,7 @@ from HUB import HUB
 from DHT import DHT
 from typing import Dict, List
 from Interfaces import IfForServer, IfForClient
+from ParityGroupCreator import ParityGroupCreator
 
 
 class ServerManager(IfForServer, IfForClient):
@@ -31,6 +32,8 @@ class ServerManager(IfForServer, IfForClient):
         self.__full_speed_packet_time = int(self.__network_buffer_size / self.__max_bandwidth * 1e9)
         self.__manager_logger = Logger(self.env)
         self.__start = None
+        self.__server_restoring = 0
+        self.__show_counters = bool(misc_params[Contract.M_SHOW_COUNTERS])
 
     def add_requests_to_clients(self, requests: Dict[int, List[WriteRequest]]):
         self.__start = self.env.now
@@ -42,14 +45,16 @@ class ServerManager(IfForServer, IfForClient):
         for key, req_list in requests.items():
             self.__clients[key].flush()
 
+        # for i in range(0, 1025, 16):
+        #     print(i, self.__time_function(i))
+        # print(1024, self.__full_speed_packet_time)
+
     def perform_network_transaction(self, size: int) -> int:
         """
         Simulates a network transaction
-        Every request is queued.
         Every request of <networkbuffer size> is sent at max bandwidth
-        A request smaller takes more time, based on Diagonal Limit configuration
-        :param requests: list of client request holding the chunk to send
-        :param test_net: boolean type, False by default. If True, forward an answer right to the client, skipping data writing to server. Used to test the network capabilities
+        Every other request is sent as a smaller network buffer, so slower
+        :param size: The size of the transaction to perform
         :return: yield the time required for the transaction to complete
         """
         mutex_request = self.__HUB.request()
@@ -77,17 +82,48 @@ class ServerManager(IfForServer, IfForClient):
             self.__manager_logger.add_task_time("write-operation", self.env.now - self.__start)
             self.__start = self.env.now
             self.__client_completed = 0
-            for client in self.__clients:
-                self.env.process(client.read_all_files())
+            # for client in self.__clients:
+                # self.env.process(client.read_all_files())
+            self.__simulate_disk_failure(randint(0, len(self.servers)-1))
+
+    def __simulate_disk_failure(self, server_id: int):
+        self.__server_restoring = server_id
+        self.__start = self.env.now
+        self.env.process(self.servers[server_id].process_disk_failure())
+
+    def send_recovery_request(self, ids: set, targets: int):
+        print('targets', targets)
+        for target in ParityGroupCreator.int_to_positions(targets):
+            self.env.process(self.servers[target].gather_and_send_parity_groups(ids))
+
+    def receive_recovery_request(self, from_id: int):
+        self.servers[self.__server_restoring].receive_recovery_data(from_id)
+
+    def server_finished_restoring(self):
+        self.__manager_logger.add_task_time("disk-restore", self.env.now - self.__start)
+        printmessage(0, "Finished Restoring", self.env.now)
+        self.__end_simulation()
 
     def read_completed(self):
         self.__client_completed += 1
         if self.__client_completed == len(self.__clients):
             self.__manager_logger.add_task_time("read-operation", self.env.now - self.__start)
-            self.__clients[0].logger.print_info_to_file("client.log")
-            self.server_logger.print_info_to_file("server.log")
-            self.__manager_logger.print_info_to_file("manager.log")
-            printmessage(0, "Finished Simulation", self.env.now)
+            self.__end_simulation()
+
+    def __end_simulation(self):
+        # Log times
+        printmessage(0, "Finished Simulation", self.env.now)
+        self.__clients[0].logger.print_times_to_file("client.log")
+        self.server_logger.print_times_to_file("server.log")
+        self.__manager_logger.print_times_to_file("manager.log")
+
+        objects_list = [self.__clients[0].logger.get_objects(),
+                        self.server_logger.get_objects(),
+                        self.__manager_logger.get_objects()]
+        merged_dict = Logger.merge_objects_to_dict(objects_list)
+        print()
+        Logger.print_objects_to_file(merged_dict, 'objects.log', print_to_screen=self.__show_counters)
+
 
     def write_to_server(self, request: WriteRequest) -> int:
         write_time = yield self.env.process(self.servers[request.get_target_id()].process_write_request(request))

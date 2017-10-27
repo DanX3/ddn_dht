@@ -68,7 +68,7 @@ class Function2D:
         # I want that the limit curve is as close as possible starting at 1024
         # packets sent bigger than 1024 has already peak efficiency
         # return lambda x: round(sqrt(a*a * (1e0 + (x*x)/(b*b))))
-        return lambda x: round(sqrt(a*a * (1e-5 + (x*x)/(b*b))))
+        return lambda x: round(sqrt(a*a * (1e-6 + (x*x)/(b*b))) * 1e3)
 
 
 if __name__ == "__main__":

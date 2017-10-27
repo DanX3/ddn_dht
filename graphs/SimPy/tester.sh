@@ -13,3 +13,6 @@ for request in ../requests/* ; do
     done
     mv *.log ../logs/
 done
+
+cd ../
+gnuplot plot.plt
