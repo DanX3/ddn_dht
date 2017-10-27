@@ -231,6 +231,9 @@ class SliceablePartList:
         bound = part.get_bound()
         self.__parts_list.append(FilePart(part.get_file(), bound[0], bound[1]))
 
+    def add_entire_file(self, file: File):
+        self.__parts_list.append(FilePart(file, 0, file.get_size()))
+
     def pop_buffer(self, buffer_size: int) -> List[str]:
         result = []
         while buffer_size > 0 and self.__parts_list:
@@ -292,12 +295,13 @@ class ReadRequest:
 
 class WriteRequest:
     def __init__(self, client_id: int, target_server_id: int, parity_group: int,
-                 parity_id: int):
+                 parity_id: int, flush: bool = False):
         self.__client_id = client_id
         self.__target_server_id = target_server_id
         self.__file_parts = []
         self.__parity_id = parity_id
         self.__parity_group = parity_group
+        self.__flush = flush
 
     def add_file_part(self, part: FilePart):
         self.__file_parts.append(part)
@@ -329,6 +333,9 @@ class WriteRequest:
 
     def set_parity_group(self, parity_group: int):
         self.__parity_group = parity_group
+
+    def is_eager_commit(self):
+        return self.__flush
 
     def __str__(self):
         result = "ClientRequest(id {}, parity map {}, {} -> {}):\n"\

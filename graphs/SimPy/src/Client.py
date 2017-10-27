@@ -49,37 +49,6 @@ class Client:
         self.data_received = 0
         self.__ok_writing = False
 
-    def refresh_tokens(self):
-        tokens_missing = self.tokens.capacity - self.tokens.level
-        if tokens_missing != 0:
-            self.tokens.put(tokens_missing)
-
-        # trigger sending processes
-        sent_something = True
-        while sent_something:
-            sent_something = False
-            for queue_index in range(self.__manager.get_server_count()):
-                if self.__request_queue[queue_index] and self.tokens.level > 0:
-                    sent_something = True
-                    self.env.process(self.__perform_send_request(self.__request_queue[queue_index].popleft()))
-
-        yield self.env.timeout(self.__token_refresh_delay)
-        if self.data_received < self.__data_sent:
-            self.env.process(self.refresh_tokens())
-
-    def __receive_answer(self, request: WriteRequest):
-        if self.__ok_writing:
-            return
-
-        for part in request.get_parts():
-            if part.get_filename() != 'parity':
-                self.data_received += part.get_size()
-        if self.data_received >= self.__data_sent:
-            self.__ok_writing = True
-            printmessage(self.id, "Finished writing every file ({}/{} KB)"
-                         .format(self.data_received, self.__data_sent), self.env.now)
-            self.__manager.write_completed()
-
 
     def add_write_request(self, req_size_kb, file_count=1) -> List[str]:
         """
@@ -99,7 +68,6 @@ class Client:
         self.__data_sent += req_size_kb * file_count
         self.__single_request_queue_size += req_size_kb * file_count
         self.__scatter_files_in_queues()
-        # print(self.__file_map)
         return filenames
 
     def __scatter_files_in_queues(self):
@@ -209,6 +177,37 @@ class Client:
     def __print_files_created(self):
         for file in self.__files_created:
             print(file)
+
+    def refresh_tokens(self):
+        tokens_missing = self.tokens.capacity - self.tokens.level
+        if tokens_missing != 0:
+            self.tokens.put(tokens_missing)
+
+        # trigger sending processes
+        sent_something = True
+        while sent_something:
+            sent_something = False
+            for queue_index in range(self.__manager.get_server_count()):
+                if self.__request_queue[queue_index] and self.tokens.level > 0:
+                    sent_something = True
+                    self.env.process(self.__perform_send_request(self.__request_queue[queue_index].popleft()))
+
+        yield self.env.timeout(self.__token_refresh_delay)
+        if self.data_received < self.__data_sent:
+            self.env.process(self.refresh_tokens())
+
+    def __receive_answer(self, request: WriteRequest):
+        if self.__ok_writing:
+            return
+
+        for part in request.get_parts():
+            if part.get_filename() != 'parity':
+                self.data_received += part.get_size()
+        if self.data_received >= self.__data_sent:
+            self.__ok_writing = True
+            printmessage(self.id, "Finished writing every file ({}/{} KB)"
+                         .format(self.data_received, self.__data_sent), self.env.now)
+            self.__manager.write_completed()
 
     def __perform_send_request(self, request: WriteRequest):
         start = self.env.now
