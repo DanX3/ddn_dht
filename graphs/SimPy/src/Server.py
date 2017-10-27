@@ -18,8 +18,6 @@ class Server:
         self.config = config
         self.__mutex = simpy.Resource(env, capacity=1)
         self.server_manager = server_manager
-        self.HDDs_data = []
-        self.HDDs_metadata = []
         self.receiving_files = {}  # Dict[str, Deque[CML_oid]]
         self.__parts = {}  # Dict[str, List[FileParts]
 
@@ -27,15 +25,9 @@ class Server:
         self.__show_requests = bool(config[Contract.S_SHOW_REQUESTS])
         self.__disk_target_gen = self.target_disk_generator()
         data_disk_gen = DiskIdNotation.get_disk_id_generator(self.__id, True)
-        for i in range(config[Contract.S_HDD_DATA_COUNT]):
-            self.HDDs_data.append(StorageDevice(
-                env, next(data_disk_gen),
-                config[Contract.S_HDD_DATA_CAPACITY_GB] * 1e6,
-                config[Contract.S_HDD_DATA_READ_MBPS] * 1e3,
-                config[Contract.S_HDD_DATA_WRITE_MBPS] * 1e3,
-                config[Contract.S_HDD_DATA_LATENCY_MS],
-                self
-            ))
+        self.__disk_interaction = Function2D.get_bandwidth_model(
+            config[Contract.S_HDD_DATA_LATENCY_US],
+            config[Contract.S_HDD_DATA_WRITE_MBPS])
 
         # with unsigned short int a single disk can contain 8 TB of a file. This is not limiting the simulator
         # in any case. Better save some memory
@@ -44,12 +36,6 @@ class Server:
         for i in range(self.config[Contract.S_HDD_DATA_COUNT]):
             self.__disk_content.append(deque())
         self.__recovery_targets = 0
-        # self.hdd_data = StorageDevice(config[Contract.S_HDD_DATA_CAPACITY_GB] * 2e9,
-        #                               config[Contract.S_HDD_DATA_BW_MB_PER_SEC] * 2e3,
-        #                               config[Contract.S_HDD_DATA_LATENCY_MS])
-        # self.hdd_metadata = StorageDevice(config[Contract.S_HDD_METADATA_CAPACITY_GB] * 2e9,
-        #                                   config[Contract.S_HDD_METADATA_BW_MB_PER_SEC] * 2e3,
-        #                                   config[Contract.S_HDD_METADATA_LATENCY_MS])
 
     def get_id(self):
         return self.__id
@@ -61,12 +47,6 @@ class Server:
             else:
                 self.__parts[part.get_filename()] = [part]
 
-    def get_data_disks(self):
-        return self.HDDs_data
-
-    def get_metadata_disks(self):
-        return self.HDDs_metadata
-
     def get_load_per_disk(self, file: File) -> List[int]:
         """
         Get how data is supposed to be distributed over the disks.
@@ -74,21 +54,12 @@ class Server:
         :param file: file to be written
         :return: List[int] where len(return) = len(HDDs_data)
         """
-        disk_count = len(self.HDDs_data)
+        disk_count = len(self.config[Contract.S_HDD_DATA_COUNT])
         cmloid_count = ceil(file.get_size() / CML_oid.get_size())
         min_load = int(cmloid_count / disk_count) * CML_oid.get_size()
         load = [min_load for i in range(disk_count)]
         for i in range(int(cmloid_count % disk_count)):
             load[i] += CML_oid.get_size()
-        return load
-
-    def get_load_from_chunk(self, chunk: Chunk) -> List[int]:
-        cmloid_size = WriteRequest.get_cmloid_size()
-        cmloid_count = int(ceil(chunk.get_size() / cmloid_size))
-        min_load = int(floor(cmloid_count / len(self.HDDs_data)) * cmloid_size)
-        load = [min_load] * len(self.HDDs_data)
-        for i in range(cmloid_count % len(self.HDDs_data)):
-            load[i] += cmloid_size
         return load
 
     def print_file_map(self, filename: str):
@@ -129,8 +100,8 @@ class Server:
         self.logger.add_task_time("wait-to-write", self.env.now - start)
 
         self.__track_cmloids(request)
-        max_load = int(ceil(request.get_size() / len(self.HDDs_data)))
-        write_time = Function2D.disk_interaction(max_load, self.HDDs_data[0].get_writing_bandwidth())
+        max_load = int(ceil(request.get_size() / len(self.__disk_content)))
+        write_time = Function2D.disk_interaction(max_load, self.config[Contract.S_HDD_DATA_WRITE_MBPS])
         yield self.env.timeout(write_time)
         self.logger.add_task_time("disk-write", write_time)
         self.__add_file_parts(request.get_parts())
@@ -157,7 +128,7 @@ class Server:
 
         max_load = max(self.__cmloids_per_disk[requested_filename]) * CML_oid.get_size()
         # print("Reading at most {} cmloids per device".format(max(self.__cmloids_per_disk[requested_filename])))
-        read_time = Function2D.disk_interaction(max_load, self.HDDs_data[0].get_reading_bandwidth())
+        read_time = Function2D.disk_interaction(max_load, self.config[Contract.S_HDD_DATA_WRITE_MBPS])
         yield self.env.timeout(read_time)
         self.logger.add_task_time("disk-read", read_time)
 
@@ -183,7 +154,7 @@ class Server:
             ids_to_gather.add(id)
             self.__recovery_targets |= map
 
-        print(ids_to_gather)
+        # print(ids_to_gather)
         self.__recovery_targets ^= 1 << self.__id
         self.logger.add_object_count('parity-groups-to-gather', len(ids_to_gather))
         self.server_manager.send_recovery_request(ids_to_gather, self.__recovery_targets)
@@ -199,24 +170,19 @@ class Server:
         # computing load per disk
         load = array('H', [0]*len(self.__disk_content))
         disk_id = 0
-        print("Server", self.__id)
+        # print("Server", self.__id)
         for disk in self.__disk_content:
-            print(disk)
             for id, map in disk:
                 if id in ids_to_gather:
                     load[disk_id] += 1
-                else:
-                    print("skipped", id)
             disk_id += 1
-        print()
 
         # read simulation
         request = self.__mutex.request()
         yield request
-        read_time = Function2D.disk_interaction(max(load), self.HDDs_data[0].get_reading_bandwidth())
+        read_time = Function2D.disk_interaction(max(load), self.config[Contract.S_HDD_DATA_WRITE_MBPS])
         yield self.env.timeout(read_time)
         self.logger.add_task_time("recovery-disk-read", read_time)
-        print("Server {} read {} cmloids".format(self.__id, sum(load)))
         self.logger.add_object_count('cmloids-read', sum(load))
         self.__mutex.release(request)
 

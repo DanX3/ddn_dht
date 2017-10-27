@@ -92,7 +92,6 @@ class ServerManager(IfForServer, IfForClient):
         self.env.process(self.servers[server_id].process_disk_failure())
 
     def send_recovery_request(self, ids: set, targets: int):
-        print('targets', targets)
         for target in ParityGroupCreator.int_to_positions(targets):
             self.env.process(self.servers[target].gather_and_send_parity_groups(ids))
 
