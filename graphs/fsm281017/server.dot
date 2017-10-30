@@ -1,0 +1,70 @@
+digraph System {
+    label = "Server"
+    node [shape=box style="filled" color="#607d8b" fontcolor=white
+    fontsize=12.0 fontname="Liberation Sans" ]
+    edge [color="#424242" penwidth=2.0 fontname="Liberation Sans" fontsize=10.0]
+    splines=ortho
+    style=dashed
+
+    receive_write_request -> control_plane;
+    receive_write_request -> split_buffer_in_disks
+
+    subgraph clusterControlPlane {
+        label = "Control plane"
+        control_plane [style=solid, penwidth=2, fontcolor="#424242"]
+        end [shape = "octagon" label = "wait_all" style=solid
+        color="#607d8b" fontcolor="#424242" penwidth=2]
+        is_eager_commit [shape = "diamond"]
+        enough_req [shape = "diamond"]
+        timeout [shape = "diamond"]
+        control_plane -> journal -> end
+        control_plane -> metadata_propagation -> is_eager_commit
+        is_eager_commit -> send_metadata [color = "#4caf50"]
+        is_eager_commit -> enough_req [color = "#f44336"]
+        enough_req -> send_metadata [color = "#4caf50"]
+        enough_req -> timeout [color="#f44336"]
+        timeout -> end [color="#f44336"]
+        timeout -> send_metadata [color="#4caf50"]
+        send_metadata -> recv_metadata_ack [style=dotted]
+        recv_metadata_ack -> end
+    }
+    end -> send_ack
+
+    subgraph clusterDataPlane {
+        label = "Data Plane"
+        split_buffer_in_disks -> track_cmloids -> write_data_to_disk
+    }
+
+    receive_metadata_backup -> update_local_DHT -> send_metadata_ack
+
+    write_data_to_disk -> send_ack
+
+    receive_read_request -> gather_disk_location -> read_disk_n
+    gather_disk_location -> read_disk_n
+    gather_disk_location -> read_disk_n
+    read_disk_n -> read_successful
+    read_successful [shape="diamond"]
+    read_successful -> send_data [color="#4caf50"]
+    read_successful -> erasure_coding [color="#f44336"]
+
+    subgraph clusterErasureCoding {
+        label = "Erasure Coding"
+        erasure_coding [style=solid, penwidth=2, fontcolor="#424242"]
+        wait_all_parity [shape = "octagon" label = "wait_all" style=solid
+        color="#607d8b" fontcolor="#424242" penwidth=2]
+        erasure_coding -> gather_parity_map -> send_parity_request
+        gather_parity_map -> send_parity_request
+        gather_parity_map -> send_parity_request
+        send_parity_request -> recv_parity_request [style=dotted]
+        send_parity_request -> recv_parity_request [style=dotted]
+        send_parity_request -> recv_parity_request [style=dotted]
+        recv_parity_request -> wait_all_parity -> rebuild_missing_data
+    }
+    rebuild_missing_data -> send_data
+
+    gather_disk_location_par [label="gather_disk_location"]
+    read_disk [label="read_disk"]
+    receive_parity_request -> gather_disk_location_par -> read_disk -> send_parity_data
+    gather_disk_location_par -> read_disk
+    gather_disk_location_par -> read_disk
+}

@@ -1,0 +1,42 @@
+digraph System {
+    node [shape=box style="filled" color="#607d8b" fontcolor=white
+    fontsize=12.0 fontname="Noto Sans" ]
+    edge [color="#212121" penwidth=2.0 fontname="Noto Sans" fontsize=10.0]
+    node [shape=box]
+    splines=ortho
+    style=dashed
+
+    write_data -> scatter_in_bucket
+
+    subgraph clusterAllocation {
+        label = "allocation"
+        scatter_in_bucket -> scatter_in_buffers
+    }
+    
+    scatter_in_buffers -> parity_generation -> token_request
+
+    subgraph clusterToken {
+        token_condition [label = "Tokens Available > 0" shape="diamond"]
+        token_request -> token_condition
+        token_condition -> token_granted [color="#4caf50"]
+        token_condition -> wait [color = "#f44336"]
+        wait -> token_condition
+    }
+    token_granted -> communicate_data
+
+    recv_ack -> token_release
+
+
+    read_data -> gather_targets -> token_request1
+    subgraph clusterToken1 {
+        token_condition1 [label = "Tokens Available > 0" shape="diamond"]
+        token_request1 -> token_condition1
+        token_condition1 -> token_granted1 [color="#4caf50"]
+        token_condition1 -> wait1 [color = "#f44336"]
+        wait1 -> token_condition1
+    }
+    token_granted1 -> send__read_request
+
+    token_release1 [label="token_release"]
+    recv_data -> network_communication -> token_release1 -> write_data_to_disk
+}
