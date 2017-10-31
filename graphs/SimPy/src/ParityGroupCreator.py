@@ -13,10 +13,19 @@ class ParityGroupCreator:
         self.__geometry_base = client_params[Contract.C_GEOMETRY_BASE]
         self.__geometry_plus = client_params[Contract.C_GEOMETRY_PLUS]
         self.__server_count = server_params[Contract.S_SERVER_COUNT]
-        seed(13)
+        seed(0)
+        self.__targets_generator = self.__create_target_generator()
 
     def __str__(self):
         return "ParityGroupCreator({}+{})".format(self.__geometry_base, self.__geometry_plus)
+
+    def __create_target_generator(self):
+        targets = self.get_targets_list(self.__server_count * 2)
+        list_length = len(targets)
+        i = 0
+        while True:
+            yield targets[i]
+            i = (i + 1) % list_length
 
     @staticmethod
     def int_to_positions(int_target: int) -> List[int]:
@@ -34,6 +43,13 @@ class ParityGroupCreator:
             counter += 1
             if current_step > int_target:
                 break
+        return result
+
+    @staticmethod
+    def positions_to_int(targets: List[int]) -> int:
+        result = 0
+        for target in targets:
+            result |= 1 << target
         return result
 
     def get_targets(self) -> int:
@@ -62,6 +78,14 @@ class ParityGroupCreator:
             result.append(self.get_targets())
         return result
 
+    def get_target_generator(self):
+        """
+        Instead of giving every client a fixed target list, generates by itself a big target list
+        including possibly every combination. Then every client will access this single big instance
+        :return:
+        """
+        return self.__targets_generator
+
 
 class ParityId:
     class __ParityId:
@@ -85,11 +109,11 @@ class ParityId:
 
 
 if __name__ == "__main__":
-    parity1 = ParityId()
-    parity2 = ParityId()
-    print(parity1.get_id())
-    print(parity2.get_id())
-    print(parity1.get_id())
-    print(parity2.get_id())
-    print(parity1.get_id())
-    print(parity2.get_id())
+    client_params = {}
+    server_params = {}
+    client_params[Contract.C_GEOMETRY_BASE] = 3
+    client_params[Contract.C_GEOMETRY_PLUS] = 1
+    server_params[Contract.S_SERVER_COUNT] = 20
+    pgc = ParityGroupCreator(client_params, server_params)
+    gen = pgc.get_target_generator()
+

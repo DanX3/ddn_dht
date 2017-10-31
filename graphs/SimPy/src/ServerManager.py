@@ -68,7 +68,7 @@ class ServerManager(IfForServer, IfForClient):
         self.__HUB.release(mutex_request)
         return time_required
 
-    def read_from_server(self, request: ReadRequest, target: int) -> (int, int):
+    def read_from_server(self, request: ReadRequest, target: int) -> int:
         cmloid_count = yield self.env.process(self.servers[target].process_read_request(request))
         return cmloid_count
 
@@ -80,11 +80,12 @@ class ServerManager(IfForServer, IfForClient):
         self.__client_completed += 1
         if self.__client_completed == len(self.__clients):
             self.__manager_logger.add_task_time("write-operation", self.env.now - self.__start)
+            printmessage(0, "Finished Writing", self.env.now)
             self.__start = self.env.now
             self.__client_completed = 0
             # for client in self.__clients:
                 # self.env.process(client.read_all_files())
-            self.__simulate_disk_failure(randint(0, len(self.servers)-1))
+            # self.__simulate_disk_failure(randint(0, len(self.servers)-1))
 
     def __simulate_disk_failure(self, server_id: int):
         self.__server_restoring = server_id
@@ -136,6 +137,4 @@ class ServerManager(IfForServer, IfForClient):
         :param request: a single client request
         :return:
         """
-        time_to_wait = int(1 / self.__max_bandwidth * 1e9)
-        yield self.env.timeout(time_to_wait)
         self.__clients[request.get_client()].receive_answer(request)

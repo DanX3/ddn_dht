@@ -28,6 +28,13 @@ def getmessage(id, message, time, done=True):
     return "{:15s} us <{}> {}".format(get_formatted_time(time).rjust(15), id, message)
 
 
+def round_robin_gen(max: int):
+    i = 0
+    while True:
+        yield i
+        i = (i + 1) % max
+
+
 class CML_oid:
     def __init__(self, original_file, part_number):
         self.original_file = original_file
@@ -213,7 +220,7 @@ class FilePart:
         return self.__file.get_name()
 
     @staticmethod
-    def get_parity_part(size: int):
+    def create_parity_part(size: int):
         return FilePart(File('parity', size), 0, size)
 
     def get_file(self) -> File:
@@ -226,24 +233,57 @@ class FilePart:
 class SliceablePartList:
     def __init__(self):
         self.__parts_list = []
+        self.__size = 0
+
+    def add_file(self, file: File):
+        part = FilePart(file, 0, file.get_size())
+        self.add_part(part)
+
+    def add_parts(self, parts: List[FilePart]):
+        for part in parts:
+            self.add_part(part)
 
     def add_part(self, part: FilePart):
         bound = part.get_bound()
         self.__parts_list.append(FilePart(part.get_file(), bound[0], bound[1]))
+        self.__size += bound[1] - bound[0]
 
-    def pop_buffer(self, buffer_size: int) -> List[str]:
+    def pop_buffer(self, buffer_size: int, rtype=str) -> List[str]:
+        """
+        Pop an amount of data from the list
+        :param buffer_size: the amount specified
+        :param rtype: if str, returns only the filenames, saving allocation time
+            if FilePart (or anything else) returns the file parts
+        :return: A list containing the specified datatypes
+        """
         result = []
         while buffer_size > 0 and self.__parts_list:
             if self.__parts_list[0].get_size() == 0:
                 self.__parts_list.pop(0)
                 continue
+
             if self.__parts_list[0].get_size() >= buffer_size:
-                result.append(self.__parts_list[0].pop_filename(buffer_size))
+                if rtype is str:
+                    result.append(self.__parts_list[0].pop_filename(buffer_size))
+                else:
+                    result.append(self.__parts_list[0].pop_part(buffer_size))
+                self.__size -= buffer_size
                 buffer_size = 0
             else:
                 buffer_size -= self.__parts_list[0].get_size()
-                result.append(self.__parts_list.pop(0).get_filename())
+                self.__size -= self.__parts_list[0].get_sise()
+                if rtype is str:
+                    result.append(self.__parts_list.pop(0).get_filename())
+                else:
+                    result.append(self.__parts_list.pop(0))
+
         return result
+
+    def get_size(self) -> int:
+        return self.__size
+
+    def peek_head(self) -> FilePart:
+        return self.__parts_list[0]
 
     def has_parts(self) -> bool:
         return True if self.__parts_list else False
@@ -292,15 +332,18 @@ class ReadRequest:
 
 class WriteRequest:
     def __init__(self, client_id: int, target_server_id: int, parity_group: int,
-                 parity_id: int):
+                 parity_id: int, eagerness: bool = False):
         self.__client_id = client_id
         self.__target_server_id = target_server_id
         self.__file_parts = []
         self.__parity_id = parity_id
         self.__parity_group = parity_group
+        self.__eager_commit = eagerness
+        self.__size = 0
 
     def add_file_part(self, part: FilePart):
         self.__file_parts.append(part)
+        self.__size += part.get_size()
 
     def get_parts(self) -> List[FilePart]:
         return self.__file_parts
@@ -308,6 +351,8 @@ class WriteRequest:
     def set_parts(self, parts: List[FilePart]):
         del self.__file_parts
         self.__file_parts = parts
+        for part in parts:
+            self.__size += part.get_size()
 
     def get_client(self) -> int:
         return self.__client_id
@@ -316,10 +361,7 @@ class WriteRequest:
         return self.__target_server_id
 
     def get_size(self):
-        result = 0
-        for part in self.__file_parts:
-            result += part.get_size()
-        return result
+        return self.__size
 
     def get_parity_id(self):
         return self.__parity_id
@@ -329,6 +371,9 @@ class WriteRequest:
 
     def set_parity_group(self, parity_group: int):
         self.__parity_group = parity_group
+
+    def is_eager_commit(self):
+        return self.__eager_commit
 
     def __str__(self):
         result = "ClientRequest(id {}, parity map {}, {} -> {}):\n"\

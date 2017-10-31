@@ -17,17 +17,18 @@ class Server:
         self.logger = logger
         self.config = config
         self.__mutex = simpy.Resource(env, capacity=1)
-        self.server_manager = server_manager
+        self.__manager = server_manager
         self.receiving_files = {}  # Dict[str, Deque[CML_oid]]
         self.__parts = {}  # Dict[str, List[FileParts]
 
         self.__network_buffer_size = int(misc_params[Contract.M_NETWORK_BUFFER_SIZE_KB])
         self.__show_requests = bool(config[Contract.S_SHOW_REQUESTS])
-        self.__disk_target_gen = self.target_disk_generator()
+        self.__disk_target_gen = round_robin_gen(config[Contract.S_HDD_DATA_COUNT])
         data_disk_gen = DiskIdNotation.get_disk_id_generator(self.__id, True)
         self.__disk_interaction = Function2D.get_bandwidth_model(
             config[Contract.S_HDD_DATA_LATENCY_US],
             config[Contract.S_HDD_DATA_WRITE_MBPS])
+        self.__cached_metadata = deque()
 
         # with unsigned short int a single disk can contain 8 TB of a file. This is not limiting the simulator
         # in any case. Better save some memory
@@ -69,7 +70,6 @@ class Server:
             print(self.__cmloids_per_disk[filename])
 
     def __track_cmloids(self, request: WriteRequest):
-        # parts = deepcopy(parts_original)
         sliceable_list = SliceablePartList()
         parts = request.get_parts()
         parity_id = request.get_parity_id()
@@ -87,7 +87,34 @@ class Server:
                 self.__disk_content[current_disk].append((parity_id, parity_group))
             current_disk = next(self.__disk_target_gen)
 
+    def __perform_journal_operation(self, request: WriteRequest):
+        yield self.env.timeout(request.get_size())
+
+    def __send_cached_metadata(self):
+        yield self.env.timeout(3289)
+
+    def __propagate_metadata(self, request: WriteRequest):
+        for part in request.get_parts():
+            self.__cached_metadata.append(part)
+        self.logger.add_task_time("cache-metadata", 10)
+
+        if request.is_eager_commit() \
+                or len(self.__cached_metadata) >= self.config[Contract.S_METADATA_CACHING_THRESHOLD] \
+                or False:  # Timeout;
+            yield self.env.process(self.__send_cached_metadata())
+
+    def __control_plane(self, request: WriteRequest):
+        journal = self.env.process(self.__perform_journal_operation(request))
+        metadata = self.env.process(self.__propagate_metadata(request))
+        yield simpy.AllOf(self.env, [journal, metadata])
+
     def process_write_request(self, request: WriteRequest) -> int:
+        data = self.env.process(self.__data_plane(request))
+        control = self.env.process(self.__control_plane(request))
+        yield simpy.AllOf(self.env, [data, control])
+        self.__manager.answer_client(request)
+
+    def __data_plane(self, request: WriteRequest) -> int:
         """
         Simulate the file writing
         :param request: the write request
@@ -157,14 +184,14 @@ class Server:
         # print(ids_to_gather)
         self.__recovery_targets ^= 1 << self.__id
         self.logger.add_object_count('parity-groups-to-gather', len(ids_to_gather))
-        self.server_manager.send_recovery_request(ids_to_gather, self.__recovery_targets)
+        self.__manager.send_recovery_request(ids_to_gather, self.__recovery_targets)
         yield self.env.timeout(0)
 
     def receive_recovery_data(self, from_id: int):
         self.__recovery_targets ^= 1 << from_id
         if self.__recovery_targets == 0:
             # self.env.timeout(len(self.))
-            self.server_manager.server_finished_restoring()
+            self.__manager.server_finished_restoring()
 
     def gather_and_send_parity_groups(self, ids_to_gather: set()):
         # computing load per disk
@@ -187,18 +214,8 @@ class Server:
         self.__mutex.release(request)
 
         # network simulation
-        network_time = yield self.env.process(self.server_manager.perform_network_transaction(sum(load) * CML_oid.get_size()))
+        network_time = yield self.env.process(self.__manager.perform_network_transaction(sum(load) * CML_oid.get_size()))
         self.logger.add_task_time("send-same-parity-group", network_time)
 
-        self.server_manager.receive_recovery_request(self.__id)
-
-
-    def target_disk_generator(self):
-        lookup_table = generate_lookup_table(len(self.__disk_content))
-        index = 0
-        while True:
-            yield lookup_table[index]
-            index = (index + 1) % len(lookup_table)
-
-
+        self.__manager.receive_recovery_request(self.__id)
 
