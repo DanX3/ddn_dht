@@ -271,7 +271,7 @@ class SliceablePartList:
                 buffer_size = 0
             else:
                 buffer_size -= self.__parts_list[0].get_size()
-                self.__size -= self.__parts_list[0].get_sise()
+                self.__size -= self.__parts_list[0].get_size()
                 if rtype is str:
                     result.append(self.__parts_list.pop(0).get_filename())
                 else:
@@ -315,16 +315,23 @@ class FileAggregator:
 
 
 class ReadRequest:
-    def __init__(self, filename: str, start: int, end: int):
+    def __init__(self, client_id: int, filename: str, start: int, end: int):
+        self.__client_id = client_id
         self.__filename = filename
         self.__start = start
         self.__end = end
+
+    def get_client(self) -> int:
+        return self.__client_id
 
     def get_filename(self) -> str:
         return self.__filename
 
     def get_interval(self) -> (int, int):
         return self.__start, self.__end
+
+    def get_size(self) -> int:
+        return self.__end - self.__start
 
     def __str__(self):
         return "ReadRequest({}, [{}, {}])".format(self.__filename, self.__start, self.__end)

@@ -29,10 +29,14 @@ class Logger:
         else:
             self.__object_counter[name] = count
 
-    def print_times_to_file(self, filename):
+    def print_times_to_file(self, filename, print_to_screen: bool = False):
         log = open(filename, 'w')
         for key, value in self.__tasks_time.items():
             log.write("{} {}\n".format(str(value), key))
+            if print_to_screen:
+                print("{} {}".format(str(value), key))
+        if print_to_screen:
+            print()
         log.close()
 
     def get_objects(self) -> Dict[str, int]:

@@ -9,7 +9,10 @@ class GeneralManagerIf:
 
 class IfForServer(GeneralManagerIf):
     @abstractmethod
-    def answer_client(self, request: WriteRequest): raise NotImplementedError
+    def answer_client_write(self, request: WriteRequest): raise NotImplementedError
+
+    @abstractmethod
+    def answer_client_read(self, request: ReadRequest): raise NotImplementedError
 
     @abstractmethod
     def server_finished_restoring(self): raise NotImplementedError
@@ -26,7 +29,7 @@ class IfForClient(GeneralManagerIf):
     def write_to_server(self, request: WriteRequest) -> int: raise NotImplementedError
 
     @abstractmethod
-    def read_from_server(self, request: ReadRequest, target_id: int): raise NotImplementedError
+    def read_from_server(self, requests, target_id: int): raise NotImplementedError
 
     @abstractmethod
     def read_completed(self): raise NotImplementedError

@@ -1,9 +1,7 @@
 import simpy
 from Logger import Logger
 from Utils import *
-import StorageDevice
 from Contract import Contract
-from StorageDevice import StorageDevice, DiskIdNotation
 from collections import deque
 from Interfaces import IfForServer
 from array import array
@@ -24,7 +22,6 @@ class Server:
         self.__network_buffer_size = int(misc_params[Contract.M_NETWORK_BUFFER_SIZE_KB])
         self.__show_requests = bool(config[Contract.S_SHOW_REQUESTS])
         self.__disk_target_gen = round_robin_gen(config[Contract.S_HDD_DATA_COUNT])
-        data_disk_gen = DiskIdNotation.get_disk_id_generator(self.__id, True)
         self.__disk_interaction = Function2D.get_bandwidth_model(
             config[Contract.S_HDD_DATA_LATENCY_US],
             config[Contract.S_HDD_DATA_WRITE_MBPS])
@@ -112,7 +109,7 @@ class Server:
         data = self.env.process(self.__data_plane(request))
         control = self.env.process(self.__control_plane(request))
         yield simpy.AllOf(self.env, [data, control])
-        self.__manager.answer_client(request)
+        self.__manager.answer_client_write(request)
 
     def __data_plane(self, request: WriteRequest) -> int:
         """
@@ -122,9 +119,7 @@ class Server:
         """
         # max data a single disk has to write. The bottleneck of this process
         mutex_req = self.__mutex.request()
-        start = self.env.now
         yield mutex_req
-        self.logger.add_task_time("wait-to-write", self.env.now - start)
 
         self.__track_cmloids(request)
         max_load = int(ceil(request.get_size() / len(self.__disk_content)))
@@ -137,21 +132,23 @@ class Server:
         self.__mutex.release(mutex_req)
         return write_time
 
+    def process_read_requests(self, requests):
+        for single_request in requests:
+            yield self.env.process(self.process_read_request(single_request))
+
     def process_read_request(self, request: ReadRequest) -> int:
         """
         Process a read request
         :param request: the read request
         :return: the number of cmloids the server owns at the current time and the read time
         """
-        requested_filename = request.get_filename()
-        if requested_filename not in self.__cmloids_per_disk:
-            yield self.env.timeout(0)
-            return 0
+        if __debug__:
+            assert request.get_filename() in self.__cmloids_per_disk, \
+            "Server: filename not owned, Client should know who to ask for the files"
 
+        requested_filename = request.get_filename()
         mutex_req = self.__mutex.request()
-        start = self.env.now
         yield mutex_req
-        self.logger.add_task_time("wait-to-read", self.env.now - start)
 
         max_load = max(self.__cmloids_per_disk[requested_filename]) * CML_oid.get_size()
         # print("Reading at most {} cmloids per device".format(max(self.__cmloids_per_disk[requested_filename])))
@@ -164,7 +161,7 @@ class Server:
 
         if self.__show_requests:
             print("<{:3d}> {}, read {} cmloids ({} KB)".format(self.__id, request, total_cmloids, total_cmloids * CML_oid.get_size()))
-        return total_cmloids
+        self.__manager.answer_client_read(request)
 
     def process_disk_failure(self, disk_id: int = None):
         """
