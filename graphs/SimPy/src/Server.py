@@ -74,8 +74,7 @@ class Server:
         parts = request.get_parts()
         parity_id = request.get_parity_id()
         parity_group = request.get_parity_group()
-        for part in parts:
-            sliceable_list.add_part(part)
+        sliceable_list.add_parts(parts)
 
         current_disk = next(self.__disk_target_gen)
         while sliceable_list.has_parts():

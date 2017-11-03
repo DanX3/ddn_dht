@@ -1,8 +1,7 @@
-from math import ceil, floor
+from math import ceil
 from random import randint, seed
-from typing import List, NewType, TypeVar
+from typing import List
 from collections import deque
-from enum import Enum
 from CmloidIdGenerator import CmloidIdGenerator
 
 
@@ -256,7 +255,7 @@ class SliceablePartList:
             if FilePart (or anything else) returns the file parts
         :return: A list containing the specified datatypes
         """
-        result = []
+        result = deque()
         while buffer_size > 0 and self.__parts_list:
             if self.__parts_list[0].get_size() == 0:
                 self.__parts_list.pop(0)
@@ -277,7 +276,7 @@ class SliceablePartList:
                 else:
                     result.append(self.__parts_list.pop(0))
 
-        return result
+        return list(result)
 
     def get_size(self) -> int:
         return self.__size

@@ -1,4 +1,4 @@
-CC=pypy3
+CC=python3.5
 SRCS=$(shell find . -name "[A-Z]*.py")
 PROFILEOUT=profile_data
 PROFILELINES=profile_lines
@@ -6,9 +6,12 @@ FLAME=profile.flame
 FLAMEIMG=profile.svg
 FLAMEOPTS= --title "IME Simulation" --colors blue
 
-all: $(SRCS)
+all: $(SRCS) accelerated.so
 	cd src/ && time $(CC) Simulator.py --request ../request
 	gnuplot plot.plt
+
+accelerated.so: accelerated.c
+	gcc -shared -o accelerated.so -fPIC -Wall -O2 $<
 
 print:
 	@echo $(SRCS)
@@ -17,7 +20,7 @@ doc: $(SRCS) Doxyfile
 	doxygen Doxyfile
 
 lineprofile: $(SRCS)
-	$(CC) -m vmprof --lines -o $(PROFILEOUT) src/Simulator.py 
+	cd src/ && $(CC) -m vmprof --lines -o $(PROFILEOUT) Simulator.py && mv $(PROFILEOUT) ../
 	vmprofshow --lines $(PROFILEOUT) > $(PROFILELINES)
 	less $(PROFILELINES)
 
