@@ -66,7 +66,7 @@ class ServerManager(IfForServer, IfForClient):
     def read_from_server(self, requests: List[ReadRequest], target: int):
         self.env.process(self.servers[target].process_read_requests(requests))
 
-    def get_server_count(self):
+    def get_server_count(self) -> int:
         return len(self.servers)
 
     def write_completed(self):
@@ -139,3 +139,6 @@ class ServerManager(IfForServer, IfForClient):
 
     def answer_client_read(self, request: ReadRequest):
         self.env.process(self.__clients[request.get_client()].receive_read_answer(request))
+
+    def propagate_metadata(self, packed_metadata, target_id: int):
+        yield self.env.process(self.servers[target_id].receive_metadata_backup(packed_metadata))

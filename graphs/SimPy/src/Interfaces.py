@@ -6,6 +6,9 @@ class GeneralManagerIf:
     @abstractmethod
     def perform_network_transaction(self, size: int): raise NotImplementedError
 
+    @abstractmethod
+    def get_server_count(self) -> int: raise NotImplementedError
+
 
 class IfForServer(GeneralManagerIf):
     @abstractmethod
@@ -23,6 +26,8 @@ class IfForServer(GeneralManagerIf):
     @abstractmethod
     def send_recovery_request(self, ids: set, targets: int): raise NotImplementedError
 
+    @abstractmethod
+    def propagate_metadata(self, packed_metadata, target_id: int): raise NotImplementedError
 
 class IfForClient(GeneralManagerIf):
     @abstractmethod

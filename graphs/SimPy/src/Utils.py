@@ -383,8 +383,9 @@ class WriteRequest:
         return self.__eager_commit
 
     def __str__(self):
-        result = "ClientRequest(id {}, parity map {}, {} -> {}):\n"\
-            .format(self.__parity_id, self.__parity_group, self.__client_id, self.__target_server_id)
+        result = "ClientRequest(id {}, parity map {}, {} -> {}{}):\n"\
+            .format(self.__parity_id, self.__parity_group, self.__client_id,
+                    self.__target_server_id, " flush" if self.__eager_commit else "")
         if self.__file_parts:
             for part in self.__file_parts:
                 result += "\t{}\n".format(part)

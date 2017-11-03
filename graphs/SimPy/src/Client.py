@@ -2,7 +2,7 @@ import simpy
 from Logger import Logger
 from Utils import *
 from Contract import Contract
-from collections import deque
+from collections import deque, OrderedDict
 from ParityGroupCreator import ParityGroupCreator, ParityId
 from Interfaces import IfForClient
 
@@ -80,6 +80,7 @@ class Client:
             while self.__bucket_queue[i].get_size() >= self.__netbuff_size:
                 buffer = self.__bucket_queue[i].pop_buffer(self.__netbuff_size, FilePart)
                 self.__buffer_queue[i].append(buffer)
+
         self.__prepare_write_request()
 
     def is_parity_group_valid(self, targets: List[int]) -> bool:
@@ -88,7 +89,7 @@ class Client:
                 return False
         return True
 
-    def __send_buffers(self, targets: List[int], eager_commit: bool = False):
+    def __send_buffers(self, targets: List[int]):
         if __debug__:
             assert len(targets) <= sum(self.__geometry), \
             "Client: Cannot send more packets than the geometry"
@@ -99,7 +100,10 @@ class Client:
         targets_int = ParityGroupCreator.positions_to_int(targets)
         max_size = 0
         for target in targets[1:]:
-            request = WriteRequest(self.__id, target, targets_int, parity_id, eagerness=eager_commit)
+            eagerness = False
+            if self.__remaining_targets is not None:
+                eagerness = False if target in self.__remaining_targets else True
+            request = WriteRequest(self.__id, target, targets_int, parity_id, eagerness)
             request.set_parts(self.__buffer_queue[target].popleft())
             max_size = max(max_size, request.get_size())
             if self.__show_requests:
@@ -107,7 +111,7 @@ class Client:
             self.env.process(self.__send_write_request(request))
 
         # Send parity request
-        parity_request = WriteRequest(self.__id, targets[0], targets_int, parity_id, eagerness=eager_commit)
+        parity_request = WriteRequest(self.__id, targets[0], targets_int, parity_id, eagerness=False)
         parity_request.set_parts([FilePart.create_parity_part(max_size)])
         if self.__show_requests:
             print(parity_request)
@@ -137,16 +141,23 @@ class Client:
                 if queue_len != 0:
                     remaining_targets_list.append((i, queue_len))
             remaining_targets_list.sort(key = lambda k: k[1])
-            self.__remaining_targets = deque(remaining_targets_list)
+            self.__remaining_targets = OrderedDict()
+            for target, count in remaining_targets_list:
+                self.__remaining_targets[target] = count
 
         while len(self.__remaining_targets) >= self.__geometry[0] \
                 or (flush and len(self.__remaining_targets) != 0):
             targets_int = 0
-            for i in range(self.__geometry[0]):
-                if i >= len(self.__remaining_targets):
+            countdown = self.__geometry[0]
+            iterator = iter(self.__remaining_targets)
+            while countdown > 0:
+                try:
+                    key = next(iterator)
+                    self.__remaining_targets[key] -= 1
+                    targets_int |= 1 << key
+                    countdown -= 1
+                except StopIteration:
                     break
-                self.__remaining_targets[i] = (self.__remaining_targets[i][0], self.__remaining_targets[i][1] - 1)
-                targets_int |= 1 << self.__remaining_targets[i][0]
 
             # Set parity target
             targets = ParityGroupCreator.int_to_positions(targets_int)
@@ -154,11 +165,15 @@ class Client:
             while parity_target in targets:
                 parity_target = randint(0, self.__server_count-1)
 
-            self.__send_buffers([parity_target] + targets, eager_commit=flush)
-
             # Cleanup of empty packets
-            while len(self.__remaining_targets) > 0 and self.__remaining_targets[0][1] <= 0:
-                self.__remaining_targets.popleft()
+            while len(self.__remaining_targets) > 0:
+                first_key = next(iter(self.__remaining_targets))
+                if self.__remaining_targets[first_key] == 0:
+                    del self.__remaining_targets[first_key]
+                else:
+                    break
+
+            self.__send_buffers([parity_target] + targets)
 
     def __send_write_request(self, request: WriteRequest):
         self.__data_sent += request.get_size()
@@ -172,7 +187,6 @@ class Client:
         start = self.env.now
         yield token_request
         self.logger.add_task_time("token-wait", self.env.now - start)
-
 
         # simulate network transaction
         start = self.env.now

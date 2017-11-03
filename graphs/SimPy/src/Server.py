@@ -26,6 +26,8 @@ class Server:
             config[Contract.S_HDD_DATA_LATENCY_US],
             config[Contract.S_HDD_DATA_WRITE_MBPS])
         self.__cached_metadata = deque()
+        self.__backup_metadata = deque()
+        self.__metadata_propagation_timeout = None
 
         # with unsigned short int a single disk can contain 8 TB of a file. This is not limiting the simulator
         # in any case. Better save some memory
@@ -34,6 +36,7 @@ class Server:
         for i in range(self.config[Contract.S_HDD_DATA_COUNT]):
             self.__disk_content.append(deque())
         self.__recovery_targets = 0
+
 
     def get_id(self):
         return self.__id
@@ -87,18 +90,44 @@ class Server:
     def __perform_journal_operation(self, request: WriteRequest):
         yield self.env.timeout(request.get_size())
 
+    def receive_metadata_backup(self, packed_metadata):
+        # print(self.__id, 'received metadata len', len(packed_metadata))
+        self.__backup_metadata += packed_metadata
+        yield self.env.timeout(self.__disk_interaction(len(packed_metadata)))
+
     def __send_cached_metadata(self):
-        yield self.env.timeout(3289)
+        backup_target = (self.__id + 1) % self.__manager.get_server_count()
+        yield self.env.process(self.__manager.perform_network_transaction(len(self.__cached_metadata)))
+        yield self.env.process(self.__manager.propagate_metadata(self.__cached_metadata, backup_target))
+        self.__cached_metadata.clear()
+
+    def __metadata_timeout(self):
+        try:
+            yield self.env.timeout(int(1e9))
+            if len(self.__cached_metadata) > 0:
+                self.env.process(self.__send_cached_metadata())
+        except simpy.Interrupt:
+            print(self.__id, 'Prevented timeout from sending partial data')
 
     def __propagate_metadata(self, request: WriteRequest):
-        for part in request.get_parts():
-            self.__cached_metadata.append(part)
+        self.__cached_metadata += request.get_parts()
         self.logger.add_task_time("cache-metadata", 10)
 
+        # if request.is_eager_commit():
+        #     print(self.__id, 'eager commit')
+        #
+        # if len(self.__cached_metadata) >= self.config[Contract.S_METADATA_CACHING_THRESHOLD]:
+        #     print(self.__id, 'length reached')
+
         if request.is_eager_commit() \
-                or len(self.__cached_metadata) >= self.config[Contract.S_METADATA_CACHING_THRESHOLD] \
-                or False:  # Timeout;
+                or len(self.__cached_metadata) >= self.config[Contract.S_METADATA_CACHING_THRESHOLD]:
+            if self.__metadata_propagation_timeout is not None \
+                    and self.__metadata_propagation_timeout.is_alive:
+                self.__metadata_propagation_timeout.interrupt()
             yield self.env.process(self.__send_cached_metadata())
+        else:
+            pass
+            # self.__metadata_propagation_timeout = self.env.process(self.__metadata_timeout())
 
     def __control_plane(self, request: WriteRequest):
         journal = self.env.process(self.__perform_journal_operation(request))
@@ -133,8 +162,11 @@ class Server:
         return write_time
 
     def process_read_requests(self, requests):
+        processes = []
         for single_request in requests:
-            yield self.env.process(self.process_read_request(single_request))
+            process = self.env.process(self.process_read_request(single_request))
+            processes.append(process)
+        yield simpy.AllOf(self.env, processes)
 
     def process_read_request(self, request: ReadRequest) -> int:
         """

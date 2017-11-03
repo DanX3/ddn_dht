@@ -17,16 +17,16 @@ doc: $(SRCS) Doxyfile
 	doxygen Doxyfile
 
 lineprofile: $(SRCS)
-	$(CC) -m vmprof --lines -o $(PROFILEOUT) Simulator.py 
+	$(CC) -m vmprof --lines -o $(PROFILEOUT) src/Simulator.py 
 	vmprofshow --lines $(PROFILEOUT) > $(PROFILELINES)
 	less $(PROFILELINES)
 
 profile: $(SRCS)
-	$(CC) -m vmprof -o $(PROFILEOUT) Simulator.py
+	$(CC) -m vmprof -o $(PROFILEOUT) src/Simulator.py
 	vmprofshow $(PROFILEOUT) | head -30
 
 flame: $(SRCS)
-	python3.5 -m vmprof --lines -o $(PROFILEOUT) Simulator.py
+	cd src/ && python3.5 -m vmprof --lines -o $(PROFILEOUT) Simulator.py && mv $(PROFILEOUT) ../
 	vmprof-flamegraph.py $(PROFILEOUT) > $(FLAME)
 	flamegraph.pl $(FLAMEOPTS) $(FLAME) > $(FLAMEIMG)
 	firefox $(FLAMEIMG)
@@ -45,4 +45,4 @@ clean:
 	rm -f logs/*
 
 show:
-	firefox *.svg & 
+	firefox svgs/* & 

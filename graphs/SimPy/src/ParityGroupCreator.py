@@ -43,6 +43,9 @@ class ParityGroupCreator:
             counter += 1
             if current_step > int_target:
                 break
+
+        # shuffled_idx = randint(0, len(result) - 1)
+        # result[0], result[shuffled_idx] = result[shuffled_idx], result[0]
         return result
 
     @staticmethod
