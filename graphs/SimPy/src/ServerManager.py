@@ -91,12 +91,12 @@ class ServerManager(IfForServer, IfForClient):
         if self.__client_completed == len(self.__clients):
             printmessage(0, "Finished Reading", self.env.now)
             self.__manager_logger.add_task_time("read-operation", self.env.now - self.__start)
-            self.__end_simulation()
+            self.__simulate_disk_failure(2)
 
     def __simulate_disk_failure(self, server_id: int):
         self.__server_restoring = server_id
         self.__start = self.env.now
-        self.env.process(self.servers[server_id].process_disk_failure())
+        self.env.process(self.servers[server_id].process_disk_failure(0))
 
     def send_recovery_request(self, ids: set, targets: int):
         for target in ParityGroupCreator.int_to_positions(targets):
