@@ -193,6 +193,31 @@ requests generated and so the netowork traffic. For requests bigger than 400MB
 we cannot see the difference since network traffic reduction has been overcome
 by IO operations.
 
+\subsubsection{Queue Issues}
+Using the buckets system, targets must be decided in this step and then the
+buffer queue adapt the data to be sent at a different granularity.
+The parity groups are chosen based on a pseudo-random sequence that should
+even out the load to the servers. \\
+This system has some issues when some queue is empty: since the target are
+not chosen based on the length of the queue, it may happen that some queue is
+empty and thed parity group will not be complete. \\
+
+\includegraphics[width=\textwidth]{packets_choice.png}
+In the representation of the system, each row is a queue while every column shows a parity group.
+A circle shows that an element should be picked from that queue. \\
+In the first column the parity group identified by \textit{106} shows that
+should be popped an element from queue \textit{1,3,5} and \textit{6}. The
+integer identifier is the binary representation of the queues involved. In the
+first column $(106)_{10} = (1101010)_2$ \\
+In this case the algorithm has a bit of tolerance: at the beginning is more
+likely that a single queue does not have any element so, before dropping this
+method, it tries some more times to send full parity groups. The chances are in
+the order of the server count. \\
+After this approach failed more than the chances allowed, another approach is applied:
+parity groups are sent based on what is left, meaning that the precomputed
+parity groups are not the only groups inside the system, but new ones can be
+created based on the needs.\\
+
 \subsubsection*{HDD behaviour}\label{hdd-behaviour}
 There is a lower minimum size an HDD interact with. If the user wants to edit a
 single byte on the file system, the HDD will read a bigger amount of data,
@@ -274,17 +299,38 @@ a buffered communication of 1 MB per packet. \\
 This is the optimal workflow, that is without any kind of error.
 
 \subsection{Data Recovery}
+\begin{wrapfigure}{r}{0.25\textwidth}
+    \centering
+    \includegraphics[width=0.25\textwidth]{recovery.png}
+\end{wrapfigure}
+
 This is the case when a device cannot read anymore from one of its devices, for
-any kind of reason. The server is now unable to satisfy the client's requests
-and has to recover the data lost using the Erasure Coding system. \\
-In case the server has lost also its metadata, it has to recover it from the
-responsible server in the DHT. After this is recovered it has to gather al the
-buffers involved in the lost parity groups. This is a very expensive operation
-that can stop the system for a while but prevents the total interruption of the
-service. \\
-After every buffer of a parity group is retrieved, the missing buffer can be
+any kind of reason. HDD are prone to failures and SSD, the devices used in this
+system, are more likely to fail over time due to usage. \\
+The server is now unable to satisfy the client's requests
+but using the \textit{Erasure coding} system, it can recover data comparing
+packets of the same parity group and its parity. \\
+Parity can be disabled, activated with 1 or 2 parity packet. The more parity we
+Introduce, the slower the system become, gaining robustness against hardware errors.
+Whenever a file, or a part of it, is written in a server, the latter propagate
+its metadata to the next server, in order to protect not only data, using
+parity, but also metadata of the files. \\
+If the server is not able anymore to read nor data or metadata, it will contact
+its next server to understand which files are missing. After this step, the
+server is aware of the parity groups to gather to recover the data. It will then
+contact the servers that owns the packets of the same parity groups of the
+missing ones. \\
+After every packet of a parity group is retrieved, the missing buffer can be
 regenerated using the parity information. If has been lost a parity buffer,
-recovery is anyway necessary to prevent future failures.
+recovery is anyway necessary to prevent future failures. \\
+In the picture the \textit{Gather Parity Groups} is relative to metadata
+gathering. \textit{Send parity Request} is the request for the buffers of the
+same lost buffer's parity group not owned by the server. This is a network
+request, so logically will come \textit{Receive Parity Request} but will happen
+later in time, after the target server will have sent the answer.
+After every buffer of the same parity group will be received, the server is able
+to \textit{rebuild its missing data}.
+
 
 \subsection{IO operations}
 IME supports different IO operations depending on the task
