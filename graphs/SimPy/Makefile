@@ -39,6 +39,7 @@ graph: map.gv
 
 plot:
 	gnuplot plot.plt
+	mv *.svg svgs/
 
 plotclient: client.log
 	gnuplot plot.plt

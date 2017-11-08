@@ -129,6 +129,7 @@ class Client:
                 continue
 
             self.__send_buffers(targets)
+            self.logger.add_task_time('allocation', 100000)
 
         self.__prepare_remainders()
 
@@ -147,6 +148,7 @@ class Client:
 
         while len(self.__remaining_targets) >= self.__geometry[0] \
                 or (flush and len(self.__remaining_targets) != 0):
+            self.logger.add_task_time('allocation', 200000)
             targets_int = 0
             countdown = self.__geometry[0]
             iterator = iter(self.__remaining_targets)

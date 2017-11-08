@@ -33,6 +33,12 @@ def round_robin_gen(max: int):
         yield i
         i = (i + 1) % max
 
+def infinite_gen():
+    i = 0
+    while True:
+        yield i
+        i += 1
+
 
 class CML_oid:
     def __init__(self, original_file, part_number):
