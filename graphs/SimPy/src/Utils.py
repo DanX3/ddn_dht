@@ -378,7 +378,7 @@ class WriteRequest:
     def get_parity_id(self):
         return self.__parity_id
 
-    def get_parity_group(self):
+    def get_parity_map(self):
         return self.__parity_group
 
     def set_parity_group(self, parity_group: int):

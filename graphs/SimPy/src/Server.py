@@ -1,4 +1,5 @@
 import simpy
+import numpy as np
 from Logger import Logger
 from Utils import *
 from Contract import Contract
@@ -6,6 +7,7 @@ from collections import deque
 from Interfaces import IfForServer
 from array import array
 from FunctionDesigner import Function2D
+from DataIndexer import Indexer
 
 
 class Server:
@@ -19,6 +21,7 @@ class Server:
         self.__parts = {}  # Dict[str, List[FileParts]
 
         self.__network_buffer_size = int(misc_params[Contract.M_NETWORK_BUFFER_SIZE_KB])
+        self.__disks_count = config[Contract.S_HDD_DATA_COUNT]
         self.__show_requests = bool(config[Contract.S_SHOW_REQUESTS])
         self.__disk_target_gen = round_robin_gen(config[Contract.S_HDD_DATA_COUNT])
         self.__disk_interaction = Function2D.get_bandwidth_model(
@@ -27,14 +30,8 @@ class Server:
         self.__cached_metadata = deque()
         self.__backup_metadata = deque()
         self.__metadata_propagation_timeout = None
+        self.__indexer = Indexer(self.__disks_count, CML_oid.get_size())
 
-        # with unsigned short int a single disk can contain 8 TB of a file. This is not limiting the simulator
-        # in any case. Better save some memory
-        self.__cmloids_per_disk = {}  # Dict(str, int)
-        self.__disk_content = []  # List(deque((parity_id: int, parity_map: int))]
-        self.__packets_stored = {}  # Dict[int, int]
-        for i in range(self.config[Contract.S_HDD_DATA_COUNT]):
-            self.__disk_content.append(deque())
         self.__recovery_targets = 0
 
 
@@ -63,18 +60,11 @@ class Server:
             load[i] += CML_oid.get_size()
         return load
 
-    def print_file_map(self, filename: str):
-        # Clients knows the server that has their data but
-        # the server can have received a parity instead of the actual file
-        if filename in self.__cmloids_per_disk:
-            print(self.__cmloids_per_disk[filename])
-
     def __track_cmloids(self, request: WriteRequest):
         sliceable_list = SliceablePartList()
         parts = request.get_parts()
         parity_id = request.get_parity_id()
-        parity_group = request.get_parity_group()
-        self.__packets_stored[request.get_parity_id()] = request.get_parity_group()
+        parity_group = request.get_parity_map()
         sliceable_list.add_parts(parts)
 
         current_disk = next(self.__disk_target_gen)
@@ -158,8 +148,10 @@ class Server:
         mutex_req = self.__mutex.request()
         yield mutex_req
 
-        self.__track_cmloids(request)
-        max_load = int(ceil(request.get_size() / len(self.__disk_content)))
+        # self.__track_cmloids(request)
+        self.__indexer.write_packet(request)
+
+        max_load = int(ceil(request.get_size() / self.__disks_count))
         write_time = Function2D.disk_interaction(max_load, self.config[Contract.S_HDD_DATA_WRITE_MBPS])
         yield self.env.timeout(write_time)
         self.logger.add_task_time("disk-write", write_time)
@@ -183,21 +175,21 @@ class Server:
         :return: the number of cmloids the server owns at the current time and the read time
         """
         if __debug__:
-            assert request.get_filename() in self.__cmloids_per_disk, \
+            assert self.__indexer.is_file_present(request.get_filename()), \
             "Server: filename not owned, Client should know who to ask for the files"
 
         requested_filename = request.get_filename()
         mutex_req = self.__mutex.request()
         yield mutex_req
 
-        max_load = max(self.__cmloids_per_disk[requested_filename]) * CML_oid.get_size()
+        max_load = max(self.__indexer.get_cmloids_per_disk(requested_filename)) * CML_oid.get_size()
         # print("Reading at most {} cmloids per device".format(max(self.__cmloids_per_disk[requested_filename])))
         read_time = Function2D.disk_interaction(max_load, self.config[Contract.S_HDD_DATA_WRITE_MBPS])
         yield self.env.timeout(read_time)
         self.logger.add_task_time("disk-read", read_time)
 
         self.__mutex.release(mutex_req)
-        total_cmloids = sum(self.__cmloids_per_disk[requested_filename])
+        total_cmloids = sum(self.__indexer.get_cmloids_per_disk(requested_filename))
 
         if self.__show_requests:
             print("<{:3d}> {}, read {} cmloids ({} KB)".format(self.__id, request, total_cmloids, total_cmloids * CML_oid.get_size()))
@@ -214,8 +206,8 @@ class Server:
 
         ids_to_gather = set()
         self.__recovery_targets = 0
-        self.logger.add_object_count('cmloids-lost', len(self.__disk_content[disk_id]))
-        for id, map in self.__disk_content[disk_id]:
+        self.logger.add_object_count('cmloids-lost', len(self.__indexer.get_disk_packets(disk_id)))
+        for id, map in self.__indexer.get_disk_packets(disk_id).items():
             ids_to_gather.add(id)
             self.__recovery_targets |= map
 
@@ -232,11 +224,11 @@ class Server:
 
     def gather_and_send_parity_groups(self, ids_to_gather: set()):
         # computing load per disk
-        load = array('H', [0]*len(self.__disk_content))
+        load = np.array([0] * self.__disks_count, np.uint16)
         disk_id = 0
         packets_gathered = 0
         for id_to_gather in ids_to_gather:
-            if id_to_gather in self.__packets_stored:
+            if id_to_gather in self.__indexer.get_disk_packets(disk_id):
                 packets_gathered += 1
         self.logger.add_object_count('packets-gathered', packets_gathered)
 
