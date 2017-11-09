@@ -27,7 +27,9 @@ digraph System {
     recv_ack -> token_release
 
 
-    read_data -> gather_targets -> token_request1
+
+    read_data -> gather_targets [label="Random"]
+    gather_targets -> token_request1
     subgraph clusterToken1 {
         token_condition1 [label = "Tokens Available > 0" shape="diamond"]
         token_request1 -> token_condition1
@@ -36,7 +38,21 @@ digraph System {
         wait1 -> token_condition1
     }
     token_granted1 -> send__read_request
+    
+    finished_reading [shape=diamond]
+    token_request_2 [label="Token Request" style=dashed fontcolor="#607d8b" penwidth=2.0 fontname="Noto
+    Sans" fontsize=12.0]
+    read_data -> finished_reading [label="linear"]
+    finished_reading -> gather_target [color="#f44336"]
+    gather_target -> token_request_2 -> send_single_read_req
+    send_single_read_req -> receive_answer [style=dotted]
+    receive_answer -> finished_reading
+    finished_reading -> end [color="#4caf50"]
+    end [label="End" style=solid fontcolor="#607d8b" penwidth=2.0 fontname="Noto
+    Sans" fontsize=12.0]
+
 
     token_release1 [label="token_release"]
     recv_data -> network_communication -> token_release1 -> write_data_to_disk
+
 }
