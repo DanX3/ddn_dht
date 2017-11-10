@@ -56,7 +56,9 @@ function with a diagonal limit, namely $\lim_{x \to +\infty} y(x) = +\infty$,
 that is a real behaviour for every network. \\
 The function of choice then is an \textit{hyperbole} adjusted to match the
 specified coordinates. \\
-\includegraphics[width=\textwidth]{diaglimit.png}
+\begin{myimage}{diaglimit.png}{diaglimit}
+    The diagonal limit function applied in the network and disk performance model
+\end{myimage}
 
 
 \subsection{Tokenized communication}
@@ -218,14 +220,14 @@ parity groups are sent based on what is left, meaning that the precomputed
 parity groups are not the only groups inside the system, but new ones can be
 created based on the needs.\\
 
-\subsubsection*{HDD behaviour}\label{hdd-behaviour}
-There is a lower minimum size an HDD interact with. If the user wants to edit a
-single byte on the file system, the HDD will read a bigger amount of data,
-accept user modification, and write again the bigger amount of data. If this
-amount of data is 256KB, for instance, performing 8 write of 256KB or 1B each,
-will result in the same performances.  The only difference is that, if we are
-aware of this fact, we can make use of it writing 2MB instead of 8B
-respectively.
+%\subsubsection*{HDD behaviour}\label{hdd-behaviour}
+%There is a lower minimum size an HDD interact with. If the user wants to edit a
+%single byte on the file system, the HDD will read a bigger amount of data,
+%accept user modification, and write again the bigger amount of data. If this
+%amount of data is 256KB, for instance, performing 8 write of 256KB or 1B each,
+%will result in the same performances.  The only difference is that, if we are
+%aware of this fact, we can make use of it writing 2MB instead of 8B
+%respectively.
 
 \subsection{Distributed Hash Table (DHT)}
 IME servers must be aware of the data that are inside the system, being also

@@ -1,0 +1,122 @@
+
+\section{Development}
+Since IME is a complicated environment, has been chosen to develop the simulator 
+using an iterative approach. This allowed an understanding of the whole system
+showing a single part at a time, at the cost of creating prototypes that needed
+to be rewritten partially or completely. \\
+To speed up this prototyping approach has been used the Dot language \cite{dot-lang} to 
+quickly develop finite state machines that will have been later implemented.
+
+\subsection{Environment choice}
+Based on the conditions explained in the introduction (see section
+\ref{requirements}), \textit{Python} seemed a reasonable choice. Mostly because
+of its flexibility to changes, not worrying about small detail like memory
+addresses and garbage collection. Since this applications is not computationally
+intensive, not involving any kind of floating point operation, the cost of an
+interpreted language is not so high. \\
+Moreover modern features coming from Python 3.5+ made easier to develop a
+relatively big applications as this simulator is, like types annotations and
+better generators support.
+
+\subsection{Tools Chosen}
+\begin{itemize}
+    \item Dot graphs
+    \item SimPy
+    \item PyPy
+    \item vmprof \& Flamegraph
+\end{itemize}
+
+\subsection{Simpy}
+Simpy is the library the projects is based on. It is a Discrete Simulation
+library that fulfill the requirements. Exploiting language mechanics like
+generators does not add overhead on the application. It is process-based
+meaning that every task can be scheduled as a process, not waiting for others
+task to be completed. The library is anyway serial, not creating threads by
+itself. Anyway it can be integrated using other libraries, like \textit{threading} (see
+\cite{threading}), but so far the simulation achieve reasonable wall times,
+there is no need to parallelize it.
+Simpy offer a framework in which our routines are executed and tracked. The
+status of an agent inside the system is tracked using python generators,
+lazy iterators that generate the requested iterator only when needed. Because of
+the framework environment we need specific functions that returns a generator
+Simpy can take care of and others that keep track of the system status. Simpy
+functions can return generators to make the virtual clock going on, create other
+virtual processes or wait for other processes to be completed, according to the
+situation. The other set of functions are those that implement the system's logic.
+
+\subsection{SimPy Components}
+The philosophy of Simpy led to the development of some ready-to-use components
+that ease the process management like mutex and task queues.
+Anyway Simpy provides only tools to manage the processes, lacking some
+structures to extract usage data to investigate at the end of the simulation.
+For this reason some more tools has been developed both in Python, for internal
+simulation data extraction, and Bash to automate plotting and file management.
+
+\subsubsection*{Timeout}
+The library has some predefined events like a \textit{Timeout} event that just
+simulates time passing for the caller.\\
+This call blocks only the calling agent, allowing every other event already
+triggered to be processed correctly. \\
+Every real time consuming action is simulated through this function: the call
+with the correct amount of time will make the calling agent to wait until the
+task is virtually completed.
+
+\subsubsection*{Resources}
+In every simulation environment there are components that needs to be accessed
+by many agents and to process correctly this resource contention. This means
+keeping a queue of every agent and trigger one as a resource is freed. \\
+SimPy takes care of this queue management, providing many types of resources,
+fitting many needs.
+\begin{itemize}
+    \item \textbf{Resource} \cite{simpy-resource}: 
+        allows multiple agents to access this tool at the same time. A
+        request to this resource is blocked if the quantity of agents using it
+        is already at the maximum value. The maximum number of agents
+        can be set in its constructor. Setting \texttt{capacity = 1} means this
+        resource will behave as a mutex. \\
+        An example is accessing a disk to write a file: only a single file can be
+        written at once, so the device's resource will have a capacity set to 1.
+        The writing process must obtain access to this resource before
+        proceeding further. \\
+        \begin{myimage}{resource.png}{resource-img}
+            Request management using simpy.Container
+        \end{myimage}
+        As shown in Figure \ref{resource-img} the requests are accepted based on
+        the current load of the resource. If there is still room for another
+        request, as happens in the left case, the request is accepted. \\
+        Otherwise if the request is completely filled, the request is blocked
+        until some of the already occupying request free the resource.
+    \item \textbf{Container} \cite{simpy-container}: whereas the "Resource"
+        tracks the number of accesses to a resource, the container is concerned
+        about the quantity of a resource stored. As a container cannot store
+        bigger amount of goods than its size and cannot give more than it has
+        stored already.  \\
+        A practical example can be an HDD: in the case the disk has already
+        200/250 GB of data written, a writing request of 100GB must be blocked
+        until the disk has freed some space. \\
+        As a side note, the library still lack custom callback implementation to
+        handle blocked requests. This means that I don't have the possibility to
+        perform some actions if a disk is too full based on SimPy classes. This
+        forces me to not fully rely on SimPy classes and implement my own
+        custom solutions. \\
+        \begin{myimage}{container.png}{container-img}
+            A simpy container
+        \end{myimage}
+\end{itemize}
+
+\subsection{Tools created}
+\begin{itemize}
+    \item Monitors
+    \item Logger
+    \item Tester (Still to be created. The idea is stressing the system with
+        multiple tests and get some statistic about the system
+\end{itemize}
+
+\subsection{Object size analysis}
+Show the size of a set of data
+\begin{itemize}
+    \item on their own
+    \item in a list
+    \item in a class
+    \item in a queue
+\end{itemize}

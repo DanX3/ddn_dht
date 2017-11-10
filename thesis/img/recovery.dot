@@ -1,0 +1,25 @@
+digraph Recovery {
+    node [shape=box style="filled" color="#607d8b" fontcolor=white
+    fontsize=20.0 fontname="Noto Sans" ]
+    edge [color="#212121" penwidth=2.0 fontname="Noto Sans" fontsize=18.0]
+    node [shape=box]
+    splines=ortho
+    style=dashed
+
+    wait_all_parity [shape = "octagon" label = "Wait All" style=solid
+    color="#607d8b" fontcolor="#424242" penwidth=2]
+    erasure_coding [label="Erasure Coding"]
+    gather_parity_map [label="Gather parity groups"]
+    send_parity_request [label="Send Parity request"]
+    rebuild_missing_data [label="Rebuild missing data"]
+    recv_parity_request [label="Receive parity request"]
+
+    erasure_coding -> gather_parity_map -> send_parity_request
+    gather_parity_map -> send_parity_request
+    gather_parity_map -> send_parity_request
+    send_parity_request -> recv_parity_request [style=dotted]
+    send_parity_request -> recv_parity_request [style=dotted]
+    send_parity_request -> recv_parity_request [style=dotted]
+    recv_parity_request -> wait_all_parity -> rebuild_missing_data
+
+}
