@@ -26,7 +26,8 @@ better generators support.
     \item vmprof \& Flamegraph
 \end{itemize}
 
-\subsection{Simpy}
+
+\subsection{Simpy}\label{simpy}
 Simpy is the library the projects is based on. It is a Discrete Simulation
 library that fulfill the requirements. Exploiting language mechanics like
 generators does not add overhead on the application. It is process-based
@@ -78,10 +79,12 @@ fitting many needs.
         written at once, so the device's resource will have a capacity set to 1.
         The writing process must obtain access to this resource before
         proceeding further. \\
-        \begin{myimage}{resource.png}{resource-img}
-            Request management using simpy.Container
+        \begin{myimage}{resource}{Resource request management}
+            Request management using simpy.Container. A \textit{Resource} with
+            still space accepts a new request (left). A full one rejects the
+            request instead (right)
         \end{myimage}
-        As shown in Figure \ref{resource-img} the requests are accepted based on
+        As shown in Figure \ref{eq:resource} the requests are accepted based on
         the current load of the resource. If there is still room for another
         request, as happens in the left case, the request is accepted. \\
         Otherwise if the request is completely filled, the request is blocked
@@ -91,26 +94,57 @@ fitting many needs.
         about the quantity of a resource stored. As a container cannot store
         bigger amount of goods than its size and cannot give more than it has
         stored already.  \\
-        A practical example can be an HDD: in the case the disk has already
-        200/250 GB of data written, a writing request of 100GB must be blocked
-        until the disk has freed some space. \\
+        An example is shown if Figure \ref{eq:container} where different put and
+        get requests are performed. Put requests (on the right) are allowed if
+        there is enough space, get requests are allowed if there is enough good
+        stored. \\
         As a side note, the library still lack custom callback implementation to
-        handle blocked requests. This means that I don't have the possibility to
-        perform some actions if a disk is too full based on SimPy classes. This
-        forces me to not fully rely on SimPy classes and implement my own
-        custom solutions. \\
-        \begin{myimage}{container.png}{container-img}
-            A simpy container
+        handle blocked requests. This means that there is not the possibility to
+        perform some actions if a container is too full, blocking some requests.
+        This forces to not fully rely on SimPy classes and implement custom 
+        solutions that benefits from these callbacks.
+        \begin{myimage}{container}{Container Request management}
+            A simpy container with a capacity of 100. On the left the requests
+            to put a good in the \textit{Container}, allowed only if there is
+            enough space. On the right the get requests, allowed only if there
+            is enough resource
+            currently stored in the container.
         \end{myimage}
 \end{itemize}
 
 \subsection{Tools created}
+Since SimPy provide only simulation utilities, lacking data gathering components
+and plotting, these features has been developed aside. Specifically has been designed:
 \begin{itemize}
-    \item Monitors
-    \item Logger
-    \item Tester (Still to be created. The idea is stressing the system with
-        multiple tests and get some statistic about the system
+    \item \textbf{Logger}: in order to gather data about the components, every
+        action is registered using a shared object. Every step is registered, in
+        terms of time spent on that action or in times an action is performed.
+        At the end of the simulation the data gathered are printed to external
+        files, allowing parsing and plotting using external resources.
+    \item \textbf{Testing environment}: to inspect the behaviour of the system
+        should be easy to specify many test cases using different
+        configurations. For this reason bash scripts and makefiles has been
+        developed to manage the simulator at a higher level. At the end of the
+        multiple simulations, plots are generated based on the data gathered
+        from each run.
 \end{itemize}
+
+
+
+\subsection{Profiling}\label{profiling}
+Time spending operations are simulates as already specified. The simulator is
+not a computationally intensive application but as things start to grow, the
+wall time increases. This because of the large amount of data needed to run the
+application: a file of 1 GB must be splitted in buckets, network buffer and
+finally in \cmloid of size 128 KB. This result in $1GB / 128KB = 8192 \cmloid$
+allocated just for a single gigabyte of data written. Some experiments on C
+integration has been conducted but the real problem is data allocation and its
+management. The usage of suitable data structures for every need plays a key
+role in speeding up the simulator. \\
+\textit{Talk about xargs and how memory bound the simulator is}
+
+
+\subsection{Pypy}
 
 \subsection{Object size analysis}
 Show the size of a set of data
@@ -120,3 +154,6 @@ Show the size of a set of data
     \item in a class
     \item in a queue
 \end{itemize}
+
+\subsection{C integration}
+Python is

@@ -1,0 +1,26 @@
+\newcounter{figurecounter}
+
+\newenvironment{myimage}[2] 
+    { 
+        \stepcounter{figurecounter}
+        {
+        \color{white}
+        \begin{equation}
+            \label{eq:#1}
+        \end{equation}
+        }
+        \begin{minipage}{\textwidth}
+            \noindent\rule{\textwidth}{1pt} \\
+            \center{\Large{#2}} \\ 
+            \includegraphics[width=0.9\textwidth]{#1} \\
+        \end{minipage}
+        \begin{minipage}{\textwidth} \begin{center}\begin{footnotesize}
+            Figure \arabic{figurecounter}: 
+    }
+    { 
+        \end{footnotesize}\end{center}
+        \noindent\rule{\textwidth}{1pt}
+        \end{minipage}
+    }
+
+\newcommand{\cmloid}{CML\_oid }

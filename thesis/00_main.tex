@@ -4,6 +4,7 @@
 \usepackage{graphicx}
 \usepackage{wrapfig}
 \usepackage{verbatim}
+\usepackage{xcolor}
 \usepackage{url}
 \graphicspath{{img/}}
 
@@ -15,13 +16,8 @@
 \tableofcontents
 \newpage
 
-\newenvironment{myimage}[2] 
-    { \label{#2} 
-    \includegraphics[width=\textwidth]{#1}
-    \noindent\rule{\textwidth}{0.1pt}
-    \begin{center}\begin{small} }
-    { \end{small}\end{center} }
 
+\include{Definitions}
 \include{01_Introduction}
 \include{02_Architecture}
 \include{03_Development}

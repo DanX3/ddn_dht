@@ -1,0 +1,46 @@
+graph System {
+    node [shape=box style="solid" penwidth=2.0 color="#90caf9" fontcolor="#212121"
+    fontsize=20.0 fontname="CMU Serif" ]
+    edge [color="#212121" penwidth=2.0 fontname="CMU Serif:style=Bold" fontsize=18.0]
+    node [shape=box]
+    splines=ortho
+    style=dashed
+
+    subgraph cluster_clients {
+        CHDD1 [fontsize=15.0, label="HDD1" color="#a5d6a7"]
+        CHDD2 [fontsize=15.0, label="HDD2" color="#a5d6a7"]
+        CHDD3 [fontsize=15.0, label="HDD3" color="#a5d6a7"]
+        CHDD1 -- Client1
+        CHDD2 -- Client2
+        CHDD3 -- Client3
+    }
+
+    NetFabric [color="#ffcc80"]
+
+    Client1 -- NetFabric -- Server1
+    Client2 -- NetFabric -- Server2
+    Client3 -- NetFabric -- Server3
+    NetFabric -- Server4
+
+    subgraph cluster_servers {
+        Server1
+        Server2
+        Server3
+        Server4
+        node [fontsize=15.0 color="#a5d6a7"]
+        SSD1_0 [label="20xSSD"]
+        SSD2_0 [label="20xSSD"]
+        SSD3_0 [label="20xSSD"]
+        SSD4_0 [label="20xSSD"]
+        Server1 -- SSD1_0
+        Server2 -- SSD2_0
+        Server3 -- SSD3_0
+        Server4 -- SSD4_0
+    }
+    
+    MassStorage [color="#ce93d8"]
+    Server1 -- MassStorage
+    Server2 -- MassStorage
+    Server3 -- MassStorage
+    Server4 -- MassStorage
+}
