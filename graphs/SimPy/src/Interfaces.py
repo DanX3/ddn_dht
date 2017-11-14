@@ -37,6 +37,9 @@ class IfForClient(GeneralManagerIf):
     def read_from_server(self, requests, target_id: int): raise NotImplementedError
 
     @abstractmethod
+    def read_from_server_blocking(self, requests, target_id: int): raise NotImplementedError
+
+    @abstractmethod
     def read_completed(self): raise NotImplementedError
 
     @abstractmethod

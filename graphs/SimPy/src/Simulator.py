@@ -20,12 +20,14 @@ class Simulator:
         self.check_settings()
         self.print_session_summary()
 
+        self.requests = {}
+        self.__parse_requests()
+        self.client_params[Contract.C_CLIENT_COUNT] = len(self.requests)
+
         random.seed(args.seed)
         self.__clients = []
         self.servers_manager = ServerManager(self.env, self.server_params, self.client_params,
                                              self.misc_params, self.__clients)
-        self.requests = {}
-        self.__parse_requests()
 
         client_logger = Logger(self.env)
         parity_group_creator = ParityGroupCreator(self.client_params, self.server_params)
@@ -120,14 +122,14 @@ class Simulator:
 
     def print_params(self, verbose=False):
         if args.verbose or verbose:
-            for key, value in self.client_params.iteritems():
+            for key, value in self.client_params.items():
                 print('{:>30} : {:d}'.format(key, value))
 
             print()
             print("- - - - - - - - - - - - - - - - - - - -")
             print()
 
-            for key, value in self.server_params.iteritems():
+            for key, value in self.server_params.items():
                 print('{:>30} : {:d}'.format(key, value))
 
     def run(self):

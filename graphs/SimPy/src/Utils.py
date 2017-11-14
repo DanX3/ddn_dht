@@ -3,6 +3,7 @@ from random import randint, seed
 from typing import List
 from collections import deque
 from CmloidIdGenerator import CmloidIdGenerator
+from enum import Enum
 
 
 class MethodNotImplemented(Exception):
@@ -338,6 +339,17 @@ class ReadRequest:
     def get_size(self) -> int:
         return self.__end - self.__start
 
+    def pop_request(self, amount: int):
+        if self.get_size() < amount:
+            return self
+        else:
+            result = ReadRequest(self.__client_id, self.__filename, self.__start, self.__start + amount)
+            self.__start += amount
+            return result
+
+    # def parts_generator(self, chunk_size: int):
+    #     while
+
     def __str__(self):
         return "ReadRequest({}, [{}, {}])".format(self.__filename, self.__start, self.__end)
 
@@ -433,6 +445,11 @@ def generate_lookup_table(length):
         idx2 = randint(0, length-1)
         table[idx1], table[idx2] = table[idx2], table[idx1]
     return table
+
+
+class ReadPattern(Enum):
+    RANDOM = 0
+    LINEAR = 1
 
 
 if __name__ == "__main__":

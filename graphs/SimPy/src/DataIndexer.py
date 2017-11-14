@@ -1,6 +1,4 @@
 from Utils import *
-import numpy as np
-from collections import deque
 
 class Indexer:
     def __init__(self, disks_count: int, cmloid_size: int):
@@ -16,22 +14,17 @@ class Indexer:
     def write_packet(self, request: WriteRequest):
         self.__packets[request.get_parity_id()] = request
         for part in request.get_parts():
-            addition = None
-            total_parts = ceil(part.get_size() / self.__cmloids_size)
-            # Just a small optimization in case parts count and disks match
-            if  total_parts == self.__disks_count:
-                addition = np.array([1] * self.__disks_count, np.uint16)
-                for dict in self.__disks:
-                    dict[request.get_parity_id()] = request.get_parity_map()
-            else:
-                addition = [0] * self.__disks_count
-                while part.get_size() > 0:
-                    idx = next(self.__round_robin_gen)
-                    addition[idx] = 1
-                    self.__disks[idx][request.get_parity_id()] = request.get_parity_map()
-                    part.pop_filename(self.__cmloids_size)
+            addition = [0] * self.__disks_count
+            while part.get_size() > 0:
+                idx = next(self.__round_robin_gen)
+                addition[idx] = 1
+                self.__disks[idx][request.get_parity_id()] = request.get_parity_map()
+                part.pop_filename(self.__cmloids_size)
             if part.get_filename() in self.__filenames:
-                self.__filenames[part.get_filename()] += addition
+                # self.__filenames[part.get_filename()] += addition
+                list_to_add_to = self.__filenames[part.get_filename()]
+                for i in range(len(list_to_add_to)):
+                    self.__filenames[part.get_filename()][i] += addition[i]
             else:
                 self.__filenames[part.get_filename()] = addition
 

@@ -222,7 +222,7 @@ class Client:
         self.logger.add_object_count('data-packets-received',
                                      int(ceil(request.get_size() / self.__netbuff_size)))
 
-    def read_all_files(self):
+    def read_all_files(self, pattern: ReadPattern = ReadPattern.RANDOM):
         self.__data_sent = 0
         targets_queues = []
         for i in range(self.__server_count):
@@ -234,13 +234,21 @@ class Client:
                 self.__data_sent += 1
                 targets_queues[target].append(read_request)
 
-        for target in range(self.__server_count):
-            packed_requests = deque()
-            while len(targets_queues[target]) != 0:
-                for i in range(min(len(targets_queues[target]), self.__netbuff_size)):
+        if pattern == ReadPattern.RANDOM:
+            for target in range(self.__server_count):
+                packed_requests = deque()
+                while len(targets_queues[target]) != 0:
+                    for i in range(min(len(targets_queues[target]), self.__netbuff_size)):
+                        packed_requests.append(targets_queues[target].popleft())
+                    self.__manager.read_from_server(packed_requests, target)
+                    self.logger.add_object_count('request-read-sent', 1)
+
+        if pattern == ReadPattern.LINEAR:
+            for target in range(self.__server_count):
+                packed_requests = deque()
+                while len(targets_queues[target]) != 0:
                     packed_requests.append(targets_queues[target].popleft())
-                self.__manager.read_from_server(packed_requests, target)
-                # print('sent {} requests to {}'.format(len(packed_requests), target))
-                self.logger.add_object_count('request-read-sent', 1)
+                    self.logger.add_object_count('request-read-sent', 1)
+
 
 

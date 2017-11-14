@@ -66,6 +66,9 @@ class ServerManager(IfForServer, IfForClient):
     def read_from_server(self, requests: List[ReadRequest], target: int):
         self.env.process(self.servers[target].process_read_requests(requests))
 
+    def read_from_server_blocking(self, request: ReadRequest, target: int):
+        yield self.env.process(self.servers[target].process_read_request(request))
+
     def get_server_count(self) -> int:
         return len(self.servers)
 
@@ -121,7 +124,7 @@ class ServerManager(IfForServer, IfForClient):
                         self.server_logger.get_objects(),
                         self.__manager_logger.get_objects()]
         merged_dict = Logger.merge_objects_to_dict(objects_list)
-        Logger.print_objects_to_file(merged_dict, 'objects.log', print_to_screen=self.__show_counters)
+        Logger.print_objects_to_file(merged_dict, 'objects.log')
 
 
     def write_to_server(self, request: WriteRequest):
