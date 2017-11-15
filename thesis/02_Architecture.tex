@@ -1,5 +1,5 @@
 
-\section{IME Architecture}
+\chapter{IME Architecture}
 IME system is based on a Client-Server interaction: every compute node has a
 Client side process intercepting IO communications that are sent to IME servers.
 \begin{myimage}{map}{System representation}
@@ -25,7 +25,7 @@ test it for real, assuming the simulator is precise enough.
 Every layout will be discussed in depth in the analysis section
 (\ref{sys-analysis}).
 
-\subsection{Network communication time}\label{netbuff}
+\section{Network communication time}\label{netbuff}
 Network communication is one of the main task that are committed in this system,
 so we need an accurate model to represent it. \\
 The parameters that determine the time elapsed in a network transaction are
@@ -71,7 +71,7 @@ specified coordinates. \\
 \end{myimage}
 
 
-\subsection{Tokenized communication}
+\section{Tokenized communication}
 IME has been designed to be employed with a large number of both clients and
 servers. This lead to many parallelization problems and resource management.
 With a large amount of clients, the network bandwidth will run out very quickly.
@@ -93,7 +93,7 @@ bottleneck, but is anyway a free parameter that can be inspected and adapted in
 the simulator.
 
 
-\subsection{Erasure coding for data loss} \label{pargroup}
+\section{Erasure coding for data loss} \label{pargroup}
 In CPU caches, whenever happens a cache miss, data is read from main memory
 instead. No data can be potentially lost. In the worst case can happen a cache
 miss forcing the lower layer memory to transfer data from the upper layer
@@ -110,7 +110,7 @@ remaining data and parity. \\
     In RAID 5 data is interleaved with parity bits. If a single disk is
     corrupted, missing data can be recovered comparing remaining data using
     parity
-\end{myimage}
+\end{myimage} \\
 For this correction system to work, we need to make associations between groups
 of data that must be grouped together later when data loss happens. IME
 considers a single block of data a \textbf{Network Buffer} (see section \ref{netbuff}) and the
@@ -128,7 +128,7 @@ Parity be generated using different methods, meaning that the system can sustain
 the loss of multiple piece of data keeping the ability to recover the lost data.
 This is an option that can be set or not based on the needs of the user.
 
-\subsubsection*{Handling remainders}
+\subsection{Handling remainders}
 Using this system to recover data, a bond is created among parts of the same parity group:
 not only these parts share the same parity group-id but also must be sent at the
 same time to the servers. If the packets of the same parity group are not
@@ -139,7 +139,7 @@ enough data, it waits until more write requests are needed. The send operation c
 \textbf{eager commit}, sending buffers not completely filled or even not enough buffers to fill a parity group. \\
 Parity data is then generated using the data available. \\
 
-\subsubsection*{Parity generation}\label{parity}
+\subsection{Parity generation}\label{parity}
 Parity data is generated for every parity group created based on the
 \textbf{geometry} set. Geometry specify how many, if any, parity packets are
 generated per group. Geometry is specified as $D + P$ whereas $D$ represents
@@ -165,7 +165,7 @@ based on packet layout:
         on the biggest buffer.
 \end{enumerate}
 
-\subsection{File queuing}
+\section{File queuing}
 Every clients has internally a write queue for every single server. As it is
 asked to write a file, the client will scatter the single file to multiple
 queues in order to make us of most servers and speed up the transaction.
@@ -238,7 +238,7 @@ requests generated and so the network traffic. For requests bigger than 400MB
 we cannot see the difference since network traffic reduction has been overcome
 by IO operations.
 
-\subsubsection{Queue Issues}
+\subsection{Queue Issues}
 Using the buckets system, targets must be decided in this step and then the
 buffer queue adapt the data to be sent at a different granularity.
 The parity groups are chosen based on a pseudo-random sequence that should
@@ -267,7 +267,7 @@ parity groups are sent based on what is left, meaning that the precomputed
 parity groups are not the only groups inside the system, but new ones can be
 created based on the needs.\\
 
-%\subsubsection*{HDD behaviour}\label{hdd-behaviour}
+%\subsection{HDD behaviour}\label{hdd-behaviour}
 %There is a lower minimum size an HDD interact with. If the user wants to edit a
 %single byte on the file system, the HDD will read a bigger amount of data,
 %accept user modification, and write again the bigger amount of data. If this
@@ -276,7 +276,7 @@ created based on the needs.\\
 %aware of this fact, we can make use of it writing 2MB instead of 8B
 %respectively.
 
-\subsection{Distributed Hash Table (DHT)}
+\section{Distributed Hash Table (DHT)}
 IME servers must be aware of the data that are inside the system, being also
 fault tolerant in case of failures. These should also be careful of not flooding
 the network with too many requests. \\
@@ -285,12 +285,12 @@ servers and allowing the failure of a single one. \\
 As a file is stored to a server, its metadata, its way to access it are sent to
 another server responsible of delivering the accidentally lost data.
 
-\subsection{Server side write}
+\section{Server side write}
 As the server receive a buffer, a number of steps are performed before sending
 back an ack to the client. \\ Two separate task are performed, divided in 2
 different planes: \textbf{Control plane} and \textbf{Data plane}
 
-\subsubsection*{Control plane}
+\subsection{Control plane}
 Here is performed metadata propagation if necessary and done some
 \textit{logging} operation to a local journal device. \\ Metadata propagation
 involve the communication of the current metadata to another machine, meaning
@@ -309,7 +309,7 @@ Metadata propagation is a necessary step in order to recover data in case of
 failures: the medatata can be read from the DHT of another working server, then
 data can be recovered asking to every involved server the lost parity groups.
 
-\subsubsection*{Data plane}
+\subsection{Data plane}
 Data received is stored locally as well as metadata. Since data and metadata
 are accessed in a different pattern, and metadata represent a bottleneck when
 it comes to files reading, metadata are stored in dedicated devices, less
@@ -342,7 +342,7 @@ The request is seen in a twofold way: \\
     data. Every CML\_oid can store a fixed amount of data
 \end{myimage}
 
-\subsection{Data Read}
+\section{Data Read}
 If a client wants to read a file, or a part of it, it interrogates its file map
 to make a request to the interested server, saving netowork communication
 avoiding a broadcast if not necessary. \\
@@ -352,11 +352,16 @@ then performed on those devices and data is sent back to client using as always
 a buffered communication of 1 MB per packet. \\
 This is the optimal workflow, that is without any kind of error.
 
-\subsection{Data Recovery}
-\begin{wrapfigure}{r}{0.25\textwidth}
-    \centering
-    \includegraphics[width=0.25\textwidth]{recovery.png}
-\end{wrapfigure}
+\section{Data Recovery}
+%\begin{wrapfigure}{r}{0.25\textwidth}
+    %\centering
+    %\includegraphics[width=0.25\textwidth]{recovery.png}
+%\end{wrapfigure}
+
+\begin{myimage}{recovery}{Data recovery process}
+    If some data is lost, it can be recovered using the Erasure coding system,
+    gathering and comparing data of the same parity group of the packets lost
+\end{myimage}
 
 This is the case when a device cannot read anymore from one of its devices, for
 any kind of reason. HDD are prone to failures and SSD, the devices used in this
@@ -386,7 +391,7 @@ After every buffer of the same parity group will be received, the server is able
 to \textit{rebuild its missing data}.
 
 
-\subsection{IO operations}
+\section{IO operations}
 IME supports different IO operations depending on the task
 \begin{itemize}
     \item \textbf{Sync}: the content of IME is copied to the mass storage, in

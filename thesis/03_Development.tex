@@ -1,5 +1,5 @@
 
-\section{Development}
+\chapter{Development}
 Since IME is a complicated environment, has been chosen to develop the simulator 
 using an iterative approach. This allowed an understanding of the whole system
 showing a single part at a time, at the cost of creating prototypes that needed
@@ -7,7 +7,7 @@ to be rewritten partially or completely. \\
 To speed up this prototyping approach has been used the Dot language \cite{dot-lang} to 
 quickly develop finite state machines that will have been later implemented.
 
-\subsection{Environment choice}
+\section{Environment choice}
 Based on the conditions explained in the introduction (see section
 \ref{requirements}), \textit{Python} seemed a reasonable choice. Mostly because
 of its flexibility to changes, not worrying about small detail like memory
@@ -18,7 +18,7 @@ Moreover modern features coming from Python 3.5+ made easier to develop a
 relatively big applications as this simulator is, like types annotations and
 better generators support.
 
-\subsection{Tools Chosen}
+\section{Tools Chosen}
 \begin{itemize}
     \item Dot graphs
     \item SimPy
@@ -27,7 +27,7 @@ better generators support.
 \end{itemize}
 
 
-\subsection{Simpy}\label{simpy}
+\section{Simpy}\label{simpy}
 Simpy is the library the projects is based on. It is a Discrete Simulation
 library that fulfill the requirements. Exploiting language mechanics like
 generators does not add overhead on the application. It is process-based
@@ -45,7 +45,7 @@ functions can return generators to make the virtual clock going on, create other
 virtual processes or wait for other processes to be completed, according to the
 situation. The other set of functions are those that implement the system's logic.
 
-\subsection{SimPy Components}
+\section{SimPy Components}
 The philosophy of Simpy led to the development of some ready-to-use components
 that ease the process management like mutex and task queues.
 Anyway Simpy provides only tools to manage the processes, lacking some
@@ -53,7 +53,7 @@ structures to extract usage data to investigate at the end of the simulation.
 For this reason some more tools has been developed both in Python, for internal
 simulation data extraction, and Bash to automate plotting and file management.
 
-\subsubsection*{Timeout}
+\subsection{Timeout}
 The library has some predefined events like a \textit{Timeout} event that just
 simulates time passing for the caller.\\
 This call blocks only the calling agent, allowing every other event already
@@ -62,7 +62,7 @@ Every real time consuming action is simulated through this function: the call
 with the correct amount of time will make the calling agent to wait until the
 task is virtually completed.
 
-\subsubsection*{Resources}
+\subsection{Resources}
 In every simulation environment there are components that needs to be accessed
 by many agents and to process correctly this resource contention. This means
 keeping a queue of every agent and trigger one as a resource is freed. \\
@@ -112,7 +112,24 @@ fitting many needs.
         \end{myimage}
 \end{itemize}
 
-\subsection{Tools created}
+\subsection{Processes Management}
+Inside the SimPy framework in order to simulate a behaviour a task is seen as a
+\textit{process}. This is just a concept: a SimPy simulation runs on a single system process.
+After having instanced one or more processes, the caller is able to manage its flow based on
+the nature of the situation. It can:
+\begin{itemize}
+    \item instance one or more processes an proceed with the flow, in case the
+        call should not wait for the completion and the task created.
+    \item wait for the completion of the single process, in case the caller
+        should wait for the completion of the task created
+    \item create more processes. Proceed with the flow as soon as \textit{only
+        one} finishes its execution
+    \item create more processes. Proceed with the flow when \textit{every one}
+        finishes its execution
+\end{itemize}
+
+
+\section{Tools created}
 Since SimPy provide only simulation utilities, lacking data gathering components
 and plotting, these features has been developed aside. Specifically has been designed:
 \begin{itemize}
@@ -131,11 +148,11 @@ and plotting, these features has been developed aside. Specifically has been des
 
 
 
-\subsection{Profiling}\label{profiling}
+\section{Profiling}\label{profiling}
 Time spending operations are simulates as already specified. The simulator is
 not a computationally intensive application but as things start to grow, the
 wall time increases. This because of the large amount of data needed to run the
-application: a file of 1 GB must be splitted in buckets, network buffer and
+application: a file of 1 GB must be split in buckets, network buffer and
 finally in \cmloid of size 128 KB. This result in $1GB / 128KB = 8192 \cmloid$
 allocated just for a single gigabyte of data written. Some experiments on C
 integration has been conducted but the real problem is data allocation and its
@@ -144,9 +161,166 @@ role in speeding up the simulator. \\
 \textit{Talk about xargs and how memory bound the simulator is}
 
 
-\subsection{Pypy}
+\section{Alternative Python Implementations}
+Looking for performances is reasonable to try different implementation of the
+python interpreter. The official one is CPython, but other implementation for
+different usage are available. Some of them are
+\vspace{0.5cm} \\
+\begin{tabular}{r | p{0.8\textwidth}}
+    \textbf{Name} & \textbf{Description} \\\hline
+    Jython & Implementation that runs on the JVM. Python code is compiled into
+    bytecode enabling better performances. Also removes the Global Interpreter Lock
+    making use of real threads.\\\hline
+    IronPython & Just as a matter of compatibility, a version of Python that
+    integrates with Microsoft .NET technologies\\\hline
+    Pypy & Distribution with a built-in JIT compiler, overcoming the purely
+    interpreted nature of python\\
+\end{tabular}
+\vspace{0.5cm}
 
-\subsection{Object size analysis}
+Many other implementations exists, but more for integration into specific
+environment, like IronPython does, than achieving a different behaviour of the
+interpreter. \\
+The choice of Jython has been dropped since it's compatible only with python
+2.7. From the beginning the simulator has been developed in Python 3.5 due to
+useful features for the development of a big project and some utilities on the
+generators.
+
+\subsection{Pypy}
+Trying a different implementation, Pypy has been chosen. It provides a custom
+version of numpy, but the simulator does not make use of numpy. Many tests
+showed that an appropriate container from the package \texttt{collection}
+behave better that numpy arrays. The custom numpy installation is the only step
+required for Pypy to work.\\
+The features advertised by Pypy are:
+\begin{itemize}
+    \item \textit{Speed} using its JIT compiler. Anyway every time the
+        application is called, the compilation phase must be run again. \\
+        On their website Pypy team advertise a speed up over 7x compared to
+        CPython 2.7. Tests on this specific simulator will follow.
+    \item \textit{Less memory usage} using a better custom garbage collector
+    \item \textit{Compatibility} so it can run any existing python applications
+\end{itemize}
+
+Testing the actual performances of Pypy over CPython I run the simulator with a
+reasonable large request pattern: a single client asked to write 8192 files of
+16MB. Since Pypy should use also less memory, main memory contention between
+different processes should be mitigated. So multiple requests of the same size
+have been launched in parallel using \texttt{xargs} command. The simulator is
+serial, but more requests can be processes at the same time. For this reason the
+usage of \texttt{xargs} is required. \\
+The tests has been done using an Intel i5 4690 3.5GHz 4core/4threads with the
+graphical session turned off to avoid data fluctuation due to other processes in
+the system.
+
+\vspace{0.5cm} 
+\begin{tabular}{r | c | c | c | c | c}
+    \textbf{Time (s) using CPython 3.5} & & & & &\\
+    Processes in parallel & First & Second & Third & Fourth & Total \\\hline
+    1 & 41.91 & 41.97 & 42.10 & 42.00 & 167.98 \\
+    2 & 43.61 & 43.32 & 43.40 & 43.70 & 87.02 \\
+    4 & 52.56 & 54.32 & 54.27 & 54.05 & 54.32 \\
+\end{tabular}
+\vspace{0.5cm}
+
+\vspace{0.5cm} 
+\begin{tabular}{r | c | c | c | c | c}
+    \textbf{Time (s) using Pypy 3.5} & & & & \\
+    Processes in parallel & First & Second & Third & Fourth & Total \\\hline
+    1 & 69.29 & 69.31 & 69.31 & 69.65 & 277.56 \\
+    2 & 71.92 & 72.77 & 72.41 & 72.37 & 144.33 \\
+    4 & 92.03 & 92.06 & 92.60 & 92.05 & 92.60 \\
+\end{tabular}
+\vspace{0.5cm}
+
+What is clear from the data gathered is that Pypy is not working for our case.
+Further discussion will be done in section \ref{flamegraph}. \\
+Using a parallelization of 1, the best times are achieved since there is no main
+memory contention. As the number of processes start to grow, more contention
+happens but since these times are in parallel, they take less time overall. \\
+Measuring this phenomenon a result can be extracted from the data using the formula
+$(max(P_4) / min(P_1) - 1) *100$ where $max(P_4)$ is the worst process with a
+parallelization of 4 and $min(P_1)$ is the best process with no
+parallelization.\\
+For the \textit{total} case every process can be expressed using an average
+value of the times collected so $total\_time_4 * 4 / total\_time_1$
+The results follow
+
+\vspace{0.5cm} 
+\begin{tabular}{l | c | c}
+    \textbf{Memory contention degradation} & Single & Total \\\hline
+    CPython & 29.6\% & 29.3\% \\
+    Pypy & 33.6 \% & 33.4\% \\
+\end{tabular}
+\vspace{0.5cm}
+
+This data shows how Pypy behaves better increasing the parallelization. The
+different is not critical, but since Pypy is an alternative implementation,
+for this specific application there is no reason to choose Pypy over the default
+CPython.
+
+\section{Flamegraph}\label{flamegraph}
+\begin{myimage}{profile}{Flamegraph profile data}
+    Profiling data using Flamegraph. A vector format can be found at
+    \underline{\url{https://drive.google.com/open?id=1JOMhRwSq58nZgOFQMo3JHjH0b6mjI7jh}}
+\end{myimage} \\
+
+The profiling task has been accomplished using Flamegraph \cite{flamegraph} a
+stack trace analyzer generating an interactive vector graphic to inspect
+graphically the application. \\
+Figure \ref{eq:profile} represents the flamegraph of the simulator performing a
+write of the file requested, a read operation of every file written and a
+recovery operation due to a disk failure. \\
+To better inspect the result, a text version of the data plotted has been
+provided. The following are the 20 most expensive functions that are processed
+inside the simulator.
+
+\begin{tabular}{r | l | l}
+    \textbf{Time(s)} & \textbf{Source File} & \textbf{Function} \\\hline
+    6310 & core.py & run \\
+    6016 & core.py & step \\
+    4273 & events.py & \_resume \\
+    1007 & Server.py & \_\_data\_plane \\
+    695 & events.py & \_\_init\_\_ \\
+    635 & core.py & schedule \\
+    593 & ServerManager.py & perform\_network\_transaction \\
+    560 & base.py & \_trigger\_get \\
+    557 & ServerManager.py & add\_requests\_to\_clients \\
+    533 & DataIndexer.py & write\_packet \\
+    525 & Server.py & process\_write\_request \\
+    454 & Client.py & add\_write\_request \\
+    445 & Client.py & \_\_populate\_bucket\_queue \\
+    428 & Client.py & \_\_create\_buffers\_from\_buckets \\
+    415 & events.py & \_\_init\_\_ \\
+    410 & Client.py & \_\_send\_buffers \\
+    403 & base.py & \_\_init\_\_ \\
+    373 & Client.py & \_\_send\_write\_request \\
+    357 & resource.py & \_\_init\_\_ \\
+    357 & Client.py & \_\_prepare\_write\_request \\
+\end{tabular} \\
+
+Files with a capital letter are from the simulator, lowercase ones are from
+SimPy. These are not all different functions: there is the stack to be
+considered, so for example the \textit{run} function includes most of the functions above.
+Anyway a non negligible part of the simulation is composed by overhead
+introduced by the framework, caused by the resource  and processes management,
+aside from their execution. \\
+Must be noted that multiple solutions can be proposed leading to the final
+results. Some of these solutions in early prototypes were creating many SimPy
+processes in order to simulate the environment.  Later this kind of approach has
+been dismissed since it was introducing a noticeable overhead inside the
+framework. Has been adopted an approach with a single agent that can solve more
+tasks on his own, using a single SimPy process.  \\
+Moreover the time of many tasks could be computed ahead of time avoiding object
+instantiation, but doing so takes the simulator closer to an \textit{Analytical
+Simulator} behaviour, that is not the environment of choice. The only components
+that can be simulated in such a way are those that do not need to wait for
+shared resources and can be processed on their own. \\
+So the overhead that SimPy is causing right now has already been reduced to its
+minimum.
+
+\section{Object size analysis}
+\textit{Is this really necessary?}
 Show the size of a set of data
 \begin{itemize}
     \item on their own
@@ -155,5 +329,6 @@ Show the size of a set of data
     \item in a queue
 \end{itemize}
 
-\subsection{C integration}
-Python is
+\section{C integration}
+\textit{Talk about that C is not a solution since most of the time is spent
+building the structures, reason why Pypy fail on this simulator}

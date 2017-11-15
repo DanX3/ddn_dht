@@ -1,7 +1,7 @@
-\section{Introduction}
+\chapter{Introduction}
 
-\subsection{Problem Explanation}
-\subsubsection*{Device presentation}
+\section{Problem Explanation}
+\subsection{Device presentation}
 Computer memories are designed to fit particular needs, based on their size or
 latency. The memory hierarchy make every program able to write the most accessed
 data in la lower latency memory in order to access the most the smaller and
@@ -18,7 +18,7 @@ program able to run on on this platform. \\ The device can intercept IO calls in
 many ways, so its users can choose the method most appropriate method for
 themselves.
 
-\subsubsection*{The problem}
+\subsection{The problem}
 The system as of now has some scaling issue when a large amount of servers are
 installed. To keep data consistency, the system has to perform some transactions
 from server to server. This traffic will decrease the performance of the
@@ -30,7 +30,7 @@ unable to determine their optimal value. Multiple runs with different
 configurations will help the investigation to the optimal configuration given an
 architecture.
 
-\subsubsection*{The solution}
+\subsection{The solution}
 The solution proposed by DDN is a simulator of the system, enabling the fast
 exploration of different solutions without the need to actually build many
 systems. \\
@@ -85,7 +85,7 @@ space, avoiding rounding errors due to binary representation.
 %Moreover, will be simulated also systematic failures since these happens in real
 %world and the system already is able to recover some fatal errors on its own.
 
-\subsection{Requirements Analysis}\label{requirements}
+\section{Requirements Analysis}\label{requirements}
 Simulators are not necessarily computationally intensive applications. Is based
 on the specific environment it has to simulate. In my case the simulation of
 network transactions will end up in waiting an amount of simulation time based
@@ -107,14 +107,14 @@ To list the requirements, these are:
 Every good practice about software design and development is implicit in this
 list.
 
-\subsubsection*{HPC Relevance}
+\subsection{HPC Relevance}
 The simulator by itself is not the product relevant from the HPC point of view.
 What is relevant instead is the problem it is going to solve: there is already a
 problem of scalability of a product and the simulator should solve or help to
 solve it faster than traditional development would. This will accelerate
 architecture investigation instead of the software part of IME.
 
-\subsection{Development environment}
+\section{Development environment}
 To satisfy the stated requirements has been chosen to develop the project in Python
 because of its flexibility and to create many models, focusing the attention on the
 system architecture instead of low level details. \\
@@ -130,7 +130,7 @@ developer from using different data types but integrated with a modern IDE, it
 will suggest before running the program the potential issues, speeding up
 development.
 
-\subsection{SimPy}
+\section{SimPy}
 This discrete event simulation library is \textit{Events oriented}. An event can
 be processed and can be represented ad a function performing some general
 action, based on the situation. The caller event can wait for the completion of

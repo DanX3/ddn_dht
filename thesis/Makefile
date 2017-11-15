@@ -7,7 +7,7 @@ all: $(TARGET)
 test:$(SRCS)
 	pdflatex 00_main.tex
 
-$(TARGET): $(SRCS) $(BIBFILE)
+$(TARGET): $(SRCS) $(BIBFILE) img/*.png
 	@pdflatex 00_main.tex > /dev/null
 	@rm -f *.bbl *.blg && bibtex 00_main
 	@pdflatex 00_main.tex > /dev/null
