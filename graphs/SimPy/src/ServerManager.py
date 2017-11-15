@@ -34,6 +34,10 @@ class ServerManager(IfForServer, IfForClient):
         self.__start = None
         self.__server_restoring = 0
         self.__show_counters = bool(misc_params[Contract.M_SHOW_COUNTERS])
+        self.__schedule_queue = [self.__simulate_client_read, self.__simulate_disk_failure]
+        # self.__schedule_queue = [self.__simulate_client_read]
+        # self.__schedule_queue = []
+
 
     def add_requests_to_clients(self, requests: Dict[int, List[WriteRequest]]):
         self.__start = self.env.now
@@ -78,10 +82,7 @@ class ServerManager(IfForServer, IfForClient):
         if self.__client_completed == len(self.__clients):
             self.__manager_logger.add_task_time("write-operation", self.env.now - self.__start)
             printmessage(0, "Finished Writing", self.env.now)
-            self.__simulate_client_read()
-            # for client in self.__clients:
-                # self.env.process(client.read_all_files())
-            # self.__simulate_disk_failure(randint(0, len(self.servers)-1))
+            self.__parse_schedule()
 
     def __simulate_client_read(self):
         self.__client_completed = 0
@@ -94,12 +95,12 @@ class ServerManager(IfForServer, IfForClient):
         if self.__client_completed == len(self.__clients):
             printmessage(0, "Finished Reading", self.env.now)
             self.__manager_logger.add_task_time("read-operation", self.env.now - self.__start)
-            self.__simulate_disk_failure(2)
+            self.__parse_schedule()
 
-    def __simulate_disk_failure(self, server_id: int):
-        self.__server_restoring = server_id
+    def __simulate_disk_failure(self):
+        self.__server_restoring = randint(0, len(self.servers) - 1)
         self.__start = self.env.now
-        self.env.process(self.servers[server_id].process_disk_failure(0))
+        self.env.process(self.servers[self.__server_restoring].process_disk_failure(0))
 
     def send_recovery_request(self, ids: set, targets: int):
         for target in ParityGroupCreator.int_to_positions(targets):
@@ -111,7 +112,7 @@ class ServerManager(IfForServer, IfForClient):
     def server_finished_restoring(self):
         self.__manager_logger.add_task_time("disk-restore", self.env.now - self.__start)
         printmessage(0, "Finished Restoring", self.env.now)
-        self.__end_simulation()
+        self.__parse_schedule()
 
     def __end_simulation(self):
         # Log times
@@ -144,3 +145,10 @@ class ServerManager(IfForServer, IfForClient):
 
     def propagate_metadata(self, packed_metadata, target_id: int):
         yield self.env.process(self.servers[target_id].receive_metadata_backup(packed_metadata))
+
+    def __parse_schedule(self):
+        if not self.__schedule_queue:
+            self.__end_simulation()
+        else:
+            next_task = self.__schedule_queue.pop(0)
+            next_task()
