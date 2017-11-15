@@ -347,8 +347,14 @@ class ReadRequest:
             self.__start += amount
             return result
 
-    # def parts_generator(self, chunk_size: int):
-    #     while
+    def get_generator(self, chunk_size: int):
+        start = self.__start
+        end = self.__end
+        while start < end:
+            request = ReadRequest(self.__client_id, self.__filename, start, min(start + chunk_size, end))
+            start += chunk_size
+            yield request
+
 
     def __str__(self):
         return "ReadRequest({}, [{}, {}])".format(self.__filename, self.__start, self.__end)
@@ -454,6 +460,9 @@ class ReadPattern(Enum):
 
 if __name__ == "__main__":
     file = File('a', 4000)
-    cmloid_set = CMLoidSet(3, 120, 6)
-    print(cmloid_set)
+    request = ReadRequest(0, 'a', 0, 4001)
+    gen = request.get_generator(4)
+    for i in gen:
+        print(i)
 
+    print(request)
