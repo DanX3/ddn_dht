@@ -126,7 +126,6 @@ class ServerManager(IfForServer, IfForClient):
         merged_dict = Logger.merge_objects_to_dict(objects_list)
         Logger.print_objects_to_file(merged_dict, 'objects.log')
 
-
     def write_to_server(self, request: WriteRequest):
         yield self.env.process(self.servers[request.get_target_id()].process_write_request(request))
 

@@ -22,6 +22,7 @@ doc: $(SRCS) Doxyfile
 lineprofile: $(SRCS)
 	cd src/ && $(CC) -m vmprof --lines -o $(PROFILEOUT) Simulator.py && mv $(PROFILEOUT) ../
 	vmprofshow --lines $(PROFILEOUT) > $(PROFILELINES)
+	grep -A 2 ^Total $(PROFILELINES) | awk 'NR%2!=0' > lines_parse
 	less $(PROFILELINES)
 
 profile: $(SRCS)
