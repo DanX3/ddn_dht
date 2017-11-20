@@ -28,5 +28,6 @@ def createparser():
             for random values. Default is PID")
     parser.add_argument("-p", "--params", action="store_true", help="print \
             current settings from config")
+    parser.add_argument("-l", "--logpath", type=str, default="./", help="Set path for log files")
 
     return parser

@@ -126,7 +126,6 @@ class Server:
             pass
             self.__metadata_propagation_timeout = self.env.process(self.__metadata_timeout())
 
-
     def __control_plane(self, request: WriteRequest):
         journal = self.env.process(self.__perform_journal_operation(request))
         metadata = self.env.process(self.__propagate_metadata(request))
@@ -168,7 +167,7 @@ class Server:
             processes.append(process)
         yield simpy.AllOf(self.env, processes)
 
-    def process_read_request(self, request: ReadRequest) -> int:
+    def process_read_request(self, request: ReadRequest, send_answer: bool = False) -> int:
         """
         Process a read request
         :param request: the read request
@@ -193,7 +192,9 @@ class Server:
 
         if self.__show_requests:
             print("<{:3d}> {}, read {} cmloids ({} KB)".format(self.__id, request, total_cmloids, total_cmloids * CML_oid.get_size()))
-        self.__manager.answer_client_read(request)
+
+        if send_answer:
+            self.__manager.answer_client_read(request)
 
     def process_disk_failure(self, disk_id: int = None):
         """

@@ -12,12 +12,13 @@ from ParityGroupCreator import ParityGroupCreator
 
 
 class ServerManager(IfForServer, IfForClient):
-    def __init__(self, env, server_params, client_params, misc_params, clients):
+    def __init__(self, env, server_params, client_params, misc_params, clients, logpath):
         self.env = env
         self.__client_completed = 0
         self.__clients = clients
         self.__network_buffer_size = int(misc_params[Contract.M_NETWORK_BUFFER_SIZE_KB])
-        self.server_logger = Logger(self.env)
+        self.__logpath = logpath
+        self.server_logger = Logger(self.env, logpath)
         self.servers = []
         for i in range(server_params[Contract.S_SERVER_COUNT]):
             self.servers.append(
@@ -30,10 +31,16 @@ class ServerManager(IfForServer, IfForClient):
         self.__time_function = Function2D.get_bandwidth_model(self.__overhead, self.__max_bandwidth / 1e6)
         self.__dht = DHT(len(self.servers), server_params[Contract.S_HDD_DATA_COUNT])
         self.__full_speed_packet_time = int(self.__network_buffer_size / self.__max_bandwidth * 1e9)
-        self.__manager_logger = Logger(self.env)
+        self.__manager_logger = Logger(self.env, logpath)
         self.__start = None
         self.__server_restoring = 0
         self.__show_counters = bool(misc_params[Contract.M_SHOW_COUNTERS])
+        self.__read_pattern = None
+        if misc_params[Contract.M_READ_PATTERN] == "linear":
+            self.__read_pattern = ReadPattern.LINEAR
+        else:
+            self.__read_pattern = ReadPattern.RANDOM
+        self.__read_block_size = int(misc_params[Contract.M_READ_BLOCK_SIZE])
         self.__schedule_queue = [self.__simulate_client_read, self.__simulate_disk_failure]
         # self.__schedule_queue = [self.__simulate_client_read]
         # self.__schedule_queue = []
@@ -71,7 +78,7 @@ class ServerManager(IfForServer, IfForClient):
         self.env.process(self.servers[target].process_read_requests(requests))
 
     def read_from_server_blocking(self, request: ReadRequest, target: int):
-        yield self.env.process(self.servers[target].process_read_request(request))
+        yield self.env.process(self.servers[target].process_read_request(request, send_answer=False))
 
     def get_server_count(self) -> int:
         return len(self.servers)
@@ -88,7 +95,7 @@ class ServerManager(IfForServer, IfForClient):
         self.__client_completed = 0
         self.__start = self.env.now
         for client in self.__clients:
-            client.read_all_files()
+            self.env.process(client.read_all_files(self.__read_pattern, self.__read_block_size))
 
     def read_completed(self):
         self.__client_completed += 1
@@ -125,7 +132,7 @@ class ServerManager(IfForServer, IfForClient):
                         self.server_logger.get_objects(),
                         self.__manager_logger.get_objects()]
         merged_dict = Logger.merge_objects_to_dict(objects_list)
-        Logger.print_objects_to_file(merged_dict, 'objects.log')
+        Logger.print_objects_to_file(merged_dict, 'objects.log', logpath=self.__logpath)
 
     def write_to_server(self, request: WriteRequest):
         yield self.env.process(self.servers[request.get_target_id()].process_write_request(request))
@@ -152,3 +159,7 @@ class ServerManager(IfForServer, IfForClient):
         else:
             next_task = self.__schedule_queue.pop(0)
             next_task()
+
+    def __simulate_read_pattern(self):
+        for client in self.__clients:
+            client.read_all_files()

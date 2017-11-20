@@ -12,9 +12,10 @@ class Logger:
     A task is a string that is registered inside the logger. In the end will be printed a log about
     the time spent on that action, making easier to spot bottlenecks
     """
-    def __init__(self, env: simpy.Environment):
+    def __init__(self, env: simpy.Environment, logpath: str):
         self.__tasks_time = OrderedDict()   # OrderedDict[str, int]
         self.__object_counter = {}  # Dict[str, int]
+        self.__logpath = logpath
         self.env = env
 
     def add_task_time(self, task: str, time: int):
@@ -30,7 +31,7 @@ class Logger:
             self.__object_counter[name] = count
 
     def print_times_to_file(self, filename, print_to_screen: bool = False):
-        log = open(filename, 'w')
+        log = open(self.__logpath + filename, 'w')
         for key, value in self.__tasks_time.items():
             log.write("{} {}\n".format(str(value), key))
             if print_to_screen:
@@ -54,8 +55,8 @@ class Logger:
         return result
 
     @staticmethod
-    def print_objects_to_file(objects: Dict[str, int], filename: str, print_to_screen: bool=False):
-        output = open(filename, 'w')
+    def print_objects_to_file(objects: Dict[str, int], filename: str, print_to_screen: bool=False, logpath: str="./"):
+        output = open(logpath + filename, 'w')
         keys = list(objects.keys())
         keys.sort()
         for key in keys:

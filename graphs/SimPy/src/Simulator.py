@@ -26,10 +26,13 @@ class Simulator:
 
         random.seed(args.seed)
         self.__clients = []
+        logpath = args.logpath
+        if logpath[:-1] != '/':
+            logpath += '/'
         self.servers_manager = ServerManager(self.env, self.server_params, self.client_params,
-                                             self.misc_params, self.__clients)
+                                             self.misc_params, self.__clients, logpath)
 
-        client_logger = Logger(self.env)
+        client_logger = Logger(self.env, logpath)
         parity_group_creator = ParityGroupCreator(self.client_params, self.server_params)
         for i in range(len(self.requests)):
             self.__clients.append(Client(self.env, i, client_logger, self.servers_manager,
@@ -53,7 +56,7 @@ class Simulator:
                <= self.server_params[Contract.S_SERVER_COUNT]
 
     def parse_file(self):
-        configuration = open("../" + self.args.config, "r")
+        configuration = open(self.args.config, "r")
         for line in configuration:
             couple = line.strip().split('=')
             try:

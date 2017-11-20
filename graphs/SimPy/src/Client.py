@@ -148,7 +148,7 @@ class Client:
 
         while len(self.__remaining_targets) >= self.__geometry[0] \
                 or (flush and len(self.__remaining_targets) != 0):
-            self.logger.add_task_time('allocation', 200000)
+            self.logger.add_task_time('allocation', 2000)
             targets_int = 0
             countdown = self.__geometry[0]
             iterator = iter(self.__remaining_targets)
@@ -222,7 +222,10 @@ class Client:
         self.logger.add_object_count('data-packets-received',
                                      int(ceil(request.get_size() / self.__netbuff_size)))
 
-    def read_all_files(self, pattern: ReadPattern = ReadPattern.RANDOM):
+    def read_all_files(self, pattern: ReadPattern = ReadPattern.RANDOM, block_size: int = 1024):
+        if __debug__:
+            assert block_size <= 1024
+
         self.__data_sent = 0
         targets_queues = []
         for i in range(self.__server_count):
@@ -244,11 +247,17 @@ class Client:
                     self.logger.add_object_count('request-read-sent', 1)
 
         if pattern == ReadPattern.LINEAR:
-            for target in range(self.__server_count):
-                packed_requests = deque()
-                while len(targets_queues[target]) != 0:
-                    packed_requests.append(targets_queues[target].popleft())
-                    self.logger.add_object_count('request-read-sent', 1)
-
-
+            for filename, file in self.__files_created.items():
+                read_generator = (ReadRequest(self.__id, filename, 0, file.get_size())).get_generator(block_size)
+                for read_request in read_generator:
+                    requests = []
+                    for target in ParityGroupCreator.int_to_positions(self.__file_map[filename]):
+                        requests.append(self.env.process(self.__manager.read_from_server_blocking(read_request, target  )))
+                    yield simpy.AllOf(self.env, requests)
+            self.__manager.read_completed()
+            # for target in range(self.__server_count):
+            #     packed_requests = deque()
+            #     while len(targets_queues[target]) != 0:
+            #         packed_requests.append(targets_queues[target].popleft())
+            #         self.logger.add_object_count('request-read-sent', 1)
 
