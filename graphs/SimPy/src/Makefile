@@ -1,4 +1,4 @@
-CC=pypy3
+CC=python3.5
 SRCS=$(shell find . -name "[A-Z]*.py")
 PROFILEOUT=profile_data
 PROFILELINES=profile_lines

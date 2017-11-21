@@ -55,6 +55,14 @@ class ParityGroupCreator:
             result |= 1 << target
         return result
 
+    @staticmethod
+    def get_generator_map_based(file_map: int):
+        targets = ParityGroupCreator.int_to_positions(file_map)
+        i = 0
+        while True:
+            yield targets[i]
+            i = (i + 1) % len(targets)
+
     def get_targets(self) -> int:
         """
         Get an integer representing the targets of the packet to send.
@@ -111,12 +119,16 @@ class ParityId:
         return getattr(self.instance, item)
 
 
+
 if __name__ == "__main__":
-    client_params = {}
-    server_params = {}
-    client_params[Contract.C_GEOMETRY_BASE] = 3
-    client_params[Contract.C_GEOMETRY_PLUS] = 1
-    server_params[Contract.S_SERVER_COUNT] = 20
-    pgc = ParityGroupCreator(client_params, server_params)
-    gen = pgc.get_target_generator()
+    # client_params = {}
+    # server_params = {}
+    # client_params[Contract.C_GEOMETRY_BASE] = 3
+    # client_params[Contract.C_GEOMETRY_PLUS] = 1
+    # server_params[Contract.S_SERVER_COUNT] = 20
+    # pgc = ParityGroupCreator(client_params, server_params)
+    # gen = pgc.get_target_generator()
+    g = get_generator_map_based(177)
+    for i in range(10):
+        print(next(g))
 

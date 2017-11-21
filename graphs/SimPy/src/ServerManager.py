@@ -38,8 +38,10 @@ class ServerManager(IfForServer, IfForClient):
         self.__read_pattern = None
         if misc_params[Contract.M_READ_PATTERN] == "linear":
             self.__read_pattern = ReadPattern.LINEAR
-        else:
+        elif misc_params[Contract.M_READ_PATTERN] == "random":
             self.__read_pattern = ReadPattern.RANDOM
+        else:
+            raise Exception("No valid read pattern specified")
         self.__read_block_size = int(misc_params[Contract.M_READ_BLOCK_SIZE])
         self.__schedule_queue = [self.__simulate_client_read, self.__simulate_disk_failure]
         # self.__schedule_queue = [self.__simulate_client_read]
@@ -50,7 +52,7 @@ class ServerManager(IfForServer, IfForClient):
         self.__start = self.env.now
         for key, req_list in requests.items():
             for count, filesize in req_list:
-                self.__clients[int(key)].add_write_request(filesize, file_count=count)
+                self.__clients[int(key)].add_write_request(filesize, files_count=count)
 
         for key, req_list in requests.items():
             self.__clients[key].flush()

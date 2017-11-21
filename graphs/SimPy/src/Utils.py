@@ -321,11 +321,12 @@ class FileAggregator:
 
 
 class ReadRequest:
-    def __init__(self, client_id: int, filename: str, start: int, end: int):
+    def __init__(self, client_id: int, filename: str, start: int, end: int, known_size: bool = False):
         self.__client_id = client_id
         self.__filename = filename
         self.__start = start
         self.__end = end
+        self.__known_size = known_size
 
     def get_client(self) -> int:
         return self.__client_id
@@ -351,9 +352,12 @@ class ReadRequest:
         start = self.__start
         end = self.__end
         while start < end:
-            request = ReadRequest(self.__client_id, self.__filename, start, min(start + chunk_size, end))
+            request = ReadRequest(self.__client_id, self.__filename, start, min(start + chunk_size, end), self.__known_size)
             start += chunk_size
             yield request
+
+    def knows_size(self) -> bool:
+        return self.__known_size
 
 
     def __str__(self):
@@ -456,6 +460,27 @@ def generate_lookup_table(length):
 class ReadPattern(Enum):
     RANDOM = 0
     LINEAR = 1
+
+
+def print_progressbar(iteration, total, prefix='', suffix='', decimals=1, length=50, fill='█'):
+    """
+    Call in a loop to create terminal progress bar
+    @params:
+        iteration   - Required  : current iteration (Int)
+        total       - Required  : total iterations (Int)
+        prefix      - Optional  : prefix string (Str)
+        suffix      - Optional  : suffix string (Str)
+        decimals    - Optional  : positive number of decimals in percent complete (Int)
+        length      - Optional  : character length of bar (Int)
+        fill        - Optional  : bar fill character (Str)
+    """
+    percent = ("{0:." + str(decimals) + "f}").format(100 * (iteration / float(total)))
+    filledLength = int(length * iteration // total)
+    bar = fill * filledLength + '-' * (length - filledLength)
+    print('\r%s |%s| %s%% %s' % (prefix, bar, percent, suffix), end='\r')
+    # Print New Line on Complete
+    if iteration == total:
+        print()
 
 
 if __name__ == "__main__":

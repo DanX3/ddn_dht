@@ -1,5 +1,6 @@
 from Utils import *
 
+
 class Indexer:
     def __init__(self, disks_count: int, cmloid_size: int):
         self.__disks_count = disks_count
@@ -17,7 +18,7 @@ class Indexer:
             addition = [0] * self.__disks_count
             while part.get_size() > 0:
                 idx = next(self.__round_robin_gen)
-                addition[idx] = 1
+                addition[idx] += 1
                 self.__disks[idx][request.get_parity_id()] = request.get_parity_map()
                 part.pop_filename(self.__cmloids_size)
             if part.get_filename() in self.__filenames:

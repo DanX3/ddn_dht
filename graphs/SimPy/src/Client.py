@@ -5,6 +5,7 @@ from Contract import Contract
 from collections import deque, OrderedDict
 from ParityGroupCreator import ParityGroupCreator, ParityId
 from Interfaces import IfForClient
+from tqdm import tqdm
 
 class Client:
     def __init__(self, env: simpy.Environment, id: int, logger: Logger,
@@ -41,12 +42,15 @@ class Client:
         self.__data_sent = 0
         self.data_received = 0
         self.__remaining_targets = None
+        self.__show_progress = bool(int(misc_params[Contract.M_SHOW_PROGRESS]))
+        self.__progressbar = None
 
         # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
         self.__filename_gen = File.get_filename_generator(self.__id)
         self.send_treshold = int(1024 / WriteRequest.get_cmloid_size())
         self.__ok_writing = False
+        print("Show progress", misc_params[Contract.M_SHOW_PROGRESS], bool(misc_params[Contract.M_SHOW_PROGRESS]))
 
     def get_id(self):
         return self.__id
@@ -54,10 +58,12 @@ class Client:
     def get_logger(self):
         return self.logger
 
-    def add_write_request(self, req_size_kb, file_count=1) -> List[str]:
+    def add_write_request(self, req_size_kb, files_count=1) -> List[str]:
         # Populate the main queue
+        if self.__show_progress:
+            self.__progressbar = tqdm(total=req_size_kb * files_count, desc="Writing")
         filenames_generated = []
-        for i in range(file_count):
+        for i in range(files_count):
             file = File(next(self.__filename_gen), req_size_kb)
             filenames_generated.append(file.get_name())
             self.__main_queue.add_file(file)
@@ -206,9 +212,13 @@ class Client:
         self.__prepare_remainders(flush=True)
 
     def receive_write_answer(self, request: WriteRequest):
+        if self.__show_progress:
+            self.__progressbar.update(request.get_size())
         self.__tokens.put(1)
         self.__data_sent -= request.get_size()
         if self.__data_sent == 0:
+            if self.__show_progress:
+                self.__progressbar.close()
             self.__manager.write_completed()
 
     def receive_read_answer(self, request: WriteRequest):
@@ -247,13 +257,18 @@ class Client:
                     self.logger.add_object_count('request-read-sent', 1)
 
         if pattern == ReadPattern.LINEAR:
-            for filename, file in self.__files_created.items():
-                read_generator = (ReadRequest(self.__id, filename, 0, file.get_size())).get_generator(block_size)
+            iterator = None
+            if self.__show_progress:
+                iterator = tqdm(self.__files_created.items(), desc="Reading", mininterval=1.0)
+            else:
+                iterator = self.__files_created.items()
+            for filename, file in iterator:
+                read_generator = (ReadRequest(self.__id, filename, 0, file.get_size(), known_size=True))\
+                    .get_generator(block_size)
+                target_gen = ParityGroupCreator.get_generator_map_based(self.__file_map[filename])
                 for read_request in read_generator:
-                    requests = []
-                    for target in ParityGroupCreator.int_to_positions(self.__file_map[filename]):
-                        requests.append(self.env.process(self.__manager.read_from_server_blocking(read_request, target  )))
-                    yield simpy.AllOf(self.env, requests)
+                    yield self.env.process(self.__manager.read_from_server_blocking(read_request, next(target_gen)))
+            print()
             self.__manager.read_completed()
             # for target in range(self.__server_count):
             #     packed_requests = deque()

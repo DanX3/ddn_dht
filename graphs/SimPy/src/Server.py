@@ -20,13 +20,14 @@ class Server:
         self.__manager = server_manager
         self.__parts = {}  # Dict[str, List[FileParts]
 
+        self.time_write = Function2D.get_bandwidth_model(config[Contract.S_HDD_DATA_LATENCY_US] * 1000,
+                                                         config[Contract.S_HDD_DATA_WRITE_MBPS] / 1024)
+        self.time_read = Function2D.get_bandwidth_model(config[Contract.S_HDD_DATA_LATENCY_US] * 1000,
+                                                         config[Contract.S_HDD_DATA_READ_MBPS] / 1024)
         self.__network_buffer_size = int(misc_params[Contract.M_NETWORK_BUFFER_SIZE_KB])
         self.__disks_count = config[Contract.S_HDD_DATA_COUNT]
         self.__show_requests = bool(config[Contract.S_SHOW_REQUESTS])
         self.__disk_target_gen = round_robin_gen(config[Contract.S_HDD_DATA_COUNT])
-        self.__disk_interaction = Function2D.get_bandwidth_model(
-            config[Contract.S_HDD_DATA_LATENCY_US],
-            config[Contract.S_HDD_DATA_WRITE_MBPS])
         self.__cached_metadata = deque()
         self.__backup_metadata = deque()
         self.__metadata_propagation_timeout = None
@@ -60,30 +61,30 @@ class Server:
             load[i] += CML_oid.get_size()
         return load
 
-    def __track_cmloids(self, request: WriteRequest):
-        sliceable_list = SliceablePartList()
-        parts = request.get_parts()
-        parity_id = request.get_parity_id()
-        parity_group = request.get_parity_map()
-        sliceable_list.add_parts(parts)
-
-        current_disk = next(self.__disk_target_gen)
-        while sliceable_list.has_parts():
-            filenames_in_cmloid = sliceable_list.pop_buffer(CML_oid.get_size())
-            for filename in filenames_in_cmloid:
-                if filename not in self.__cmloids_per_disk:
-                    self.__cmloids_per_disk[filename] = array('H', [0] * self.config[Contract.S_HDD_DATA_COUNT])
-                self.__cmloids_per_disk[filename][current_disk] += 1
-                self.__disk_content[current_disk].append((parity_id, parity_group))
-            current_disk = next(self.__disk_target_gen)
+    # def __track_cmloids(self, request: WriteRequest):
+    #     sliceable_list = SliceablePartList()
+    #     parts = request.get_parts()
+    #     parity_id = request.get_parity_id()
+    #     parity_group = request.get_parity_map()
+    #     sliceable_list.add_parts(parts)
+    #
+    #     current_disk = next(self.__disk_target_gen)
+    #     while sliceable_list.has_parts():
+    #         filenames_in_cmloid = sliceable_list.pop_buffer(CML_oid.get_size())
+    #         for filename in filenames_in_cmloid:
+    #             if filename not in self.__cmloids_per_disk:
+    #                 self.__cmloids_per_disk[filename] = array('H', [0] * self.config[Contract.S_HDD_DATA_COUNT])
+    #             self.__cmloids_per_disk[filename][current_disk] += 1
+    #             self.__disk_content[current_disk].append((parity_id, parity_group))
+    #         current_disk = next(self.__disk_target_gen)
 
     def __perform_journal_operation(self, request: WriteRequest):
-        yield self.env.timeout(request.get_size())
+        yield self.env.timeout(self.time_write(request.get_size()))
 
     def receive_metadata_backup(self, packed_metadata):
         # print(self.__id, 'received metadata len', len(packed_metadata))
         self.__backup_metadata += packed_metadata
-        yield self.env.timeout(self.__disk_interaction(len(packed_metadata)))
+        yield self.env.timeout(self.time_write(len(packed_metadata)))
 
     def __send_cached_metadata(self):
         backup_target = (self.__id + 1) % self.__manager.get_server_count()
@@ -147,12 +148,13 @@ class Server:
         mutex_req = self.__mutex.request()
         yield mutex_req
 
-        # self.__track_cmloids(request)
         self.__indexer.write_packet(request)
 
         max_load = int(ceil(request.get_size() / self.__disks_count))
-        write_time = Function2D.disk_interaction(max_load, self.config[Contract.S_HDD_DATA_WRITE_MBPS])
+        write_time = self.time_write(max_load)
         yield self.env.timeout(write_time)
+        # if randint(0, 1024) == 0:
+        #     print("max-load = ", max_load, " Kb; disk-write = ", write_time)
         self.logger.add_task_time("disk-write", write_time)
         self.__add_file_parts(request.get_parts())
         # self.env.process(self.server_manager.answer_client(request))
@@ -167,12 +169,7 @@ class Server:
             processes.append(process)
         yield simpy.AllOf(self.env, processes)
 
-    def process_read_request(self, request: ReadRequest, send_answer: bool = False) -> int:
-        """
-        Process a read request
-        :param request: the read request
-        :return: the number of cmloids the server owns at the current time and the read time
-        """
+    def process_read_request(self, request: ReadRequest, send_answer: bool = True) -> int:
         if __debug__:
             assert self.__indexer.is_file_present(request.get_filename()), \
             "Server: filename not owned, Client should know who to ask for the files"
@@ -181,9 +178,14 @@ class Server:
         mutex_req = self.__mutex.request()
         yield mutex_req
 
-        max_load = max(self.__indexer.get_cmloids_per_disk(requested_filename)) * CML_oid.get_size()
-        # print("Reading at most {} cmloids per device".format(max(self.__cmloids_per_disk[requested_filename])))
-        read_time = Function2D.disk_interaction(max_load, self.config[Contract.S_HDD_DATA_WRITE_MBPS])
+        max_load = None
+        if not request.knows_size():
+            max_load = max(self.__indexer.get_cmloids_per_disk(requested_filename)) * CML_oid.get_size()
+        else:
+            max_load = request.get_size()
+        read_time = self.time_read(max_load)
+        # if randint(0, 8192) == 0:
+        #     print("max-load = ", max_load, " Kb; disk-read = ", read_time)
         yield self.env.timeout(read_time)
         self.logger.add_task_time("disk-read", read_time)
 
@@ -192,6 +194,11 @@ class Server:
 
         if self.__show_requests:
             print("<{:3d}> {}, read {} cmloids ({} KB)".format(self.__id, request, total_cmloids, total_cmloids * CML_oid.get_size()))
+
+        start = self.env.now
+        yield self.env.process(self.__manager.perform_network_transaction(total_cmloids * CML_oid.get_size()))
+        self.logger.add_task_time('sending-answer', self.env.now - start)
+
 
         if send_answer:
             self.__manager.answer_client_read(request)
@@ -220,7 +227,6 @@ class Server:
     def receive_recovery_data(self, from_id: int):
         self.__recovery_targets ^= 1 << from_id
         if self.__recovery_targets == 0:
-            # self.env.timeout(len(self.))
             self.__manager.server_finished_restoring()
 
     def gather_and_send_parity_groups(self, ids_to_gather: set()):
@@ -236,7 +242,7 @@ class Server:
         # read simulation
         request = self.__mutex.request()
         yield request
-        read_time = Function2D.disk_interaction(max(load), self.config[Contract.S_HDD_DATA_WRITE_MBPS])
+        read_time = self.time_read(max(load))
         yield self.env.timeout(read_time)
         self.__mutex.release(request)
 
