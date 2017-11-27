@@ -5,6 +5,7 @@ propagate: clean
 
 clean:
 	@rm -rf [0-9]
+	@rm plots/*
 
 run: 
 	find . -type d -name "[0-9]" | xargs -n 1 -P 4 -I{} python3.5 ~/bin/Simulator.py --config {}/config --logpath {} -r request
