@@ -5,10 +5,13 @@ propagate: clean
 
 clean:
 	@rm -rf [0-9]
-	@rm plots/*
+	@rm -rf plots/*
 
 run: 
-	find . -type d -name "[0-9]" | xargs -n 1 -P 4 -I{} python3.5 ~/bin/Simulator.py --config {}/config --logpath {} -r request
+	find . -type d -name "[0-9]" | xargs -n 1 -P 4 -I{} python3.5 -OO ~/bin/Simulator.py --config {}/config --logpath {} -r request
 	gnuplot plot.plt
 	mkdir -p plots/
 	mv *.svg plots/
+
+show:
+	@firefox plots/*.svg

@@ -163,34 +163,34 @@ class Server:
         return write_time
 
     def process_read_requests(self, requests):
-        processes = []
         for single_request in requests:
-            process = self.env.process(self.process_read_request(single_request))
-            processes.append(process)
-        yield simpy.AllOf(self.env, processes)
+            yield self.env.process(self.__process_read_request(single_request))
 
-    def process_read_request(self, request: ReadRequest, send_answer: bool = True) -> int:
-        if __debug__:
-            assert self.__indexer.is_file_present(request.get_filename()), \
-            "Server: filename not owned, Client should know who to ask for the files"
+    def process_read_request_blocking(self, request):
+        yield self.env.process(self.__process_read_request(request))
+
+    def __process_read_request(self, request: ReadRequest, send_answer: bool = True) -> int:
+        # if __debug__:
+            # assert self.__indexer.is_file_present(request.get_filename()), \
+            # "Server: filename not owned, Client should know who to ask for the files"
 
         requested_filename = request.get_filename()
-        mutex_req = self.__mutex.request()
-        yield mutex_req
+        # Behaviour simplified in the function calling due to performance reason
+        # mutex_req = self.__mutex.request()
+        # yield mutex_req
 
         max_load = None
+        cmloids_per_disk = self.__indexer.get_cmloids_per_disk(requested_filename)
         if not request.knows_size():
-            max_load = max(self.__indexer.get_cmloids_per_disk(requested_filename)) * CML_oid.get_size()
+            max_load = max(cmloids_per_disk) * CML_oid.get_size()
         else:
             max_load = request.get_size()
         read_time = self.time_read(max_load)
-        # if randint(0, 8192) == 0:
-        #     print("max-load = ", max_load, " Kb; disk-read = ", read_time)
         yield self.env.timeout(read_time)
         self.logger.add_task_time("disk-read", read_time)
 
-        self.__mutex.release(mutex_req)
-        total_cmloids = sum(self.__indexer.get_cmloids_per_disk(requested_filename))
+        # self.__mutex.release(mutex_req)
+        total_cmloids = sum(cmloids_per_disk)
 
         if self.__show_requests:
             print("<{:3d}> {}, read {} cmloids ({} KB)".format(self.__id, request, total_cmloids, total_cmloids * CML_oid.get_size()))

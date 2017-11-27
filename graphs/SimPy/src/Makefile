@@ -7,7 +7,7 @@ FLAMEIMG=profile.svg
 FLAMEOPTS= --title "IME Simulation" --colors yellow --width 1500
 
 all: $(SRCS)
-	time $(CC) Simulator.py
+	time $(CC) Simulator.py --logpath log
 	cd ../ && gnuplot plot.plt
 
 print:

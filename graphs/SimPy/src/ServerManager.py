@@ -76,11 +76,11 @@ class ServerManager(IfForServer, IfForClient):
         self.__HUB.release(mutex_request)
         return time_required
 
-    def read_from_server(self, requests: List[ReadRequest], target: int):
+    def read_from_server(self, requests, target: int):
         self.env.process(self.servers[target].process_read_requests(requests))
 
     def read_from_server_blocking(self, request: ReadRequest, target: int):
-        yield self.env.process(self.servers[target].process_read_request(request, send_answer=False))
+        yield self.env.process(self.servers[target].process_read_request_blocking(request, send_answer=False))
 
     def get_server_count(self) -> int:
         return len(self.servers)
@@ -137,7 +137,7 @@ class ServerManager(IfForServer, IfForClient):
         Logger.print_objects_to_file(merged_dict, 'objects.log', logpath=self.__logpath)
 
     def write_to_server(self, request: WriteRequest):
-        yield self.env.process(self.servers[request.get_target_id()].process_write_request(request))
+        self.env.process(self.servers[request.get_target_id()].process_write_request(request))
 
     def answer_client_write(self, request: WriteRequest):
         """

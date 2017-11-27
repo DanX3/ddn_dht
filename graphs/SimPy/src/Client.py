@@ -50,7 +50,6 @@ class Client:
         self.__filename_gen = File.get_filename_generator(self.__id)
         self.send_treshold = int(1024 / WriteRequest.get_cmloid_size())
         self.__ok_writing = False
-        print("Show progress", misc_params[Contract.M_SHOW_PROGRESS], bool(misc_params[Contract.M_SHOW_PROGRESS]))
 
     def get_id(self):
         return self.__id
@@ -61,7 +60,7 @@ class Client:
     def add_write_request(self, req_size_kb, files_count=1) -> List[str]:
         # Populate the main queue
         if self.__show_progress:
-            self.__progressbar = tqdm(total=req_size_kb * files_count, desc="Writing")
+            self.__progressbar = tqdm(total=req_size_kb * files_count, desc="Writing", mininterval=1.0)
         filenames_generated = []
         for i in range(files_count):
             file = File(next(self.__filename_gen), req_size_kb)
@@ -202,7 +201,7 @@ class Client:
         self.logger.add_task_time("send-request", self.env.now - start)
         self.logger.add_object_count('data-packets-sent', 1)
 
-        self.env.process(self.__manager.write_to_server(request))
+        self.__manager.write_to_server(request)
 
     def flush(self):
         if __debug__:
@@ -213,7 +212,8 @@ class Client:
 
     def receive_write_answer(self, request: WriteRequest):
         if self.__show_progress:
-            self.__progressbar.update(request.get_size())
+            if request.get_parts()[0].get_filename() != "parity":
+                self.__progressbar.update(request.get_size())
         self.__tokens.put(1)
         self.__data_sent -= request.get_size()
         if self.__data_sent == 0:
@@ -231,6 +231,8 @@ class Client:
         self.logger.add_task_time('receive-request', self.env.now - start)
         self.logger.add_object_count('data-packets-received',
                                      int(ceil(request.get_size() / self.__netbuff_size)))
+        if self.__show_progress:
+            self.__progressbar.update(request.get_size())
 
     def read_all_files(self, pattern: ReadPattern = ReadPattern.RANDOM, block_size: int = 1024):
         if __debug__:
@@ -241,13 +243,22 @@ class Client:
         for i in range(self.__server_count):
             targets_queues.append(deque())
 
-        for filename, file in self.__files_created.items():
+        total_file_size = 0
+        iterator = None
+        if self.__show_progress:
+            iterator = tqdm(self.__files_created.items(), desc="Preparing reading", mininterval=1.0)
+        else:
+            iterator = self.__files_created.items()
+        for filename, file in iterator:
             read_request = ReadRequest(self.__id, file.get_name(), 0, file.get_size())
+            total_file_size += file.get_size()
             for target in ParityGroupCreator.int_to_positions(self.__file_map[file.get_name()]):
                 self.__data_sent += 1
                 targets_queues[target].append(read_request)
 
         if pattern == ReadPattern.RANDOM:
+            if self.__show_progress:
+                self.__progressbar = tqdm(total=total_file_size, desc="Reading", mininterval=1.0)
             for target in range(self.__server_count):
                 packed_requests = deque()
                 while len(targets_queues[target]) != 0:
