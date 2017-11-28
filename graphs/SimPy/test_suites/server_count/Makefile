@@ -2,6 +2,7 @@ all: propagate
 
 propagate: clean
 	@for case_num in `seq 1 5`; do mkdir $$case_num; cp config $$case_num; done
+	@./set_values.sh
 
 clean:
 	@rm -rf [0-9]
