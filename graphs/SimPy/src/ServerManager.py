@@ -36,6 +36,7 @@ class ServerManager(IfForServer, IfForClient):
         self.__server_restoring = 0
         self.__show_counters = bool(misc_params[Contract.M_SHOW_COUNTERS])
         self.__read_pattern = None
+        self.__log_runtime_data = bool(int(misc_params[Contract.M_LOG_RUNTIME_DATA]))
         if misc_params[Contract.M_READ_PATTERN] == "linear":
             self.__read_pattern = ReadPattern.LINEAR
         elif misc_params[Contract.M_READ_PATTERN] == "random":
@@ -46,6 +47,8 @@ class ServerManager(IfForServer, IfForClient):
         self.__schedule_queue = [self.__simulate_client_read, self.__simulate_disk_failure]
         # self.__schedule_queue = [self.__simulate_client_read]
         # self.__schedule_queue = []
+        self.__server_same_time_write = {}
+        self.__server_same_time_write_completed = {}
 
 
     def add_requests_to_clients(self, requests: Dict[int, List[WriteRequest]]):
@@ -80,7 +83,7 @@ class ServerManager(IfForServer, IfForClient):
         self.env.process(self.servers[target].process_read_requests(requests))
 
     def read_from_server_blocking(self, request: ReadRequest, target: int):
-        yield self.env.process(self.servers[target].process_read_request_blocking(request, send_answer=False))
+        yield self.env.process(self.servers[target].process_read_request_blocking(request))
 
     def get_server_count(self) -> int:
         return len(self.servers)
@@ -92,6 +95,13 @@ class ServerManager(IfForServer, IfForClient):
             self.__manager_logger.add_task_time("write-operation", self.env.now - self.__start)
             printmessage(0, "Finished Writing", self.env.now)
             self.__parse_schedule()
+
+        # log write at the same time
+        if self.__log_runtime_data:
+            times = open(self.__logpath + "server_concurrency", 'w')
+            for i in range(len(self.__server_same_time_write)):
+                if i in self.__server_same_time_write_completed:
+                    times.write("{:13d} {:13d} {:6}\n".format(self.__server_same_time_write[i], self.__server_same_time_write_completed[i], i))
 
     def __simulate_client_read(self):
         self.__client_completed = 0
@@ -137,6 +147,8 @@ class ServerManager(IfForServer, IfForClient):
         Logger.print_objects_to_file(merged_dict, 'objects.log', logpath=self.__logpath)
 
     def write_to_server(self, request: WriteRequest):
+        if self.__log_runtime_data:
+            self.__server_same_time_write[request.get_parity_id()] = self.env.now
         self.env.process(self.servers[request.get_target_id()].process_write_request(request))
 
     def answer_client_write(self, request: WriteRequest):
@@ -147,6 +159,8 @@ class ServerManager(IfForServer, IfForClient):
         :param request: a single client request
         :return:
         """
+        if self.__log_runtime_data:
+            self.__server_same_time_write_completed[request.get_parity_id()] = self.env.now
         self.__clients[request.get_client()].receive_write_answer(request)
 
     def answer_client_read(self, request: ReadRequest):

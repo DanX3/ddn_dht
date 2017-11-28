@@ -29,5 +29,8 @@ def createparser():
     parser.add_argument("-p", "--params", action="store_true", help="print \
             current settings from config")
     parser.add_argument("-l", "--logpath", type=str, default="./", help="Set path for log files")
+    parser.add_argument("-g", "--graph", choices=["s", "server_concurrency"],
+                        help="Suppress simulation and plot data collected from previous simulations")
+
 
     return parser

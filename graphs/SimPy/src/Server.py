@@ -167,7 +167,7 @@ class Server:
             yield self.env.process(self.__process_read_request(single_request))
 
     def process_read_request_blocking(self, request):
-        yield self.env.process(self.__process_read_request(request))
+        yield self.env.process(self.__process_read_request(request, send_answer=False))
 
     def __process_read_request(self, request: ReadRequest, send_answer: bool = True) -> int:
         # if __debug__:

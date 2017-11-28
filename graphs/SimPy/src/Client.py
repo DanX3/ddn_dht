@@ -42,7 +42,7 @@ class Client:
         self.__data_sent = 0
         self.data_received = 0
         self.__remaining_targets = None
-        self.__show_progress = bool(int(misc_params[Contract.M_SHOW_PROGRESS]))
+        self.__show_progress = bool(int(misc_params[Contract.M_SHOW_PROGRESS])) and self.__id == 0
         self.__progressbar = None
 
         # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
