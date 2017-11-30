@@ -126,7 +126,7 @@ class Client:
     def __prepare_write_request(self):
         # accessing to the queues depend on the targets extracted
         # it may happen that an extracted queue is empty but is still possible using the generator
-        # instead of breaking immediatly there is a margin of error, chances before interrupting
+        # instead of breaking immediately there is a margin of error, chances before interrupting
         chances = int(self.__server_count / 4)
         while chances > 0:
             targets = ParityGroupCreator.int_to_positions(next(self.__parity_groups_gen))
@@ -135,7 +135,7 @@ class Client:
                 continue
 
             self.__send_buffers(targets)
-            self.logger.add_task_time('allocation', 100000)
+            self.logger.add_task_time('allocation', 1000)
 
         self.__prepare_remainders()
 
@@ -224,11 +224,12 @@ class Client:
 
     def receive_read_answer(self, request: WriteRequest):
         self.__data_sent -= 1
+        # printmessage(self.__id, 'received answer. {} left'.format(self.__data_sent), self.env.now)
         if self.__data_sent == 0:
             self.__manager.read_completed()
 
         start = self.env.now
-        yield self.env.process(self.__manager.perform_network_transaction(request.get_size()))
+        # yield self.env.process(self.__manager.perform_network_transaction(request.get_size()))
         self.logger.add_task_time('receive-request', self.env.now - start)
         self.logger.add_object_count('data-packets-received',
                                      int(ceil(request.get_size() / self.__netbuff_size)))
@@ -245,18 +246,14 @@ class Client:
             targets_queues.append(deque())
 
         total_file_size = 0
-        iterator = None
-        if self.__show_progress:
-            iterator = tqdm(self.__files_created.items(), desc="Preparing reading",
-            mininterval=1.0, smoothing=1.0)
-        else:
-            iterator = self.__files_created.items()
-        for filename, file in iterator:
+        for filename, file in self.__files_created.items():
             read_request = ReadRequest(self.__id, file.get_name(), 0, file.get_size())
             total_file_size += file.get_size()
             for target in ParityGroupCreator.int_to_positions(self.__file_map[file.get_name()]):
                 self.__data_sent += 1
                 targets_queues[target].append(read_request)
+                yield self.env.timeout(5000)
+                self.logger.add_task_time('preparing-read-reqs', 10)
 
         if pattern == ReadPattern.RANDOM:
             if self.__show_progress:
@@ -269,6 +266,7 @@ class Client:
                         packed_requests.append(targets_queues[target].popleft())
                     self.__manager.read_from_server(packed_requests, target)
                     self.logger.add_object_count('request-read-sent', 1)
+            printmessage(self.__id, 'finished sending readreqs', self.env.now)
 
         if pattern == ReadPattern.LINEAR:
             iterator = None

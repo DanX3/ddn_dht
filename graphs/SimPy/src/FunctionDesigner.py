@@ -73,7 +73,7 @@ class Function2D:
 
 if __name__ == "__main__":
     f = Function2D.get_bandwidth_model(100000, 1)
-    out = open('/tmp/data.txt', 'w')
+    out = open('/tmp/data1.txt', 'w')
     for i in range(0, 1500, 10):
         out.write("{} {}\n".format(i, f(i)))
     out.close()

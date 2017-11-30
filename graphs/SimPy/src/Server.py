@@ -23,7 +23,7 @@ class Server:
         self.time_write = Function2D.get_bandwidth_model(config[Contract.S_HDD_DATA_LATENCY_US] * 1000,
                                                          config[Contract.S_HDD_DATA_WRITE_MBPS] / 1024)
         self.time_read = Function2D.get_bandwidth_model(config[Contract.S_HDD_DATA_LATENCY_US] * 1000,
-                                                         config[Contract.S_HDD_DATA_READ_MBPS] / 1024)
+                                                        config[Contract.S_HDD_DATA_READ_MBPS] / 1024)
         self.__network_buffer_size = int(misc_params[Contract.M_NETWORK_BUFFER_SIZE_KB])
         self.__disks_count = config[Contract.S_HDD_DATA_COUNT]
         self.__show_requests = bool(config[Contract.S_SHOW_REQUESTS])
@@ -34,6 +34,7 @@ class Server:
         self.__indexer = Indexer(self.__disks_count, CML_oid.get_size())
 
         self.__recovery_targets = 0
+        self.__corrupted_disk_id = 0
 
 
     def get_id(self):
@@ -105,12 +106,6 @@ class Server:
         self.__cached_metadata += request.get_parts()
         self.logger.add_task_time("cache-metadata", 10)
 
-        # if request.is_eager_commit():
-        #     print(self.__id, 'eager commit')
-        #
-        # if len(self.__cached_metadata) >= self.config[Contract.S_METADATA_CACHING_THRESHOLD]:
-        #     print(self.__id, 'length reached')
-
         if request.is_eager_commit() \
                 or len(self.__cached_metadata) >= self.config[Contract.S_METADATA_CACHING_THRESHOLD]:
             # Logging events
@@ -122,10 +117,12 @@ class Server:
             if self.__metadata_propagation_timeout is not None \
                     and self.__metadata_propagation_timeout.is_alive:
                 self.__metadata_propagation_timeout.interrupt()
-            yield self.env.process(self.__send_cached_metadata())
+                self.__metadata_propagation_timeout = None
+                yield self.env.process(self.__send_cached_metadata())
         else:
-            pass
             self.__metadata_propagation_timeout = self.env.process(self.__metadata_timeout())
+            yield self.env.timeout(0)
+
 
     def __control_plane(self, request: WriteRequest):
         journal = self.env.process(self.__perform_journal_operation(request))
@@ -153,11 +150,8 @@ class Server:
         max_load = int(ceil(request.get_size() / self.__disks_count))
         write_time = self.time_write(max_load)
         yield self.env.timeout(write_time)
-        # if randint(0, 1024) == 0:
-        #     print("max-load = ", max_load, " Kb; disk-write = ", write_time)
         self.logger.add_task_time("disk-write", write_time)
         self.__add_file_parts(request.get_parts())
-        # self.env.process(self.server_manager.answer_client(request))
 
         self.__mutex.release(mutex_req)
         return write_time
@@ -175,21 +169,23 @@ class Server:
             # "Server: filename not owned, Client should know who to ask for the files"
 
         requested_filename = request.get_filename()
-        # Behaviour simplified in the function calling due to performance reason
-        # mutex_req = self.__mutex.request()
-        # yield mutex_req
+        mutex_req = self.__mutex.request()
+        yield mutex_req
+        start = self.env.now
 
         max_load = None
         cmloids_per_disk = self.__indexer.get_cmloids_per_disk(requested_filename)
-        if not request.knows_size():
-            max_load = max(cmloids_per_disk) * CML_oid.get_size()
-        else:
+        if request.knows_size():
             max_load = request.get_size()
+        else:
+            max_load = max(cmloids_per_disk) * CML_oid.get_size()
         read_time = self.time_read(max_load)
+        # printmessage(self.__id, 'read file', self.env.now)
         yield self.env.timeout(read_time)
         self.logger.add_task_time("disk-read", read_time)
 
-        # self.__mutex.release(mutex_req)
+        # print('time spend reading {} ({})'.format(self.env.now - start, int(self.env.now/1000)))
+        self.__mutex.release(mutex_req)
         total_cmloids = sum(cmloids_per_disk)
 
         if self.__show_requests:
@@ -212,6 +208,7 @@ class Server:
         if disk_id is None:
             disk_id = randint(0, self.config[Contract.S_HDD_DATA_COUNT] - 1)
 
+        self.__corrupted_disk_id = disk_id
         ids_to_gather = set()
         self.__recovery_targets = 0
         self.logger.add_object_count('cmloids-lost', len(self.__indexer.get_disk_packets(disk_id)))
@@ -219,7 +216,9 @@ class Server:
             ids_to_gather.add(id)
             self.__recovery_targets |= map
 
+        # Removing myself from the targets
         self.__recovery_targets ^= 1 << self.__id
+
         self.logger.add_object_count('parity-groups-to-gather', len(ids_to_gather))
         self.__manager.send_recovery_request(ids_to_gather, self.__recovery_targets)
         yield self.env.timeout(0)
@@ -227,16 +226,21 @@ class Server:
     def receive_recovery_data(self, from_id: int):
         self.__recovery_targets ^= 1 << from_id
         if self.__recovery_targets == 0:
+            # Simulating restoring after having all the data
+            # self.env.timeout(len(self.__indexer.get_disk_packets(self.__corrupted_disk_id)) * CML_oid.get_size())
             self.__manager.server_finished_restoring()
 
     def gather_and_send_parity_groups(self, ids_to_gather: set()):
         # computing load per disk
-        load = np.array([0] * self.__disks_count, np.uint16)
-        disk_id = 0
+        load = np.array([0] * self.__disks_count, np.uint32)
         packets_gathered = 0
+        generator = random_bounded_gen(self.__disks_count)
         for id_to_gather in ids_to_gather:
-            if id_to_gather in self.__indexer.get_disk_packets(disk_id):
-                packets_gathered += 1
+            for disk_id in range(self.__disks_count):
+                if id_to_gather in self.__indexer.get_disk_packets(disk_id):
+                    for i in range(int(self.__network_buffer_size / CML_oid.get_size())):
+                        load[next(generator)] += 1
+                    packets_gathered += 1
         self.logger.add_object_count('packets-gathered', packets_gathered)
 
         # read simulation
@@ -247,6 +251,7 @@ class Server:
         self.__mutex.release(request)
 
         # network simulation
+        # for fullsize_transaction in range(sum(load) / )
         network_time = yield self.env.process(self.__manager.perform_network_transaction(sum(load) * CML_oid.get_size()))
         self.logger.add_task_time("send-same-parity-group", network_time)
 

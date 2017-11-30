@@ -28,7 +28,7 @@ class ServerManager(IfForServer, IfForClient):
         self.__HUB = simpy.Resource(env)
         self.__overhead = int(misc_params[Contract.M_NETWORK_LATENCY_nS])
         self.__max_bandwidth = int(misc_params[Contract.M_HUB_BW_Gbps]) * 1e6 / 8
-        self.__time_function = Function2D.get_bandwidth_model(self.__overhead, self.__max_bandwidth / 1e6)
+        self.__time_function = Function2D.get_bandwidth_model(self.__overhead, int(misc_params[Contract.M_HUB_BW_Gbps]) / 8)
         self.__dht = DHT(len(self.servers), server_params[Contract.S_HDD_DATA_COUNT])
         self.__full_speed_packet_time = int(self.__network_buffer_size / self.__max_bandwidth * 1e9)
         self.__manager_logger = Logger(self.env, logpath)
@@ -44,9 +44,13 @@ class ServerManager(IfForServer, IfForClient):
         else:
             raise Exception("No valid read pattern specified")
         self.__read_block_size = int(misc_params[Contract.M_READ_BLOCK_SIZE])
-        self.__schedule_queue = [self.__simulate_client_read, self.__simulate_disk_failure]
-        # self.__schedule_queue = [self.__simulate_client_read]
-        # self.__schedule_queue = []
+        self.__schedule_queue = []
+        for operation in misc_params[Contract.M_OPERATIONS]:
+            if operation == 'r':
+                self.__schedule_queue.append(self.__simulate_client_read)
+            if operation == 'f':
+                self.__schedule_queue.append(self.__simulate_disk_failure)
+        # self.__schedule_queue = [self.__simulate_client_read, self.__simulate_disk_failure]
         self.__server_same_time_write = {}
         self.__server_same_time_write_completed = {}
 
@@ -164,7 +168,7 @@ class ServerManager(IfForServer, IfForClient):
         self.__clients[request.get_client()].receive_write_answer(request)
 
     def answer_client_read(self, request: ReadRequest):
-        self.env.process(self.__clients[request.get_client()].receive_read_answer(request))
+        self.__clients[request.get_client()].receive_read_answer(request)
 
     def propagate_metadata(self, packed_metadata, target_id: int):
         yield self.env.process(self.servers[target_id].receive_metadata_backup(packed_metadata))

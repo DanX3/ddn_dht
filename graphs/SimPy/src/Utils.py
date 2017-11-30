@@ -34,6 +34,12 @@ def round_robin_gen(max: int):
         yield i
         i = (i + 1) % max
 
+def random_bounded_gen(max: int):
+    i = 0
+    while True:
+        yield i
+        i = (i + randint(0, 32768)) % max
+
 def infinite_gen():
     i = 0
     while True:
