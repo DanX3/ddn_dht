@@ -1,0 +1,33 @@
+# ClientCount is now based on the number of requests in the 'request' file
+# Every client that communicates, is created.
+# Does not exist completely quiet clients
+# C_CLIENT_COUNT = 2
+
+# treshold before packing parity groups in send packets
+C_TOKEN_COUNT = 24
+C_GEOMETRY_BASE = 3
+C_GEOMETRY_PLUS = 1
+C_SHOW_REQUESTS = 0
+
+
+S_SERVER_COUNT = 20
+S_TRANSFER_INITIAL_OVERHEAD = 200
+S_HDD_DATA_COUNT = 20
+S_HDD_DATA_READ_MBps = 2048
+S_HDD_DATA_WRITE_MBps = 1024
+S_HDD_DATA_LATENCY_us = 100
+S_METADATA_CACHING_THRESHOLD = 128
+S_SHOW_REQUESTS = 0
+
+M_CLIENT_LOGFILE_NAME = client.log
+M_SERVER_LOGFILE_NAME = server.log
+M_HUB_BW_Gbps = 80
+M_NETWORK_LATENCY_nS = 6667
+M_NETWORK_BUFFER_SIZE_KB = 1024
+M_SHOW_COUNTERS = 0
+M_BUCKET_SIZE = 8192
+# Choices are "linear" or "random"
+M_READ_PATTERN = linear
+M_READ_BLOCK_SIZE = 4
+M_SHOW_PROGRESS = 1
+M_LOG_RUNTIME_DATA = 0

@@ -1,0 +1,10 @@
+3644 cmloids-lost
+131072 data-packets-received
+147567 data-packets-sent
+16384 eager-commits
+92057 max-cache-reached
+12539 packets-gathered
+3644 parity-groups-to-gather
+6619 propagation-timeout
+16384 request-read-sent
+3861 timeout-interrupted
