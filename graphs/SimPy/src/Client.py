@@ -60,7 +60,8 @@ class Client:
     def add_write_request(self, req_size_kb, files_count=1) -> List[str]:
         # Populate the main queue
         if self.__show_progress:
-            self.__progressbar = tqdm(total=req_size_kb * files_count, desc="Writing", mininterval=1.0)
+            self.__progressbar = tqdm(total=req_size_kb * files_count,
+            desc="Writing", mininterval=1.0, smoothing=1.0)
         filenames_generated = []
         for i in range(files_count):
             file = File(next(self.__filename_gen), req_size_kb)
@@ -246,7 +247,8 @@ class Client:
         total_file_size = 0
         iterator = None
         if self.__show_progress:
-            iterator = tqdm(self.__files_created.items(), desc="Preparing reading", mininterval=1.0)
+            iterator = tqdm(self.__files_created.items(), desc="Preparing reading",
+            mininterval=1.0, smoothing=1.0)
         else:
             iterator = self.__files_created.items()
         for filename, file in iterator:
@@ -258,7 +260,8 @@ class Client:
 
         if pattern == ReadPattern.RANDOM:
             if self.__show_progress:
-                self.__progressbar = tqdm(total=total_file_size, desc="Reading", mininterval=1.0)
+                self.__progressbar = tqdm(total=total_file_size, desc="Reading",
+                mininterval=1.0, smoothing=1.0)
             for target in range(self.__server_count):
                 packed_requests = deque()
                 while len(targets_queues[target]) != 0:
@@ -270,7 +273,8 @@ class Client:
         if pattern == ReadPattern.LINEAR:
             iterator = None
             if self.__show_progress:
-                iterator = tqdm(self.__files_created.items(), desc="Reading", mininterval=1.0)
+                iterator = tqdm(self.__files_created.items(), desc="Reading",
+                mininterval=1.0, smoothing=1.0)
             else:
                 iterator = self.__files_created.items()
             for filename, file in iterator:
