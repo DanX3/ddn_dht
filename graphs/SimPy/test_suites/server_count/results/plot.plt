@@ -23,11 +23,11 @@ set terminal pngcairo size 800,600 enhanced font 'Helvetica,12'
 set grid
 
 set output "plot.png"
-plot 'results.dat.reduced' using 1:5 title 'Write 256GB' with linespoints ls 1 pt 13, \
-     'results.dat.reduced' using 1:6 title 'Read 256GB' with linespoints ls 2 pt 13, \
-     'results.dat.reduced' using 1:7 title 'Recovery 256GB' with linespoints ls 3 pt 13, \
-     'results.dat.reduced' using 1:2 title 'Write 8GB' with linespoints ls 1, \
-     'results.dat.reduced' using 1:3 title 'Read 8GB' with linespoints ls 2, \
-     'results.dat.reduced' using 1:4 title 'Recovery 8GB' with linespoints ls 3, \
+plot 'results.dat' using 1:5 title 'Write 256GB' with linespoints ls 1 pt 13, \
+     'results.dat' using 1:6 title 'Read 256GB' with linespoints ls 2 pt 13 ps 4, \
+     'results.dat' using 1:7 title 'Recovery 256GB' with linespoints ls 3 pt 13, \
+     'results.dat' using 1:2 title 'Write 8GB' with linespoints ls 1, \
+     'results.dat' using 1:3 title 'Read 8GB' with linespoints ls 2, \
+     'results.dat' using 1:4 title 'Recovery 8GB' with linespoints ls 3, \
 
 
