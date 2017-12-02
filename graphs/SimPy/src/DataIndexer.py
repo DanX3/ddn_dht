@@ -35,6 +35,11 @@ class Indexer:
     def get_disk_packets(self, disk_id: int):
         return self.__disks[disk_id]
 
+    def get_packets_gen(self):
+        for disk in self.__disks:
+            for id, map in disk.items():
+                yield id, map
+
     def get_packet_by_id(self, parity_id: int):
         return self.__packets[parity_id]
 

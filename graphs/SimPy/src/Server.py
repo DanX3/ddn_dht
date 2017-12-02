@@ -8,6 +8,8 @@ from Interfaces import IfForServer
 from array import array
 from FunctionDesigner import Function2D
 from DataIndexer import Indexer
+from tqdm import tqdm
+from ParityGroupCreator import ParityGroupCreator
 
 
 class Server:
@@ -32,9 +34,10 @@ class Server:
         self.__backup_metadata = deque()
         self.__metadata_propagation_timeout = None
         self.__indexer = Indexer(self.__disks_count, CML_oid.get_size())
+        self.__simulation_progressbar = None
+        self.__show_progress = bool(int(misc_params[Contract.M_SHOW_PROGRESS]))
 
         self.__recovery_targets = 0
-        self.__corrupted_disk_id = 0
 
 
     def get_id(self):
@@ -199,48 +202,52 @@ class Server:
         if send_answer:
             self.__manager.answer_client_read(request)
 
-    def process_disk_failure(self, disk_id: int = None):
+    def process_disk_failure(self, buffer_per_parity_group: int):
         """
         Simualtes the failure of a disk, retrieving from all the network the data needed to apply
         erasure coding
         :param disk_id: the disk id that has stopped working. A random one if not specified
         """
-        if disk_id is None:
-            disk_id = randint(0, self.config[Contract.S_HDD_DATA_COUNT] - 1)
-
-        self.__corrupted_disk_id = disk_id
         ids_to_gather = set()
         self.__recovery_targets = 0
-        self.logger.add_object_count('cmloids-lost', len(self.__indexer.get_disk_packets(disk_id)))
-        for id, map in self.__indexer.get_disk_packets(disk_id).items():
+        # for id, map in self.__indexer.get_disk_packets(disk_id).items():
+        for id, map in self.__indexer.get_packets_gen():
             ids_to_gather.add(id)
             self.__recovery_targets |= map
+        # self.logger.add_object_count('cmloids-lost', len(self.__indexer.get_disk_packets(disk_id)))
 
         # Removing myself from the targets
         self.__recovery_targets ^= 1 << self.__id
 
         self.logger.add_object_count('parity-groups-to-gather', len(ids_to_gather))
-        self.__manager.send_recovery_request(ids_to_gather, self.__recovery_targets)
+        self.__manager.send_recovery_request(self.__id, ids_to_gather, self.__recovery_targets)
+        if self.__show_progress and not bool(self.__id):
+            self.__simulation_progressbar = tqdm(total=3*len(ids_to_gather) * (buffer_per_parity_group - 1),
+                     smoothing=1, mininterval=1.0, desc="Recovering")
         yield self.env.timeout(0)
 
     def receive_recovery_data(self, from_id: int):
         self.__recovery_targets ^= 1 << from_id
+        # if self.__show_progress and not bool(self.__id):
+        #     self.__simulation_progressbar.update(1)
         if self.__recovery_targets == 0:
-            # Simulating restoring after having all the data
-            # self.env.timeout(len(self.__indexer.get_disk_packets(self.__corrupted_disk_id)) * CML_oid.get_size())
+            if self.__show_progress and not bool(self.__id):
+                self.__simulation_progressbar.close()
             self.__manager.server_finished_restoring()
 
-    def gather_and_send_parity_groups(self, ids_to_gather: set()):
+    def gather_and_send_parity_groups(self, target_server_id: int, ids_to_gather: set()):
         # computing load per disk
-        load = np.array([0] * self.__disks_count, np.uint32)
+        load = [0] * self.__disks_count
         packets_gathered = 0
         generator = random_bounded_gen(self.__disks_count)
         for id_to_gather in ids_to_gather:
+            starting_packets = packets_gathered
             for disk_id in range(self.__disks_count):
                 if id_to_gather in self.__indexer.get_disk_packets(disk_id):
                     for i in range(int(self.__network_buffer_size / CML_oid.get_size())):
                         load[next(generator)] += 1
                     packets_gathered += 1
+            self.__manager.update_recovery_progress(target_server_id, packets_gathered - starting_packets)
         self.logger.add_object_count('packets-gathered', packets_gathered)
 
         # read simulation
@@ -255,4 +262,8 @@ class Server:
         network_time = yield self.env.process(self.__manager.perform_network_transaction(sum(load) * CML_oid.get_size()))
         self.logger.add_task_time("send-same-parity-group", network_time)
 
-        self.__manager.receive_recovery_request(self.__id)
+        self.__manager.receive_recovery_request(target_server_id, self.__id)
+
+    def update_recovery_progress(self, progress_difference: int):
+        if self.__simulation_progressbar is not None:
+            self.__simulation_progressbar.update(progress_difference)

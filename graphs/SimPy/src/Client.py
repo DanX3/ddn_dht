@@ -266,7 +266,6 @@ class Client:
                         packed_requests.append(targets_queues[target].popleft())
                     self.__manager.read_from_server(packed_requests, target)
                     self.logger.add_object_count('request-read-sent', 1)
-            printmessage(self.__id, 'finished sending readreqs', self.env.now)
 
         if pattern == ReadPattern.LINEAR:
             iterator = None

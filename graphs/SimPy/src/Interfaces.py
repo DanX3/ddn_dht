@@ -21,13 +21,16 @@ class IfForServer(GeneralManagerIf):
     def server_finished_restoring(self): raise NotImplementedError
 
     @abstractmethod
-    def receive_recovery_request(self, from_id: int): raise NotImplementedError
+    def receive_recovery_request(self, target_server_id: int, from_id: int): raise NotImplementedError
 
     @abstractmethod
-    def send_recovery_request(self, ids: set, targets: int): raise NotImplementedError
+    def send_recovery_request(self, crashed_server_id: int, ids: set, targets: int): raise NotImplementedError
 
     @abstractmethod
     def propagate_metadata(self, packed_metadata, target_id: int): raise NotImplementedError
+
+    @abstractmethod
+    def update_recovery_progress(self, target_server_id: int, packets_gathered: int): raise NotImplementedError
 
 class IfForClient(GeneralManagerIf):
     @abstractmethod

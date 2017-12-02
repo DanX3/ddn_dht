@@ -53,6 +53,7 @@ class ServerManager(IfForServer, IfForClient):
         # self.__schedule_queue = [self.__simulate_client_read, self.__simulate_disk_failure]
         self.__server_same_time_write = {}
         self.__server_same_time_write_completed = {}
+        self.__geometry = (client_params[Contract.C_GEOMETRY_BASE], client_params[Contract.C_GEOMETRY_PLUS])
 
 
     def add_requests_to_clients(self, requests: Dict[int, List[WriteRequest]]):
@@ -121,21 +122,24 @@ class ServerManager(IfForServer, IfForClient):
             self.__parse_schedule()
 
     def __simulate_disk_failure(self):
-        self.__server_restoring = randint(0, len(self.servers) - 1)
+        self.__server_restoring = len(self.servers)
         self.__start = self.env.now
-        self.env.process(self.servers[self.__server_restoring].process_disk_failure(0))
+        for server in self.servers:
+            self.env.process(server.process_disk_failure(sum(self.__geometry)))
 
-    def send_recovery_request(self, ids: set, targets: int):
+    def send_recovery_request(self, crashed_server_id: int, ids: set, targets: int):
         for target in ParityGroupCreator.int_to_positions(targets):
-            self.env.process(self.servers[target].gather_and_send_parity_groups(ids))
+            self.env.process(self.servers[target].gather_and_send_parity_groups(crashed_server_id, ids))
 
-    def receive_recovery_request(self, from_id: int):
-        self.servers[self.__server_restoring].receive_recovery_data(from_id)
+    def receive_recovery_request(self, target_server_id: int, from_id: int):
+        self.servers[target_server_id].receive_recovery_data(from_id)
 
     def server_finished_restoring(self):
-        self.__manager_logger.add_task_time("disk-restore", self.env.now - self.__start)
-        printmessage(0, "Finished Restoring", self.env.now)
-        self.__parse_schedule()
+        self.__server_restoring -= 1
+        if self.__server_restoring == 0:
+            self.__manager_logger.add_task_time("disk-restore", self.env.now - self.__start)
+            printmessage(0, "Finished Restoring", self.env.now)
+            self.__parse_schedule()
 
     def __end_simulation(self):
         # Log times
@@ -183,3 +187,9 @@ class ServerManager(IfForServer, IfForClient):
     def __simulate_read_pattern(self):
         for client in self.__clients:
             client.read_all_files()
+
+    def update_recovery_progress(self, target_server_id: int, packets_gathered: int):
+        self.servers[target_server_id].update_recovery_progress(packets_gathered)
+
+
+
