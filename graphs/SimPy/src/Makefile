@@ -8,7 +8,7 @@ FLAMEOPTS= --title "IME Simulation" --colors yellow --width 1500
 
 all: $(SRCS)
 	time $(CC) Simulator.py --logpath log
-	cd ../ && gnuplot plot.plt
+	cd log && gnuplot plot.plt
 
 print:
 	@echo $(SRCS)

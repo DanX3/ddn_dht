@@ -7,10 +7,16 @@ Client side process intercepting IO communications that are sent to IME servers.
     to the IME servers through a Network Fabric. Each server has a set of SSDs
     installed acting as a cache
 \end{myimage}
-Figure \ref{eq:map} captures a possible configuration of IME:
+\newpage
+In a possible configuration , as shown in figure \ref{eq:map}, can be detected
+some different components:
 \begin{itemize}
-    \item 3 Clients with a single HDD each. These will generate the data that
-        has to be stored in IME servers.
+    \item 3 clients with a single HDD each. This hard drive is used to store
+        the local image of the OS. In modern data center, client nodes tend
+        to be disk-less (they boot over the network). Local HDD can be used
+        to store the /tmp and the /var and various Linux system log
+        mechanism. But applications are doing most (if not all) of their I/O
+        using the fabrics.
     \item a Network Fabric that interconnects every component of IME
     \item up to 20 SSDs per server, that can store data faster compared to the single
         client's HDD
@@ -19,24 +25,25 @@ Figure \ref{eq:map} captures a possible configuration of IME:
 Given the skeleton of the architecture, can be added or removed clients,
 servers and disks for each one. This changes will end up in different performances
 that the simulator must be able to detect. \\
-Part of the work is to inspect also different system layouts. The advantage of a
-simulator is the ability to ensure the quality of a layout without the need to
-test it for real, assuming the simulator is precise enough.
-Every layout will be discussed in depth in the analysis section
+The aim of this simulator is to detect the bottlenecks in order to gain knowledge
+on which parts need to be improved allowing the system to scale.
+Every configuration and test will be discussed in depth in the analysis section
 (\ref{sys-analysis}).
 
 \section{Network communication time}\label{netbuff}
 Network communication is one of the main task that are committed in this system,
-so we need an accurate model to represent it. \\
+so an accurate model to represent it is needed. \\
 The parameters that determine the time elapsed in a network transaction are
-\textit{latency} and \textit{bandwidth}. A file in theory is sent dividing
-its size by the bandwidth available. In the real world we have to keep account also
-the latency present inside the system: the smallest file will be sent
+\textit{latency} and \textit{bandwidth}. A file theoretically is sent dividing
+its size by the bandwidth available. In the real world we have to consider also
+the latency present inside the system: the smallest file possible will be sent
 only after $<latency>$ amount of time. \\
 \begin{myimage}{ib-bandwidth}{Measured IB bandwidth}
     Infiniband network performs differently based on the requests size involved
     in the transaction. The plot represent different performance based on IB
-    architecture and request size
+    architecture and request size. IME has installed EDR Infiniband so the upper
+    blue curve represents IME network speed. This data come from a work of
+    Jean-Thomas Acquaviva as shown in \cite{erasurecoding-pdf}
 \end{myimage}
 
 From figure \ref{eq:ib-bandwidth} we know that the optimal packet size for
@@ -47,8 +54,7 @@ files to achieve this communication pattern. This is further referred as
 in order to complete a communication in case of remainders.  This set a domain
 over the size of the packet sent: we always will have packets that are in the
 interval $]0, 1024] KB$. The model should predict correctly the time required by
-any network communication inside this interval. \\ In this case the only bond I
-have are the 2 coordinates \\
+any network communication inside this interval. \\
 
 \vspace{0.5cm}
 \begin{tabular}{c | c}
@@ -59,8 +65,6 @@ have are the 2 coordinates \\
 \vspace{0.5cm}
 
 These are respectively the worst and the best usage of the network. \\
-I can obtain a more accurate model running some benchmarks on IME network, but
-from a starting point I can rely on these 2 constraint. \\
 Having the possibility to choose my interpolating function, I decided to use a
 function with a diagonal limit, namely $\lim_{x \to +\infty} y(x) = +\infty$,
 that is a real behaviour for every network. \\
@@ -75,12 +79,12 @@ specified coordinates. \\
 IME has been designed to be employed with a large number of both clients and
 servers. This lead to many parallelization problems and resource management.
 With a large amount of clients, the network bandwidth will run out very quickly.
-To overcome this problem, the client side of IME is based on a Tokenized Network
-Communication. The concept of the token is similar to the Token Ring
-communication \cite{token-ring} that prevents a single client to use all the
-resources of the system and sharing equally the bandwidth among all the
-clients.  Here instead of having a single token shared over all the clients,
-each client has a fixed amount of tokens.\\
+To avoid denial of service or resource stavation, IME is using tokenized
+communication, the standard way to implement throttling. The concept of the
+token is similar to the Token Ring communication \cite{token-ring} that prevents
+a single client to use all the resources of the system and sharing equally the
+bandwidth among all the clients.  Here instead of having a single token shared
+over all the clients, each client has a fixed amount of tokens.\\
 The token usage is the following:
 \begin{itemize}
     \item Consumed when making a request
@@ -88,82 +92,11 @@ The token usage is the following:
 \end{itemize}
 This means that for \textit{n} token, a single client can have \textit{n}
 communications in parallel.  So far DDN already set a value of 24 tokens that
-are not completely used in real applications, meansing that there is not a
+are not completely used in real applications, meaning that there is not a
 bottleneck, but is anyway a free parameter that can be inspected and adapted in
 the simulator.
 
 
-\section{Erasure coding for data loss} \label{pargroup}
-In CPU caches, whenever happens a cache miss, data is read from main memory
-instead. No data can be potentially lost. In the worst case can happen a cache
-miss forcing the lower layer memory to transfer data from the upper layer
-memory. \\
-IME acts as a cache too but for the problem it is solving, there is no
-communication between the source and the target. This means that if data
-is lost inside IME, it is \textit{permanently} lost. IME has a system to
-overcome this problem that is \textit{Erasure Coding}. \\
-As it happens in RAID level 4, 5 and 6, what is stored in the disks is not just
-data but also an added amount of data based on the original data. In case of
-loss of one piece of data, this missing part can be reconstructed comparing
-remaining data and parity. \\
-\begin{myimage}{raidlevel5}{Raid Level 5}
-    In RAID 5 data is interleaved with parity bits. If a single disk is
-    corrupted, missing data can be recovered comparing remaining data using
-    parity
-\end{myimage} \\
-For this correction system to work, we need to make associations between groups
-of data that must be grouped together later when data loss happens. IME
-considers a single block of data a \textbf{Network Buffer} (see section \ref{netbuff}) and the
-group that will contribute to data recovery as a \textbf{Parity Group}. \\
-As an example, from figure \ref{eq:raidlevel5} A1, A2, A3 and A$_p$ are individually a Network
-Buffer. All of them grouped together makes a Parity Group. \\
-Parity generation is a process that happens on the client that want to send the
-packets, since it has to create requests that must be aware of the location of
-the packets belonging to the same parity group. \\
-Is essential that every piece of the same parity group are sent to
-different server: the loss of a single server could otherwise means the loss of
-multiple piece of data. If every part is stored in a different server, the
-inactivity of a single machine is not a fatal error for the system. \\
-Parity be generated using different methods, meaning that the system can sustain
-the loss of multiple piece of data keeping the ability to recover the lost data.
-This is an option that can be set or not based on the needs of the user.
-
-\subsection{Handling remainders}
-Using this system to recover data, a bond is created among parts of the same parity group:
-not only these parts share the same parity group-id but also must be sent at the
-same time to the servers. If the packets of the same parity group are not
-completely delivered to the servers, these cannot recover this group in case of
-data loss. \\
-Because of that the client must wait until it has enough data to send, filling a set of network buffers. If it does not have
-enough data, it waits until more write requests are needed. The send operation can anyway be forced using an
-\textbf{eager commit}, sending buffers not completely filled or even not enough buffers to fill a parity group. \\
-Parity data is then generated using the data available. \\
-
-\subsection{Parity generation}\label{parity}
-Parity data is generated for every parity group created based on the
-\textbf{geometry} set. Geometry specify how many, if any, parity packets are
-generated per group. Geometry is specified as $D + P$ whereas $D$ represents
-data packets per group and $P$ represents parity packets per group. So a
-geometry of $3+1$ specify that a group is composed by 3 data packets and 1
-parity packet.
-\begin{myimage}{parity-remainder}{Parity generation on requests with remainder
-    using geometry 3+1}
-    Parity is generated based on the size of the packets in the same parity
-    group. The picture shows different cases with different amount of data per
-    packet and different packet per group.
-\end{myimage}
-Figure \ref{eq:parity-remainder} shows the parity generation in different cases
-based on packet layout:
-\begin{enumerate}
-    \item Canonical case: packet geometry is complete and every packet
-        completely fills a maximum packet size.
-    \item Geometry is complete but only a buffer reaches its maximum size and
-        parity is generated based on the biggest buffer, considering zeros for
-        the other missing data
-    \item None of the buffers reaches its maximum size, so parity is based on the biggest one
-    \item There are not enough buffers to fill the group and parity is generated based always
-        on the biggest buffer.
-\end{enumerate}
 
 \section{File queuing}
 Every clients has internally a write queue for every single server. As it is
@@ -200,7 +133,7 @@ order to perform a network communication.
     \item Buffer size = 2MB, just for plotting purposes
     \item parity is not considered
 \end{itemize}
-In the upper picture the first queue is the file-oriented one: every file as it seen
+In figure \ref{eq:queuing} the first queue is the file-oriented one: every file as it seen
 by the client point of view.  Then the central box represents the queue to each
 server with the bucket view of the files.  The last one represents also the
 server's queues but with network buffers instead of buckets. \\ This different
@@ -208,7 +141,7 @@ granularity allows to make us of the server's devices if a file is big enough,
 saving at the same time network operations when the user asks to read those
 later.\\
 \begin{myimage}{queuing-nobuckets}{Queuing system not using buckets}
-    If buckets are not used, a file would be more spreaded over the servers,
+    If buckets are not used, a file would be more spread over the servers,
     meaning more read requests generated and a higher network usage.
 \end{myimage}
 The upper image shows how packets should be distributed without the bucket queuing layer.
@@ -251,7 +184,7 @@ empty and the parity group will not be complete. \\
     Every row represents the queue to a server while every column represents the
     parity map. A circle means that for the creation of that parity group, a
     packet from that queue must be popped and sent.
-\end{myimage}
+\end{myimage} \\
 In figure \ref{eq:packets_choice} each row is a queue while every column shows a parity group.
 A circle shows that an element should be picked from that queue. \\
 In the first column the parity group identified by \textit{106} shows that
@@ -287,7 +220,7 @@ another server responsible of delivering the accidentally lost data.
 
 \section{Server side write}
 As the server receive a buffer, a number of steps are performed before sending
-back an ack to the client. \\ Two separate task are performed, divided in 2
+back an ack to the client. \\ Two separate task are performed, divided in two
 different planes: \textbf{Control plane} and \textbf{Data plane}
 
 \subsection{Control plane}
@@ -306,7 +239,7 @@ following condition is met:
         data must anyway be saved so is forced a propagation
 \end{itemize}
 Metadata propagation is a necessary step in order to recover data in case of
-failures: the medatata can be read from the DHT of another working server, then
+failures: the metadata can be read from the DHT of another working server, then
 data can be recovered asking to every involved server the lost parity groups.
 
 \subsection{Data plane}
@@ -332,7 +265,7 @@ The request is seen in a twofold way: \\
         location of a file, but we know want to perform the most efficient
         operation. \\
         In this step the network is split in \textbf{CML\_oid}s, chunk of 128KB.
-        Each of these will be stored to different device, if possibile, in a
+        Each of these will be stored to different device, if possible, in a
         round-robin fashion to distribute equally the load. \\
         In the picture the CML\_oid-s generated are the light blue boxes
 \end{itemize}
@@ -344,70 +277,33 @@ The request is seen in a twofold way: \\
 
 \section{Data Read}
 If a client wants to read a file, or a part of it, it interrogates its file map
-to make a request to the interested server, saving netowork communication
+to make a request to the interested server, saving network communication
 avoiding a broadcast if not necessary. \\
 After the server received the request, it has to interrogate its local DHT in
 order to know from which devices has the requested data. A read operation is
 then performed on those devices and data is sent back to client using as always
 a buffered communication of 1 MB per packet. \\
-This is the optimal workflow, that is without any kind of error.
-
-\section{Data Recovery}
-%\begin{wrapfigure}{r}{0.25\textwidth}
-    %\centering
-    %\includegraphics[width=0.25\textwidth]{recovery.png}
-%\end{wrapfigure}
-
-\begin{myimage}{recovery}{Data recovery process}
-    If some data is lost, it can be recovered using the Erasure coding system,
-    gathering and comparing data of the same parity group of the packets lost
-\end{myimage}
-
-This is the case when a device cannot read anymore from one of its devices, for
-any kind of reason. HDD are prone to failures and SSD, the devices used in this
-system, are more likely to fail over time due to usage. \\
-The server is now unable to satisfy the client's requests
-but using the \textit{Erasure coding} system, it can recover data comparing
-packets of the same parity group and its parity. \\
-Parity can be disabled, activated with 1 or 2 parity packet. The more parity we
-Introduce, the slower the system become, gaining robustness against hardware errors.
-Whenever a file, or a part of it, is written in a server, the latter propagate
-its metadata to the next server, in order to protect not only data, using
-parity, but also metadata of the files. \\
-If the server is not able anymore to read nor data or metadata, it will contact
-its next server to understand which files are missing. After this step, the
-server is aware of the parity groups to gather to recover the data. It will then
-contact the servers that owns the packets of the same parity groups of the
-missing ones. \\
-After every packet of a parity group is retrieved, the missing buffer can be
-regenerated using the parity information. If has been lost a parity buffer,
-recovery is anyway necessary to prevent future failures. \\
-In the picture the \textit{Gather Parity Groups} is relative to metadata
-gathering. \textit{Send parity Request} is the request for the buffers of the
-same lost buffer's parity group not owned by the server. This is a network
-request, so logically will come \textit{Receive Parity Request} but will happen
-later in time, after the target server will have sent the answer.
-After every buffer of the same parity group will be received, the server is able
-to \textit{rebuild its missing data}.
+This is the optimal work flow, that is without any kind of error.
 
 
-\section{IO operations}
-IME supports different IO operations depending on the task
-\begin{itemize}
-    \item \textbf{Sync}: the content of IME is copied to the mass storage, in
-        order to have 2 copies of it. \\
-        An use case can be keeping a remote file consistent to be read from
-        others server later, leaving the chance to edit it later on IME.
-    \item \textbf{Purge}: the files on IME are moved to the mass storage, not
-        leaving any data on IME server. \\
-        An use case is making some space because the disk is too filled, making
-        space for some other data.
-    \item \textbf{Erase}: files on IME are deleted, not making more copies of
-        them. \\
-        Happens when the data stored are just temporary, so there is no need to
-        propagate further in the system.
-\end{itemize}
 
-These operations will be implemented in the simulator as well in order to better
-classify the models. The objective is to test a model against a set of these
-operations and extracting some measure to classify it.
+%\section{IO operations}
+%IME supports different IO operations depending on the task
+%\begin{itemize}
+    %\item \textbf{Sync}: the content of IME is copied to the mass storage, in
+        %order to have 2 copies of it. \\
+        %An use case can be keeping a remote file consistent to be read from
+        %others server later, leaving the chance to edit it later on IME.
+    %\item \textbf{Purge}: the files on IME are moved to the mass storage, not
+        %leaving any data on IME server. \\
+        %An use case is making some space because the disk is too filled, making
+        %space for some other data.
+    %\item \textbf{Erase}: files on IME are deleted, not making more copies of
+        %them. \\
+        %Happens when the data stored are just temporary, so there is no need to
+        %propagate further in the system.
+%\end{itemize}
+%
+%These operations will be implemented in the simulator as well in order to better
+%classify the models. The objective is to test a model against a set of these
+%operations and extracting some measure to classify it.

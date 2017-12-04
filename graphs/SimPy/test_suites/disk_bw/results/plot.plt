@@ -4,7 +4,7 @@ set autoscale
 set yrange [8e8:1e10]
 
 # axis settings
-set title 'Disk Bandwidth Experiment'
+# set title 'Disk Bandwidth Experiment'
 set xlabel 'Write Bandwidth'
 set ylabel 'Time (ns)'
 set log y

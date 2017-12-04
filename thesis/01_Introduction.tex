@@ -60,12 +60,16 @@ Different kind of simulators exist. Below will be explained some of them:
     regular interval\\\hline
     
     Discrete Event & 
+    Time evolve by 'hop'. The clock of the system is increased when an event
+    occurs. The completion of an event is defined by a transition function. The
+    flow of event is defined by a finite state diagram.
+
     Time is split in small units. As an event happens, there is
     a change of state in the system following a finite state machine
     diagram.\\\hline
 
-    Continuos Event & 
-    Time is continuos in constrast with discrete event simulator.
+    Continuous Event & 
+    Time is continuous in contrast with discrete event simulator.
 \end{tabular}
 \vspace{0.5cm}
 
@@ -76,7 +80,7 @@ and network fabric that can be busy when required. \\
 For trace-based and execution driven is required data and machine configuration
 and none of them are available since IME is a new hardware. \\
 Event based simulation can represent better the environment, more precisely a
-discrete event simulator is more effective since is not needed a continuos time
+discrete event simulator is more effective since is not needed a continuous time
 space, avoiding rounding errors due to binary representation.
 
 %Since a simulation is a work from scratch, will need also the
@@ -86,16 +90,19 @@ space, avoiding rounding errors due to binary representation.
 %world and the system already is able to recover some fatal errors on its own.
 
 \section{Requirements Analysis}\label{requirements}
-Simulators are not necessarily computationally intensive applications. Is based
-on the specific environment it has to simulate. In my case the simulation of
-network transactions will end up in waiting an amount of simulation time based
-on a formula. This allows me to choose a platform not focused on performance but
-on flexibility, since I will need to implement different systems. \\
-Following the principle of "Not reinventing the wheel" I started the project
-using a library for discrete simulation instead of building my own. This
-accelerated the project since at this point I need only to implement the logic
-of the system and testing its capabilities and test utilities to get some data
-from the simulation.
+Simulators are not necessarily computationally intensive applications. The
+computational complexity depend on the accuracy of the environment to be
+simulated. In this case the simulation of network transactions will end up in
+waiting an amount of simulation time based on a formula. 
+Such approach allows to focus on flexibility, where the system can easily evolve
+on by a component basis. For instance a more accurate model can be implemented
+if it appear that the modeling of the communication layer is injecting too much
+noise.
+Following the principle of "Not reinventing the wheel" the project has started
+using a library for discrete simulation. This
+accelerated the project since at this point only the logic of the system has to
+be implemented. After the development part will come the investigation phase to
+better understand every free parameter inside the system.
 To list the requirements, these are:
 \begin{itemize}
     \item environment focused on flexibility
@@ -111,8 +118,8 @@ list.
 The simulator by itself is not the product relevant from the HPC point of view.
 What is relevant instead is the problem it is going to solve: there is already a
 problem of scalability of a product and the simulator should solve or help to
-solve it faster than traditional development would. This will accelerate
-architecture investigation instead of the software part of IME.
+solve it faster than traditional development process would. This will accelerate
+architecture and configuration investigation.
 
 \section{Development environment}
 To satisfy the stated requirements has been chosen to develop the project in Python

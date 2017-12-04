@@ -4,7 +4,7 @@
 set autoscale
 
 # axis settings
-set title 'Server Count Experiment'
+#set title 'Server Count Experiment'
 set xlabel 'Server Count'
 set ylabel 'Time (ns)'
 set log y
