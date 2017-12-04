@@ -65,8 +65,8 @@ any network communication inside this interval. \\
 \vspace{0.5cm}
 
 These are respectively the worst and the best usage of the network. \\
-Having the possibility to choose my interpolating function, I decided to use a
-function with a diagonal limit, namely $\lim_{x \to +\infty} y(x) = +\infty$,
+To replicate the behaviour of a real network infrastructure is needed a function
+with a diagonal limit, namely $\lim_{x \to +\infty} y(x) = +\infty$,
 that is a real behaviour for every network. \\
 The function of choice then is an \textit{hyperbole} adjusted to match the
 specified coordinates. \\
@@ -259,11 +259,10 @@ The request is seen in a twofold way: \\
         order to know exactly where each file part is stored. In the picture
         this is represented by the upper layer. In this case the user sent files
         \textit{a,b,c,d,e} and \textit{f}
-    \item As a byte stream: aware of the behaviour of HDD (see section
-        \ref{hdd-behaviour}) we are now interested in the data as a set of bytes
-        to be written to the disk, nothing more. Metadata will tell us the exact
-        location of a file, but we know want to perform the most efficient
-        operation. \\
+    \item As a byte stream: aware of the behaviour of HDD we are now interested
+        in the data as a set of bytes to be written to the disk, nothing more.
+        Metadata will tell us the exact location of a file, but we know want to
+        perform the most efficient operation. \\
         In this step the network is split in \textbf{CML\_oid}s, chunk of 128KB.
         Each of these will be stored to different device, if possible, in a
         round-robin fashion to distribute equally the load. \\
