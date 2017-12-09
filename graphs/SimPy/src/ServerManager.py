@@ -27,8 +27,8 @@ class ServerManager(IfForServer, IfForClient):
         # self.__HUB = HUB(env, int(misc_params[Contract.M_HUB_BW_Gbps]) * 1e6 / 8)
         self.__HUB = simpy.Resource(env)
         self.__overhead = int(misc_params[Contract.M_NETWORK_LATENCY_nS])
-        self.__max_bandwidth = int(misc_params[Contract.M_HUB_BW_Gbps]) * 1e6 / 8
-        self.__time_function = Function2D.get_bandwidth_model(self.__overhead, int(misc_params[Contract.M_HUB_BW_Gbps]) / 8)
+        self.__max_bandwidth = int(misc_params[Contract.MAX_SWITCH_BANDWIDTH_Gbps]) * 1e6 / 8
+        self.__time_function = Function2D.get_bandwidth_model(self.__overhead, int(misc_params[Contract.MAX_SWITCH_BANDWIDTH_Gbps]) / 8)
         self.__dht = DHT(len(self.servers), server_params[Contract.S_HDD_DATA_COUNT])
         self.__full_speed_packet_time = int(self.__network_buffer_size / self.__max_bandwidth * 1e9)
         self.__manager_logger = Logger(self.env, logpath)
@@ -54,7 +54,22 @@ class ServerManager(IfForServer, IfForClient):
         self.__server_same_time_write = {}
         self.__server_same_time_write_completed = {}
         self.__geometry = (client_params[Contract.C_GEOMETRY_BASE], client_params[Contract.C_GEOMETRY_PLUS])
+        self.__sending_entities = set()
 
+    def add_sending_entity(self, id):
+        self.__sending_entities.add(id)
+        for entity in self.__sending_entities:
+            print(entity, end=', ')
+        print()
+
+    def remove_sending_entity(self, id):
+        if __debug__:
+            if id not in self.__sending_entities:
+                raise Exception("Removing non existing sending entity")
+        self.__sending_entities.remove(id)
+        for entity in self.__sending_entities:
+            print(entity, end=', ')
+        print()
 
     def add_requests_to_clients(self, requests: Dict[int, List[WriteRequest]]):
         self.__start = self.env.now

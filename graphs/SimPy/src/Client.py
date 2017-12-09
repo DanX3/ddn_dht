@@ -44,6 +44,7 @@ class Client:
         self.__remaining_targets = None
         self.__show_progress = bool(int(misc_params[Contract.M_SHOW_PROGRESS])) and self.__id == 0
         self.__progressbar = None
+        self.__communicating = False
 
         # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
@@ -121,7 +122,9 @@ class Client:
         parity_request.set_parts([FilePart.create_parity_part(max_size)])
         if self.__show_requests:
             print(parity_request)
-        self.env.process(self.__send_write_request(parity_request))
+        yield self.env.process(self.__send_write_request(parity_request))
+        self.__communicating = False
+        self.__manager.remove_sending_entity('C' + str(self.__id))
 
     def __prepare_write_request(self):
         # accessing to the queues depend on the targets extracted
@@ -197,6 +200,9 @@ class Client:
         self.logger.add_task_time("token-wait", self.env.now - start)
 
         # simulate network transaction
+        if not self.__communicating:
+            self.__communicating = True
+            self.__manager.add_sending_entity('C' + str(self.__id))
         start = self.env.now
         yield self.env.process(self.__manager.perform_network_transaction(request.get_size()))
         self.logger.add_task_time("send-request", self.env.now - start)

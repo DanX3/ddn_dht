@@ -9,6 +9,12 @@ class GeneralManagerIf:
     @abstractmethod
     def get_server_count(self) -> int: raise NotImplementedError
 
+    @abstractmethod
+    def add_sending_entity(self, id): raise NotImplementedError
+
+    @abstractmethod
+    def remove_sending_entity(self, id): raise NotImplementedError
+
 
 class IfForServer(GeneralManagerIf):
     @abstractmethod
