@@ -45,6 +45,7 @@ class Client:
         self.__show_progress = bool(int(misc_params[Contract.M_SHOW_PROGRESS])) and self.__id == 0
         self.__progressbar = None
         self.__communicating = False
+        self.__same_time_transfers = []
 
         # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
@@ -99,7 +100,7 @@ class Client:
     def __send_buffers(self, targets: List[int]):
         if __debug__:
             assert len(targets) <= sum(self.__geometry), \
-            "Client: Cannot send more packets than the geometry"
+                "Client: Cannot send more packets than the geometry"
 
 
         # Send data requests
@@ -115,6 +116,7 @@ class Client:
             max_size = max(max_size, request.get_size())
             if self.__show_requests:
                 print(request)
+
             self.env.process(self.__send_write_request(request))
 
         # Send parity request
@@ -122,9 +124,13 @@ class Client:
         parity_request.set_parts([FilePart.create_parity_part(max_size)])
         if self.__show_requests:
             print(parity_request)
-        yield self.env.process(self.__send_write_request(parity_request))
-        self.__communicating = False
-        self.__manager.remove_sending_entity('C' + str(self.__id))
+        self.env.process(self.__send_write_request(parity_request))
+
+    def __buffer_queue_is_empty(self):
+        for queue in self.__buffer_queue:
+            if len(queue) != 0:
+                return False
+        return True
 
     def __prepare_write_request(self):
         # accessing to the queues depend on the targets extracted
@@ -207,6 +213,9 @@ class Client:
         yield self.env.process(self.__manager.perform_network_transaction(request.get_size()))
         self.logger.add_task_time("send-request", self.env.now - start)
         self.logger.add_object_count('data-packets-sent', 1)
+        if self.__communicating and self.__buffer_queue_is_empty():
+            self.__communicating = False
+            self.__manager.remove_sending_entity('C' + str(self.__id))
 
         self.__manager.write_to_server(request)
 

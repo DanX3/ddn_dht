@@ -4,7 +4,6 @@ from Contract import Contract
 from Utils import *
 from FunctionDesigner import Function2D
 from Logger import Logger
-from HUB import HUB
 from DHT import DHT
 from typing import Dict, List
 from Interfaces import IfForServer, IfForClient
@@ -28,6 +27,9 @@ class ServerManager(IfForServer, IfForClient):
         self.__HUB = simpy.Resource(env)
         self.__overhead = int(misc_params[Contract.M_NETWORK_LATENCY_nS])
         self.__max_bandwidth = int(misc_params[Contract.MAX_SWITCH_BANDWIDTH_Gbps]) * 1e6 / 8
+        self.__max_same_time_transfers = int(misc_params[Contract.MAX_SWITCH_BANDWIDTH_Gbps]) / int(misc_params[Contract.MAX_SINGLE_LINK_BANDWIDTH])
+        self.__max_single_link_bw = int(misc_params[Contract.MAX_SINGLE_LINK_BANDWIDTH]) * 1e6 / 8
+        self.__available_bandwidth = self.__max_single_link_bw
         self.__time_function = Function2D.get_bandwidth_model(self.__overhead, int(misc_params[Contract.MAX_SWITCH_BANDWIDTH_Gbps]) / 8)
         self.__dht = DHT(len(self.servers), server_params[Contract.S_HDD_DATA_COUNT])
         self.__full_speed_packet_time = int(self.__network_buffer_size / self.__max_bandwidth * 1e9)
@@ -55,21 +57,24 @@ class ServerManager(IfForServer, IfForClient):
         self.__server_same_time_write_completed = {}
         self.__geometry = (client_params[Contract.C_GEOMETRY_BASE], client_params[Contract.C_GEOMETRY_PLUS])
         self.__sending_entities = set()
+        self.__transfers = deque()
 
-    def add_sending_entity(self, id):
-        self.__sending_entities.add(id)
+    def print_entities(self):
+        print("{:7d}".format(self.env.now), end=" ")
         for entity in self.__sending_entities:
             print(entity, end=', ')
         print()
+
+    def add_sending_entity(self, id):
+        self.__sending_entities.add(id)
+        self.print_entities()
 
     def remove_sending_entity(self, id):
         if __debug__:
             if id not in self.__sending_entities:
                 raise Exception("Removing non existing sending entity")
         self.__sending_entities.remove(id)
-        for entity in self.__sending_entities:
-            print(entity, end=', ')
-        print()
+        self.print_entities()
 
     def add_requests_to_clients(self, requests: Dict[int, List[WriteRequest]]):
         self.__start = self.env.now
@@ -79,6 +84,15 @@ class ServerManager(IfForServer, IfForClient):
 
         for key, req_list in requests.items():
             self.__clients[key].flush()
+
+    def __recursive_interruption(self, amount_of_time):
+        start = self.env.now
+        try:
+            yield self.env.timeout(amount_of_time)
+        except simpy.Interrupt:
+            time_left = amount_of_time - (self.env.now - start)
+            self.__transfers.append(self.env.process(self.__recursive_interruption(time_left)))
+            yield self.__transfers[:-1]
 
     def perform_network_transaction(self, size: int) -> int:
         """
@@ -94,7 +108,9 @@ class ServerManager(IfForServer, IfForClient):
         time_required = int(size / self.__network_buffer_size) * self.__full_speed_packet_time
         if size % self.__network_buffer_size != 0:
                 time_required += self.__time_function(size % self.__network_buffer_size)
-        yield self.env.timeout(time_required)
+        self.__transfers.append(self.env.process(self.__recursive_interruption(time_required)))
+        yield self.__transfers[-1]
+        # yield self.env.timeout(time_required)
 
         self.__HUB.release(mutex_request)
         return time_required
