@@ -8,6 +8,7 @@ from DHT import DHT
 from typing import Dict, List
 from Interfaces import IfForServer, IfForClient
 from ParityGroupCreator import ParityGroupCreator
+from sys import stderr
 
 
 class ServerManager(IfForServer, IfForClient):
@@ -67,14 +68,12 @@ class ServerManager(IfForServer, IfForClient):
 
     def add_sending_entity(self, id):
         self.__sending_entities.add(id)
-        self.print_entities()
 
     def remove_sending_entity(self, id):
         if __debug__:
             if id not in self.__sending_entities:
                 raise Exception("Removing non existing sending entity")
         self.__sending_entities.remove(id)
-        self.print_entities()
 
     def add_requests_to_clients(self, requests: Dict[int, List[WriteRequest]]):
         self.__start = self.env.now
@@ -88,11 +87,24 @@ class ServerManager(IfForServer, IfForClient):
     def __recursive_interruption(self, amount_of_time):
         start = self.env.now
         try:
+            # print("waiting for {} secs".format(amount_of_time), file=stderr)
             yield self.env.timeout(amount_of_time)
         except simpy.Interrupt:
             time_left = amount_of_time - (self.env.now - start)
-            self.__transfers.append(self.env.process(self.__recursive_interruption(time_left)))
-            yield self.__transfers[:-1]
+            new_time_required = int(time_left * (len(self.__transfers)+1) / len(self.__transfers))
+            newprocess = self.env.process(self.__recursive_interruption(new_time_required))
+            self.__transfers.append(newprocess)
+            yield self.__transfers[len(self.__transfers)-1]
+
+    def __throttle_transfers(self):
+        print("Notifying throttle to {}  processes".format(len(self.__transfers)))
+        transfers_to_interrupt = len(self.__transfers)
+        for i in range(transfers_to_interrupt):
+            if self.__transfers[0].is_alive:
+                self.__transfers.popleft().interrupt()
+            else:
+                self.__transfers.clear()
+                return
 
     def perform_network_transaction(self, size: int) -> int:
         """
@@ -102,17 +114,18 @@ class ServerManager(IfForServer, IfForClient):
         :param size: The size of the transaction to perform
         :return: yield the time required for the transaction to complete
         """
-        mutex_request = self.__HUB.request()
-        yield mutex_request
 
         time_required = int(size / self.__network_buffer_size) * self.__full_speed_packet_time
         if size % self.__network_buffer_size != 0:
                 time_required += self.__time_function(size % self.__network_buffer_size)
+        time_required = int(time_required * (self.__max_single_link_bw / self.__available_bandwidth))
+        if len(self.__transfers) > self.__max_same_time_transfers:
+            self.__throttle_transfers()
         self.__transfers.append(self.env.process(self.__recursive_interruption(time_required)))
         yield self.__transfers[-1]
+
         # yield self.env.timeout(time_required)
 
-        self.__HUB.release(mutex_request)
         return time_required
 
     def read_from_server(self, requests, target: int):
@@ -209,6 +222,7 @@ class ServerManager(IfForServer, IfForClient):
         yield self.env.process(self.servers[target_id].receive_metadata_backup(packed_metadata))
 
     def __parse_schedule(self):
+        self.__transfers.clear()
         if not self.__schedule_queue:
             self.__end_simulation()
         else:
