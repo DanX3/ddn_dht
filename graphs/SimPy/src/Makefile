@@ -34,6 +34,9 @@ flame: $(SRCS)
 graph: map.gv
 	dot -Tsvg $< > map.svg
 
+show:
+	cd log && firefox *.svg
+
 plot: client.log server.log
 	cd ../ && gnuplot plot.plt
 

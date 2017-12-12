@@ -84,6 +84,18 @@ class ServerManager(IfForServer, IfForClient):
         for key, req_list in requests.items():
             self.__clients[key].flush()
 
+    def __purge_transfers(self):
+        processes_to_remove = []
+        for transfer in self.__transfers:
+            if not transfer.is_alive:
+                processes_to_remove.append(transfer)
+
+        # if len(processes_to_remove) != 0:
+        #     print(self.env.now, "removing", len(processes_to_remove))
+
+        for process in processes_to_remove:
+            self.__transfers.remove(process)
+
     def __recursive_interruption(self, amount_of_time):
         start = self.env.now
         try:
@@ -97,7 +109,6 @@ class ServerManager(IfForServer, IfForClient):
             yield self.__transfers[len(self.__transfers)-1]
 
     def __throttle_transfers(self):
-        print("Notifying throttle to {}  processes".format(len(self.__transfers)))
         transfers_to_interrupt = len(self.__transfers)
         for i in range(transfers_to_interrupt):
             if self.__transfers[0].is_alive:
@@ -119,6 +130,7 @@ class ServerManager(IfForServer, IfForClient):
         if size % self.__network_buffer_size != 0:
                 time_required += self.__time_function(size % self.__network_buffer_size)
         time_required = int(time_required * (self.__max_single_link_bw / self.__available_bandwidth))
+        self.__purge_transfers()
         if len(self.__transfers) > self.__max_same_time_transfers:
             self.__throttle_transfers()
         self.__transfers.append(self.env.process(self.__recursive_interruption(time_required)))
