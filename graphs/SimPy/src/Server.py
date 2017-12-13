@@ -1,5 +1,4 @@
 import simpy
-import numpy as np
 from Logger import Logger
 from Utils import *
 from Contract import Contract

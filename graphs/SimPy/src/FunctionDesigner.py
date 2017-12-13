@@ -1,4 +1,3 @@
-from numpy import exp, linspace, exp
 import random
 from os import getpid
 from math import sqrt, pi
@@ -12,23 +11,7 @@ class Function2D:
         self.function = plotting_function
         self.range_min = range_min
         self.range_max = range_max
-        self.step = float(range_max - range_min) / 100.0
         self.function_reference = function_reference
-
-    @staticmethod
-    def evaluate_function(f, range_min, range_max, eval_nodes=11):
-        for i in linspace(range_min, range_max, eval_nodes):
-            print("f({:.1f}) = {:.2f}".format(i, f(i)))
-
-    @staticmethod
-    def get_gauss(mu, sigma):
-        return lambda x: 1.0/(sigma * sqrt(2.0 * pi)) \
-                * exp(-(x - mu)**2 / (2*sigma*sigma))
-
-    def change_range(self, range_min, range_max):
-        self.range_min = range_min
-        self.range_max = range_max
-        self.step = float(range_max - range_min) / 100.0
 
     def change_function(self, function):
         self.function = function
