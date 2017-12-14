@@ -3,32 +3,33 @@
 \section{Problem Explanation}
 \subsection{Device presentation}
 Computer memories are designed to fit particular needs, based on their size or
-latency. The memory hierarchy make every program able to write the most accessed
-data in la lower latency memory in order to access the most the smaller and
-lower latency memory. Every time some data is not present in a lower level
+latency. The memory hierarchy makes every program able to write the most accessed
+data from a lower latency memory in order to access more often the smaller and
+faster memory. Every time some data is not present in a lower level
 memory, the system must read the higher latency one, wasting CPU cycles waiting
-for the memory to complete the operation. To avoid or to mitigate this issue, an
-additional memory layer can be added. This is what happened with L3 Cache: it is
-not needed for the computer to work, but make it faster, caching more data at
+for the memory to complete the operation. To avoid or to mitigate this issue an
+additional layer can be added. This is what happened with L3 Cache: it is
+not needed for the computer to work, but to make it faster, caching more data at
 the same time. \\
-With the same idea Data Direct Networks developed a device that act as a cache
+With the same idea Data Direct Networks developed a system that acts as a cache
 between main memory and mass storage, filling the gap that there is right now.
-\\ As a cache, it operates in a transparent way, making every already developed
-program able to run on on this platform. \\ The device can intercept IO calls in
-many ways, so its users can choose the method most appropriate method for
-themselves.
+This system is called IME, the Infinite Memory Engine.
+\\ As a cache it operates in a transparent way, making every already developed
+program able to run on on this platform. \\ The device can intercepts IO calls in
+many ways so that its users can choose the most appropriate method for their
+programs.
 
 \subsection{The problem}
-The system as of now has some scaling issue when a large amount of servers are
+DDN IME as of now has some scaling issues when a large amount of servers are
 installed. To keep data consistency, the system has to perform some transactions
-from server to server. This traffic will decrease the performance of the
-clients traffic. This limits the amount of servers and with this also the amount
-of cache data available. \\
+from server to server. This traffic will decrease the available bandwidth for
+the clients limiting the total amount of servers, hence the maximum available
+cache memory. \\
 Moreover inside the system are present a lot of free parameters, which will be
 discussed later, that can affect performances. At the current time we are
 unable to determine their optimal value. Multiple runs with different
-configurations will help the investigation to the optimal configuration given an
-architecture.
+configurations will help the investigation to the optimal configuration based on
+a given architecture.
 
 \subsection{The solution}
 The solution proposed by DDN is a simulator of the system, enabling the fast
@@ -77,8 +78,8 @@ From these simulator, the most suitable for the case is the \textbf{Discrete
 Event Simulator}. The analytical simulator is suitable for an environment where
 some events can be parametrized, but IME is a complex environment with resources
 and network fabric that can be busy when required. \\
-For trace-based and execution driven is required data and machine configuration
-and none of them are available since IME is a new hardware. \\
+For trace-based and execution driven are required both data and machine
+configuration and none of them are available since IME is a new hardware. \\
 Event based simulation can represent better the environment, more precisely a
 discrete event simulator is more effective since is not needed a continuous time
 space, avoiding rounding errors due to binary representation.
@@ -118,31 +119,29 @@ list.
 The simulator by itself is not the product relevant from the HPC point of view.
 What is relevant instead is the problem it is going to solve: there is already a
 problem of scalability of a product and the simulator should solve or help to
-solve it faster than traditional development process would. This will accelerate
+solve it faster than a traditional development process would. This will accelerate
 architecture and configuration investigation.
 
 \section{Development environment}
-To satisfy the stated requirements has been chosen to develop the project in Python
-because of its flexibility and to create many models, focusing the attention on the
-system architecture instead of low level details. \\
+To satisfy the requirements we chose Python because of its flexibility and
+an already implemented library. This platform is well suited  to create many
+models, focusing the attention on the system architecture instead of low level
+details. \\
 The simulation library chosen is SimPy \cite{simpy}, a discrete events
 simulation library. It is well maintained and perfectly integrated with
 language. \\
 A drawback of a Python environment is its dynamic types: this is not a problem
-in general but one of the main features of python instead, that makes it one of
-the best scripting language. But for bigger projects the requirements from the
-changes and type checking protect us against implementation errors. From version
-3.5 the language allows \textit{Type annotations} that doesn't prevent the
-developer from using different data types but integrated with a modern IDE, it
-will suggest before running the program the potential issues, speeding up
-development.
+in general but one of the main features of python instead that makes it one of
+the best scripting language. Anyway for bigger projects a safe type checking
+helps the development. The lack of this checking by design slowed down the
+development at the beginning.
 
 \section{SimPy}
-This discrete event simulation library is \textit{Events oriented}. An event can
-be processed and can be represented ad a function performing some general
+This discrete event simulation library is \textit{Events} oriented. An event can
+be processed and can be represented as a function performing some general
 action, based on the situation. The caller event can wait for the completion of
 the task called or just trigger it and simulate an async call. This make a
-simulation of a multithreaded environment really simple and few lines of code
-are required for the simulation to work. \\
+simulation of a multithreaded environment really simple using a few lines of
+code. \\
 More details on this library will be explained later, in section \ref{simpy}
 

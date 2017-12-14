@@ -8,8 +8,8 @@ Client side process intercepting IO communications that are sent to IME servers.
     installed acting as a cache
 \end{myimage}
 \newpage
-In a possible configuration , as shown in figure \ref{eq:map}, can be detected
-some different components:
+In a possible configuration , as shown in figure \ref{eq:map}, one can identify
+the different components:
 \begin{itemize}
     \item 3 clients with a single HDD each. This hard drive is used to store
         the local image of the OS. In modern data center, client nodes tend
@@ -17,7 +17,8 @@ some different components:
         to store the /tmp and the /var and various Linux system log
         mechanism. But applications are doing most (if not all) of their I/O
         using the fabrics.
-    \item a Network Fabric that interconnects every component of IME
+    \item a Network Fabric that interconnects every component of IME.
+        Specifically in IME is installed an EDR Infiniband architecture.
     \item up to 20 SSDs per server, that can store data faster compared to the single
         client's HDD
 \end{itemize}
@@ -31,7 +32,7 @@ Every configuration and test will be discussed in depth in the analysis section
 (\ref{sys-analysis}).
 
 \section{Network communication time}\label{netbuff}
-Network communication is one of the main task that are committed in this system,
+Network communication is one of the main tasks that are committed in this system,
 so an accurate model to represent it is needed. \\
 The parameters that determine the time elapsed in a network transaction are
 \textit{latency} and \textit{bandwidth}. A file theoretically is sent dividing
@@ -40,19 +41,18 @@ the latency present inside the system: the smallest file possible will be sent
 only after $<latency>$ amount of time. \\
 \begin{myimage}{ib-bandwidth}{Measured IB bandwidth}
     Infiniband network performs differently based on the requests size involved
-    in the transaction. The plot represent different performance based on IB
+    in the transaction. The plot represents different performance based on IB
     architecture and request size. IME has installed EDR Infiniband so the upper
-    blue curve represents IME network speed. This data come from a work of
-    Jean-Thomas Acquaviva as shown in \cite{erasurecoding-pdf}
+    blue curve represents the actual IME network speed \cite{erasurecoding-pdf}
 \end{myimage}
 
 From figure \ref{eq:ib-bandwidth} we know that the optimal packet size for
-communication over infiniband is 1MB. \\
+communication over EDR infiniband is 1MB. \\
 IME Client packs together requests smaller than this threshold and split bigger
 files to achieve this communication pattern. This is further referred as
-\textbf{Network Buffer}.  If requested explicitly, every request can be flushed
-in order to complete a communication in case of remainders.  This set a domain
-over the size of the packet sent: we always will have packets that are in the
+\textbf{Network Buffer}. If requested explicitly, every request can be flushed
+in order to complete a communication in case of remainders.  This sets a domain
+over the size of the packet sent: we will always have packets that are in the
 interval $]0, 1024] KB$. The model should predict correctly the time required by
 any network communication inside this interval. \\
 
@@ -60,12 +60,14 @@ any network communication inside this interval. \\
 \begin{tabular}{c | c}
     file size (KB) & time required \\ \hline
     0 & \textit{latency} \\ \hline
-    1024 & \textit{1024KB / bandwidth}
+    1024 & \textit{1024KB / bandwidth} + \textit{K * latency}
 \end{tabular}
 \vspace{0.5cm}
 
 These are respectively the worst and the best usage of the network. \\
-To replicate the behaviour of a real network infrastructure is needed a function
+The case with an empty file is only ideal to show the role of the latency in the
+equation, removing any data transaction.
+To replicate the behaviour of a real network infrastructure we need a function
 with a diagonal limit, namely $\lim_{x \to +\infty} y(x) = +\infty$,
 that is a real behaviour for every network. \\
 The function of choice then is an \textit{hyperbole} adjusted to match the
@@ -77,9 +79,9 @@ specified coordinates. \\
 
 \section{Tokenized communication}
 IME has been designed to be employed with a large number of both clients and
-servers. This lead to many parallelization problems and resource management.
-With a large amount of clients, the network bandwidth will run out very quickly.
-To avoid denial of service or resource stavation, IME is using tokenized
+servers. This fact leads to many parallelization problems and resource management.
+With a large amount of clients the network bandwidth will run out very quickly.
+To avoid denial of service or resource starvation, IME is using tokenized
 communication, the standard way to implement throttling. The concept of the
 token is similar to the Token Ring communication \cite{token-ring} that prevents
 a single client to use all the resources of the system and sharing equally the
@@ -101,21 +103,22 @@ the simulator.
 \section{File queuing}
 Every clients has internally a write queue for every single server. As it is
 asked to write a file, the client will scatter the single file to multiple
-queues in order to make us of most servers and speed up the transaction.
+queues in order to make use of most servers and speed up the transaction.
 When a client wants to perform a write it has to care about:
 \begin{itemize}
     \item The amount of servers that will be involved depending on the file size
     \item Not scattering too much a single file to avoid unnecessary broadcast
-        operations reading a small amount of data
+        operations. When the client later will need to read the file, it will
+        have to generate a large amount of requests to read a small piece of data.
     \item Perform small transactions of 1MB to maximize network bandwidth
 \end{itemize}
 Since this system involves not only disk operations but also network ones, we
 must be careful to not deplete the network resources. This means that to
-maximize an IO operation, make sense using as many devices as possible, but in
+maximize an IO operations, make sense using as many devices as possible, but in
 a network environment is better to reduce at minimum the packets emitted. \\ To
 overcome these opposing behaviour, IME has 2 layers of file queuing:
 \textbf{bucket}-based and \textbf{buffer}-based queuing systems.  A bucket is
-considered as a part of a file of a fixed size. A single file is split in
+considered as an interval of data of a fixed size. A single file is split in
 bucket-sized parts and then queued to be split again to buffer-sized parts, in
 order to perform a network communication.
 
@@ -137,7 +140,7 @@ In figure \ref{eq:queuing} the first queue is the file-oriented one: every file 
 by the client point of view.  Then the central box represents the queue to each
 server with the bucket view of the files.  The last one represents also the
 server's queues but with network buffers instead of buckets. \\ This different
-granularity allows to make us of the server's devices if a file is big enough,
+granularity allows to make use of the server's devices if a file is big enough,
 saving at the same time network operations when the user asks to read those
 later.\\
 \begin{myimage}{queuing-nobuckets}{Queuing system not using buckets}
@@ -147,13 +150,17 @@ later.\\
 The upper image shows how packets should be distributed without the bucket queuing layer.
 Note that, from the buffer point of view, the green file could be
 split over all the servers, that translates in great write operation but poor
-read operation, since it has to perform a broadcast over all the system. This
+read operation, since it has to perform a broadcast over all the system to make
+a request of it. This
 example must be thought with bigger numbers: in a case with 50 servers, with a
 buffer point of view, a file of 50MB involves a broadcast, while the bucket
 point of view mitigate this behaviour increasing the file size required by a
 broadcast to 400 MB. \\
-Some examples in the following table shows the \textit{number of read requests generated}
+Some examples in the following table show the \textit{number of read requests generated}
 from a single client reading a file, using the bucket view or not where 50 servers are installed.
+The two different results are based on data alignment, whether my request
+will be satisfied by an entire buffer/bucket or two parts of them. For example a
+request from 2 to 10 is 8MB but will be satisfied using 2 buckets.
 
 \vspace{0.5cm}
 \begin{tabular}{l | c | c}
@@ -171,34 +178,6 @@ requests generated and so the network traffic. For requests bigger than 400MB
 we cannot see the difference since network traffic reduction has been overcome
 by IO operations.
 
-\subsection{Queue Issues}
-Using the buckets system, targets must be decided in this step and then the
-buffer queue adapt the data to be sent at a different granularity.
-The parity groups are chosen based on a pseudo-random sequence that should
-even out the load to the servers. \\
-This system has some issues when some queue is empty: since the target are
-not chosen based on the length of the queue, it may happen that some queue is
-empty and the parity group will not be complete. \\
-
-\begin{myimage}{packets_choice}{Packets choice based on parity groups}
-    Every row represents the queue to a server while every column represents the
-    parity map. A circle means that for the creation of that parity group, a
-    packet from that queue must be popped and sent.
-\end{myimage} \\
-In figure \ref{eq:packets_choice} each row is a queue while every column shows a parity group.
-A circle shows that an element should be picked from that queue. \\
-In the first column the parity group identified by \textit{106} shows that
-should be popped an element from queue \textit{1,3,5} and \textit{6}. The
-integer identifier is the binary representation of the queues involved. In the
-first column $(106)_{10} = (1101010)_2$ \\
-In this case the algorithm has a bit of tolerance: at the beginning is more
-likely that a single queue does not have any element so, before dropping this
-method, it tries some more times to send full parity groups. The chances are in
-the order of the server count. \\
-After this approach failed more than the chances allowed, another approach is applied:
-parity groups are sent based on what is left, meaning that the precomputed
-parity groups are not the only groups inside the system, but new ones can be
-created based on the needs.\\
 
 %\subsection{HDD behaviour}\label{hdd-behaviour}
 %There is a lower minimum size an HDD interact with. If the user wants to edit a
@@ -215,19 +194,19 @@ fault tolerant in case of failures. These should also be careful of not flooding
 the network with too many requests. \\
 DDN used a DHT to solve this problem, allowing the scaling of the number of
 servers and allowing the failure of a single one. \\
-As a file is stored to a server, its metadata, its way to access it are sent to
+As a file is stored in a server, its metadata, the way to access it, are sent to
 another server responsible of delivering the accidentally lost data.
 
 \section{Server side write}
 As the server receive a buffer, a number of steps are performed before sending
-back an ack to the client. \\ Two separate task are performed, divided in two
+back an ACK to the client. \\ Two separate task are performed, divided in two
 different planes: \textbf{Control plane} and \textbf{Data plane}
 
 \subsection{Control plane}
 Here is performed metadata propagation if necessary and done some
 \textit{logging} operation to a local journal device. \\ Metadata propagation
 involve the communication of the current metadata to another machine, meaning
-that this operation has to wait an ack before being completed.  This can hit
+that this operation has to wait an ACK before being completed.  This can hit
 very hard the performances, forcing an additional network communication for
 every write. So this operation is cached instead and done as one of the
 following condition is met:

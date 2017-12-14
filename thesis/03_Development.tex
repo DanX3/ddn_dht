@@ -11,61 +11,54 @@ quickly develop finite state machines that will have been later implemented.
 Based on the conditions explained in the introduction (see section
 \ref{requirements}), \textit{Python} seemed a reasonable choice. Mostly because
 of its flexibility to changes, not worrying about small detail like memory
-addresses and garbage collection. Since this applications is not computationally
+addresses and garbage collection. Since this application is not computationally
 intensive, not involving any kind of floating point operation, the cost of an
 interpreted language is not so high. \\
 Moreover modern features coming from Python 3.5+ made easier to develop a
-relatively big applications as this simulator is, like types annotations and
+relatively big applications, as this simulator is, using types annotations and
 better generators support.
-
-\section{Tools Chosen}
-\begin{itemize}
-    \item Dot graphs
-    \item SimPy
-    \item PyPy
-    \item vmprof \& Flamegraph
-\end{itemize}
-
 
 \section{Simpy}\label{simpy}
 Simpy is the library the projects is based on. It is a Discrete Simulation
-library that fulfill the requirements. Exploiting language mechanics like
+library that fulfills the requirements. Since it exploits language mechanics like
 generators does not add overhead on the application. It is process-based
 meaning that every task can be scheduled as a process, not waiting for others
 task to be completed. The library is anyway serial, not creating threads by
 itself. Anyway it can be integrated using other libraries, like \textit{threading} (see
-\cite{threading}), but so far the simulation achieve reasonable wall times,
-there is no need to parallelize it.
-Simpy offer a framework in which our routines are executed and tracked. The
+\cite{threading}), but so far the simulation achieves reasonable wall times,
+so there is no need to parallelize it. \\
+Simpy offers a framework in which our routines are executed and tracked. The
 status of an agent inside the system is tracked using python generators,
-lazy iterators that generate the requested iterator only when needed. Because of
-the framework environment we need specific functions that returns a generator
-Simpy can take care of and others that keep track of the system status. Simpy
-functions can return generators to make the virtual clock going on, create other
-virtual processes or wait for other processes to be completed, according to the
-situation. The other set of functions are those that implement the system's logic.
+which are lazy iterators that generate the requested iterator only when needed. Because of
+the framework environment we need specific functions that return a generator
+that Simpy can take care of and others functions that keep track of the system status. 
+Simpy can handle a new agent if a function returns a new generator. Based on
+this new generator, a new agent is created, able to make the virtual clock going
+on, to create other virtual processes or to wait for other processes to be
+completed, according to the situation. Another set of functions are required to
+keep track of the status of the system.
 
-\section{SimPy Components}
-The philosophy of Simpy led to the development of some ready-to-use components
-that ease the process management like mutex and task queues.
-Anyway Simpy provides only tools to manage the processes, lacking some
-structures to extract usage data to investigate at the end of the simulation.
-For this reason some more tools has been developed both in Python, for internal
-simulation data extraction, and Bash to automate plotting and file management.
+\subsection{SimPy Components}
+The philosophy of Simpy led to the development of ready-to-use components
+that ease the process management like mutexes and task queues.
+Anyway Simpy provides only tools to manage its processes, lacking any
+structures to collect usage data for investigation at the end of the simulation.
+For this reason additional tools has been developed both in Python, for internal
+data collection, and Bash to automate plotting and file management.
 
-\subsection{Timeout}
+\subsubsection{Timeout}
 The library has some predefined events like a \textit{Timeout} event that just
-simulates time passing for the caller.\\
+simulates time flow for the caller.\\
 This call blocks only the calling agent, allowing every other event already
 triggered to be processed correctly. \\
 Every real time consuming action is simulated through this function: the call
 with the correct amount of time will make the calling agent to wait until the
 task is virtually completed.
 
-\subsection{Resources}
-In every simulation environment there are components that needs to be accessed
+\subsubsection{Resources}
+In every simulation environment there are components that need to be accessed
 by many agents and to process correctly this resource contention. This means
-keeping a queue of every agent and trigger one as a resource is freed. \\
+keeping a queue of every agent and triggering one as a resource is freed. \\
 SimPy takes care of this queue management, providing many types of resources,
 fitting many needs.
 \begin{itemize}
@@ -146,8 +139,6 @@ and plotting, these features has been developed aside. Specifically has been des
         from each run.
 \end{itemize}
 
-
-
 \section{Profiling}\label{profiling}
 Time spending operations are simulates as already specified. The simulator is
 not a computationally intensive application but as things start to grow, the
@@ -158,8 +149,6 @@ allocated just for a single gigabyte of data written. Some experiments on C
 integration has been conducted but the real problem is data allocation and its
 management. The usage of suitable data structures for every need plays a key
 role in speeding up the simulator. \\
-\textit{Talk about xargs and how memory bound the simulator is}
-
 
 \section{Alternative Python Implementations}
 Looking for performances is reasonable to try different implementation of the

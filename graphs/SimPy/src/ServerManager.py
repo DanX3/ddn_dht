@@ -96,14 +96,17 @@ class ServerManager(IfForServer, IfForClient):
         for process in processes_to_remove:
             self.__transfers.remove(process)
 
-    def __recursive_interruption(self, amount_of_time):
+    def __recursive_interruption(self, amount_of_time, size):
         start = self.env.now
         try:
             # print("waiting for {} secs".format(amount_of_time), file=stderr)
             yield self.env.timeout(amount_of_time)
         except simpy.Interrupt:
             time_left = amount_of_time - (self.env.now - start)
-            new_time_required = int(time_left * (len(self.__transfers)+1) / len(self.__transfers))
+            t = time_left
+            n = len(self.__transfers)
+            size_transferred
+            new_time_required = size
             newprocess = self.env.process(self.__recursive_interruption(new_time_required))
             self.__transfers.append(newprocess)
             yield self.__transfers[len(self.__transfers)-1]
@@ -111,11 +114,7 @@ class ServerManager(IfForServer, IfForClient):
     def __throttle_transfers(self):
         transfers_to_interrupt = len(self.__transfers)
         for i in range(transfers_to_interrupt):
-            if self.__transfers[0].is_alive:
-                self.__transfers.popleft().interrupt()
-            else:
-                self.__transfers.clear()
-                return
+            self.__transfers.popleft().interrupt()
 
     def perform_network_transaction(self, size: int) -> int:
         """
@@ -133,7 +132,7 @@ class ServerManager(IfForServer, IfForClient):
         self.__purge_transfers()
         if len(self.__transfers) > self.__max_same_time_transfers:
             self.__throttle_transfers()
-        self.__transfers.append(self.env.process(self.__recursive_interruption(time_required)))
+        self.__transfers.append(self.env.process(self.__recursive_interruption(time_required, size)))
         yield self.__transfers[-1]
 
         # yield self.env.timeout(time_required)
