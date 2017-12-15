@@ -28,9 +28,8 @@ class ServerManager(IfForServer, IfForClient):
         self.__HUB = simpy.Resource(env)
         self.__overhead = int(misc_params[Contract.M_NETWORK_LATENCY_nS])
         self.__max_bandwidth = int(misc_params[Contract.MAX_SWITCH_BANDWIDTH_Gbps]) * 1e6 / 8
-        self.__max_same_time_transfers = int(misc_params[Contract.MAX_SWITCH_BANDWIDTH_Gbps]) / int(misc_params[Contract.MAX_SINGLE_LINK_BANDWIDTH])
+        self.__max_same_time_transfers = int(int(misc_params[Contract.MAX_SWITCH_BANDWIDTH_Gbps]) / int(misc_params[Contract.MAX_SINGLE_LINK_BANDWIDTH]))
         self.__max_single_link_bw = int(misc_params[Contract.MAX_SINGLE_LINK_BANDWIDTH]) * 1e6 / 8
-        self.__available_bandwidth = self.__max_single_link_bw
         self.__time_function = Function2D.get_bandwidth_model(self.__overhead, int(misc_params[Contract.MAX_SWITCH_BANDWIDTH_Gbps]) / 8)
         self.__dht = DHT(len(self.servers), server_params[Contract.S_HDD_DATA_COUNT])
         self.__full_speed_packet_time = int(self.__network_buffer_size / self.__max_bandwidth * 1e9)
@@ -59,6 +58,9 @@ class ServerManager(IfForServer, IfForClient):
         self.__geometry = (client_params[Contract.C_GEOMETRY_BASE], client_params[Contract.C_GEOMETRY_PLUS])
         self.__sending_entities = set()
         self.__transfers = deque()
+        self.__global_available_bandwidth = self.__max_single_link_bw
+        self.__global_same_time_transfers = self.__max_same_time_transfers
+        self.__global_previous_available_bw = self.__max_bandwidth
 
     def print_entities(self):
         print("{:7d}".format(self.env.now), end=" ")
@@ -96,20 +98,32 @@ class ServerManager(IfForServer, IfForClient):
         for process in processes_to_remove:
             self.__transfers.remove(process)
 
+    def __set_same_time_transfers(self, amount):
+        self.__global_same_time_transfers = amount
+        self.__global_previous_available_bw = self.__global_available_bandwidth
+        self.__global_available_bandwidth = int(self.__max_bandwidth / amount)
+
     def __recursive_interruption(self, amount_of_time, size):
         start = self.env.now
         try:
             # print("waiting for {} secs".format(amount_of_time), file=stderr)
             yield self.env.timeout(amount_of_time)
         except simpy.Interrupt:
-            time_left = amount_of_time - (self.env.now - start)
-            t = time_left
-            n = len(self.__transfers)
-            size_transferred
-            new_time_required = size
-            newprocess = self.env.process(self.__recursive_interruption(new_time_required))
-            self.__transfers.append(newprocess)
-            yield self.__transfers[len(self.__transfers)-1]
+            time_passed = float(self.env.now - start) / 1e9
+            new_time_required = amount_of_time
+            size_transferred = 0
+            if time_passed != 0.0:
+                size_transferred = int(time_passed * self.__global_previous_available_bw)
+                new_time_required = int((size - size_transferred) / self.__global_available_bandwidth * 1e6)
+            # time_left = amount_of_time - (self.env.now - start)
+            # n = float(len(self.__transfers))
+            # new_time_required = int(time_left * ((n+1) / n))
+            if new_time_required != 0:
+                newprocess = self.env.process(self.__recursive_interruption(new_time_required, size - size_transferred))
+                self.__transfers.append(newprocess)
+                yield self.__transfers[len(self.__transfers)-1]
+            elif new_time_required < 0:
+                raise Exception("*** Process finished before it was interrupted ***")
 
     def __throttle_transfers(self):
         transfers_to_interrupt = len(self.__transfers)
@@ -128,9 +142,10 @@ class ServerManager(IfForServer, IfForClient):
         time_required = int(size / self.__network_buffer_size) * self.__full_speed_packet_time
         if size % self.__network_buffer_size != 0:
                 time_required += self.__time_function(size % self.__network_buffer_size)
-        time_required = int(time_required * (self.__max_single_link_bw / self.__available_bandwidth))
+        time_required = int(time_required * (self.__max_single_link_bw / self.__global_available_bandwidth))
         self.__purge_transfers()
         if len(self.__transfers) > self.__max_same_time_transfers:
+            self.__set_same_time_transfers(len(self.__transfers))
             self.__throttle_transfers()
         self.__transfers.append(self.env.process(self.__recursive_interruption(time_required, size)))
         yield self.__transfers[-1]
