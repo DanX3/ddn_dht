@@ -8,7 +8,7 @@ from DHT import DHT
 from typing import Dict, List
 from Interfaces import IfForServer, IfForClient
 from ParityGroupCreator import ParityGroupCreator
-from sys import stderr
+from math import fmod, floor
 
 
 class ServerManager(IfForServer, IfForClient):
@@ -61,6 +61,7 @@ class ServerManager(IfForServer, IfForClient):
         self.__global_available_bandwidth = self.__max_single_link_bw
         self.__global_same_time_transfers = self.__max_same_time_transfers
         self.__global_previous_available_bw = self.__max_bandwidth
+        self.__max_transfer_resource = simpy.Container(env, self.get_server_count() * 4, self.get_server_count() * 4)
 
     def print_entities(self):
         print("{:7d}".format(self.env.now), end=" ")
@@ -86,6 +87,9 @@ class ServerManager(IfForServer, IfForClient):
         for key, req_list in requests.items():
             self.__clients[key].flush()
 
+    def __get_bandwidth_model_variable_bw(self, size, bw):
+        return Function2D.get_bandwidth_model(self.__overhead, bw)(size)
+
     def __purge_transfers(self):
         processes_to_remove = []
         for transfer in self.__transfers:
@@ -106,29 +110,35 @@ class ServerManager(IfForServer, IfForClient):
     def __recursive_interruption(self, amount_of_time, size):
         start = self.env.now
         try:
-            # print("waiting for {} secs".format(amount_of_time), file=stderr)
-            yield self.env.timeout(amount_of_time)
+            if amount_of_time != 0:
+                yield self.env.timeout(amount_of_time)
         except simpy.Interrupt:
-            time_passed = float(self.env.now - start) / 1e9
-            new_time_required = amount_of_time
+            time_passed = self.env.now - start
+            new_time_required = amount_of_time - time_passed
             size_transferred = 0
-            if time_passed != 0.0:
-                size_transferred = int(time_passed * self.__global_previous_available_bw)
-                new_time_required = int((size - size_transferred) / self.__global_available_bandwidth * 1e6)
-            # time_left = amount_of_time - (self.env.now - start)
-            # n = float(len(self.__transfers))
-            # new_time_required = int(time_left * ((n+1) / n))
-            if new_time_required != 0:
+            if time_passed != 0:
+                size_transferred = int(time_passed / 1e9 * self.__global_previous_available_bw)
+                new_time_required = self.__get_time_by_size(size - size_transferred)
+            if new_time_required > 0:
                 newprocess = self.env.process(self.__recursive_interruption(new_time_required, size - size_transferred))
                 self.__transfers.append(newprocess)
                 yield self.__transfers[len(self.__transfers)-1]
-            elif new_time_required < 0:
-                raise Exception("*** Process finished before it was interrupted ***")
 
     def __throttle_transfers(self):
         transfers_to_interrupt = len(self.__transfers)
         for i in range(transfers_to_interrupt):
             self.__transfers.popleft().interrupt()
+
+    def __get_time_by_size(self, size):
+        full_speed_buffers = int(size / self.__network_buffer_size)
+        time_required = full_speed_buffers * self.__network_buffer_size / self.__global_available_bandwidth
+        data_left = size - full_speed_buffers * self.__network_buffer_size
+        if data_left != 0:
+            time_required += self.__get_bandwidth_model_variable_bw(data_left, self.__global_available_bandwidth) / 1e9
+        # time_required = int(time_required * (self.__max_single_link_bw / self.__global_available_bandwidth))
+        time_required = int(time_required * 1e9)
+        return time_required
+
 
     def perform_network_transaction(self, size: int) -> int:
         """
@@ -138,11 +148,9 @@ class ServerManager(IfForServer, IfForClient):
         :param size: The size of the transaction to perform
         :return: yield the time required for the transaction to complete
         """
-
-        time_required = int(size / self.__network_buffer_size) * self.__full_speed_packet_time
-        if size % self.__network_buffer_size != 0:
-                time_required += self.__time_function(size % self.__network_buffer_size)
-        time_required = int(time_required * (self.__max_single_link_bw / self.__global_available_bandwidth))
+        mutex_request = self.__max_transfer_resource.get(1)
+        yield mutex_request
+        time_required = self.__get_time_by_size(size)
         self.__purge_transfers()
         if len(self.__transfers) > self.__max_same_time_transfers:
             self.__set_same_time_transfers(len(self.__transfers))
@@ -150,7 +158,7 @@ class ServerManager(IfForServer, IfForClient):
         self.__transfers.append(self.env.process(self.__recursive_interruption(time_required, size)))
         yield self.__transfers[-1]
 
-        # yield self.env.timeout(time_required)
+        yield self.__max_transfer_resource.put(1)
 
         return time_required
 
