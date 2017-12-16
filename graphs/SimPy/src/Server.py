@@ -35,7 +35,6 @@ class Server:
         self.__indexer = Indexer(self.__disks_count, CML_oid.get_size())
         self.__simulation_progressbar = None
         self.__show_progress = bool(int(misc_params[Contract.M_SHOW_PROGRESS]))
-
         self.__recovery_targets = 0
 
 
@@ -221,18 +220,20 @@ class Server:
         self.logger.add_object_count('parity-groups-to-gather', len(ids_to_gather))
         self.__manager.send_recovery_request(self.__id, ids_to_gather, self.__recovery_targets)
         if self.__show_progress and not bool(self.__id):
-            self.__simulation_progressbar = tqdm(total=3*len(ids_to_gather) * (buffer_per_parity_group - 1),
+            data_lost_count = 0.16 * sum(self.__indexer.get_cmloid_count_per_disk()) * CML_oid.get_size()
+            self.__simulation_progressbar = tqdm(total=data_lost_count,
                      smoothing=1, mininterval=1.0, desc="Recovering")
         yield self.env.timeout(0)
 
-    def receive_recovery_data(self, from_id: int):
+    def receive_recovery_data(self, from_id: int, data_amount: int):
         self.__recovery_targets ^= 1 << from_id
-        # if self.__show_progress and not bool(self.__id):
-        #     self.__simulation_progressbar.update(1)
+        if self.__show_progress and not bool(self.__id):
+            self.__simulation_progressbar.update(data_amount)
         if self.__recovery_targets == 0:
             if self.__show_progress and not bool(self.__id):
                 self.__simulation_progressbar.close()
             self.__manager.server_finished_restoring()
+
 
     def gather_and_send_parity_groups(self, target_server_id: int, ids_to_gather: set()):
         # computing load per disk
@@ -261,7 +262,7 @@ class Server:
         network_time = yield self.env.process(self.__manager.perform_network_transaction(sum(load) * CML_oid.get_size()))
         self.logger.add_task_time("send-same-parity-group", network_time)
 
-        self.__manager.receive_recovery_request(target_server_id, self.__id)
+        self.__manager.receive_recovery_request(target_server_id, self.__id, sum(load))
 
     def update_recovery_progress(self, progress_difference: int):
         if self.__simulation_progressbar is not None:

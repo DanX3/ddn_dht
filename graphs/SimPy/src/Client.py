@@ -239,17 +239,20 @@ class Client:
 
     def receive_read_answer(self, request: WriteRequest):
         self.__data_sent -= 1
-        # printmessage(self.__id, 'received answer. {} left'.format(self.__data_sent), self.env.now)
+
+        if self.__show_progress:
+            self.__progressbar.update(request.get_size())
+
         if self.__data_sent == 0:
             self.__manager.read_completed()
+            if self.__show_progress:
+                self.__progressbar.close()
 
         start = self.env.now
         # yield self.env.process(self.__manager.perform_network_transaction(request.get_size()))
         self.logger.add_task_time('receive-request', self.env.now - start)
         self.logger.add_object_count('data-packets-received',
                                      int(ceil(request.get_size() / self.__netbuff_size)))
-        if self.__show_progress:
-            self.__progressbar.update(request.get_size())
 
     def read_all_files(self, pattern: ReadPattern = ReadPattern.RANDOM, block_size: int = 1024):
         if __debug__:
@@ -275,8 +278,8 @@ class Client:
                 self.__progressbar = tqdm(total=total_file_size, desc="Reading",
                 mininterval=1.0, smoothing=1.0)
             for target in range(self.__server_count):
-                packed_requests = deque()
                 while len(targets_queues[target]) != 0:
+                    packed_requests = deque()
                     for i in range(min(len(targets_queues[target]), self.__netbuff_size)):
                         packed_requests.append(targets_queues[target].popleft())
                     self.__manager.read_from_server(packed_requests, target)

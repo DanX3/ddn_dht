@@ -209,8 +209,8 @@ class ServerManager(IfForServer, IfForClient):
         for target in ParityGroupCreator.int_to_positions(targets):
             self.env.process(self.servers[target].gather_and_send_parity_groups(crashed_server_id, ids))
 
-    def receive_recovery_request(self, target_server_id: int, from_id: int):
-        self.servers[target_server_id].receive_recovery_data(from_id)
+    def receive_recovery_request(self, target_server_id: int, from_id: int, data_amount: int):
+        self.servers[target_server_id].receive_recovery_data(from_id, data_amount)
 
     def server_finished_restoring(self):
         self.__server_restoring -= 1

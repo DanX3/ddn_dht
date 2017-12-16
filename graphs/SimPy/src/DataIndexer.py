@@ -40,6 +40,12 @@ class Indexer:
             for id, map in disk.items():
                 yield id, map
 
+    def get_cmloid_count_per_disk(self) -> List[int]:
+        cmloids_count = []
+        for i in range(self.__disks_count):
+            cmloids_count.append(len(self.__disks[i]))
+        return cmloids_count
+
     def get_packet_by_id(self, parity_id: int):
         return self.__packets[parity_id]
 

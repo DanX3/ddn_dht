@@ -10,7 +10,8 @@ set log y
 set xtics rotate by -45 # offset -4,-2
 
 # set the legend on the top left corner
-set key outside box #left top 
+# set key outside box #left top 
+unset key
 
 # style settings
 # set palette model RGB defined (0 "#ff9800", 1 "#1976d2")
@@ -31,23 +32,23 @@ set title 'Client profile'
 set output "client.svg"
 #plot 'logs/10_1_100M-client.log' using 1:xtic(2) ls 1  title '10\_1\_100M', \
      #'logs/1_1_1G-client.log' using 1:xtic(2) ls 2  title '1\_1\_1G'
-plot 'client.log' using 1:xtic(2) ls 1 title '8K-4K', \
+plot 'client.log' using 1:xtic(2) ls 1 title '', \
    
 
 set title 'Server profile'
 set output "server.svg"
 #plot 'logs/10_1_100M-server.log' using 1:xtic(2) ls 1 title '10\_1\_100M', \
      #'logs/1_1_1G-server.log' using 1:xtic(2) ls 2 title '1\_1\_1G'
-plot 'server.log' using 1:xtic(2) ls 1  title '8K-4K', \
+plot 'server.log' using 1:xtic(2) ls 1  title '', \
 
 set title 'Manager profile'
 set output "manager.svg"
 #plot 'logs/10_1_100M-manager.log' using 1:xtic(2) ls 1 title '10\_1\_100M', \
      #'logs/1_1_1G-manager.log' using 1:xtic(2) ls 2 title '1\_1\_1G'
 
-plot 'manager.log' using 1:xtic(2) ls 1 title '8K-4K', \
+plot 'manager.log' using 1:xtic(2) ls 1 title '', \
 
 set title 'Objects count'
 set output "objects.svg"
 set terminal svg enhanced size 1200,600 fname 'Sans' fsize 16
-plot 'objects.log' using 1:xtic(2) ls 1 title '8K-4K', \
+plot 'objects.log' using 1:xtic(2) ls 1 title '', \
